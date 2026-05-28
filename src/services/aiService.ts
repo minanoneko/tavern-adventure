@@ -21,32 +21,33 @@ function estimateTokens(text: string): number {
 
 function logRequest(messages: Array<{ role: string; content: string }>, maxTokens: number): void {
   requestCount++;
-  const fullText = messages.map(m => m.content).join('\n');
-  const estimatedTokens = estimateTokens(fullText);
-  console.group(`[AI Request #${requestCount}]`);
-  console.log(`Messages: ${messages.length}`);
-  console.log(`Estimated input tokens: ~${estimatedTokens}`);
-  console.log(`max_tokens: ${maxTokens}`);
-  console.log(`Prompt preview:`, fullText.slice(0, 500));
+  console.group(`[AI #${requestCount}]`);
+  let totalChars = 0;
+  let totalTokens = 0;
+  messages.forEach((m, i) => {
+    const chars = m.content.length;
+    const tokens = estimateTokens(m.content);
+    totalChars += chars;
+    totalTokens += tokens;
+    console.log(`[msg${i}] ${m.role}: ${chars}c ~${tokens}t`);
+  });
+  console.log(`Total: ${totalChars} chars, ~${totalTokens} tokens, output max: ${maxTokens}`);
+  console.log(`Preview:`, messages[messages.length - 1].content.slice(0, 150));
   console.groupEnd();
 }
 
 function logResponse(content: string, elapsed: number): void {
   const chars = content?.length || 0;
   const estimatedOut = estimateTokens(content || '');
-  console.log(`[AI Response #${requestCount}] ${chars} chars, ~${estimatedOut} tokens, ${elapsed}ms`);
-  console.log(`[AI Total requests: ${requestCount}]`);
+  console.log(`[AI #${requestCount} resp] ${chars}c ~${estimatedOut}t ${elapsed}ms | total:${requestCount}`);
 }
 
 /** Pick max_tokens based on event type */
 function getMaxTokensByAction(action: PlayerAction): number {
-  // Higher for reasoning models (flash=thinking model)
   switch (action.type) {
-    case 'combat': return 2000;
-    case 'exploration': return 1800;
-    case 'dialogue':
-    case 'social': return 1600;
-    default: return 1500;
+    case 'combat': return 1000;
+    case 'exploration': return 900;
+    default: return 700;
   }
 }
 

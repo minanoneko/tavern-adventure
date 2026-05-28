@@ -5,7 +5,6 @@ import { JSON_FORMAT_PROMPT } from '../prompts/jsonFormatPrompt';
 import { EVENT_INSTRUCTION } from '../prompts/eventPrompt';
 import { buildActionParsePrompt } from '../prompts/actionParsePrompt';
 import { buildContextSummaryPrompt } from '../prompts/contextSummaryPrompt';
-import { getLongTermSummary, formatSummaryForAI } from './memoryService';
 import { getLocationById } from '../data/regions';
 
 /**
@@ -41,72 +40,64 @@ export function buildAIContext(
   recentLogs: LogEntry[],
   eventHistory: AIResponse[] = []
 ): Record<string, unknown> {
-  // Compact context — only what AI needs for this decision
-  const attrKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
-  const attrLabels = ['力', '敏', '体', '智', '感', '魅'];
-  const attrs = attrKeys.map((k, i) => `${attrLabels[i]}${player.attributes[k]}`).join(' ');
+  // Ultra-lean context — every char counts
+  const attrs = `力${player.attributes.str}敏${player.attributes.dex}体${player.attributes.con}智${player.attributes.int}感${player.attributes.wis}魅${player.attributes.cha}`;
 
-  const usableSkills = player.skills.learned.slice(0, 8).join(', ') || '无';
+  // Only equipped skills (max 7 entries, each ~10 chars)
+  const equippedSkills = (player.skills.equipped || []).join(', ') || '无';
 
+  // Current gear
   const gear = Object.entries(player.equipment)
     .filter(([, id]) => id !== null)
     .map(([, id]) => id)
-    .join(', ') || '无';
+    .join(', ');
 
+  // Important items only: quest items + rare+ + recently acquired, max 8
   const importantItems = player.inventory
-    .filter(i => i.type === 'quest_item' || i.type === 'skill_book' || ['rare', 'epic', 'legendary'].includes(i.rarity))
-    .slice(0, 6)
+    .filter(i => i.type === 'quest_item' || i.type === 'skill_book' || (i as any).importance === 'high' || (i as any).importance === 'critical' || ['rare', 'epic', 'legendary'].includes(i.rarity))
+    .slice(0, 8)
     .map(i => i.name)
     .join(', ') || '无';
 
+  // Active quests, max 3
   const activeQuests = player.quests
-    .filter(q => q.status === 'active' || q.status === 'available')
-    .slice(0, 4)
-    .map(q => `${q.status === 'active' ? '▶' : '○'}${q.name}`)
+    .filter(q => q.status === 'active')
+    .slice(0, 3)
+    .map(q => `▶${q.name}`)
     .join(', ') || '无';
 
-  const recentLogsText = recentLogs.slice(-6)
-    .map(l => `[${l.type}] ${l.text.slice(0, 50)}`)
+  // Recent logs, max 5, very short
+  const recentLogsText = recentLogs.slice(-5)
+    .map(l => `[${l.type.slice(0,2)}]${l.text.slice(0, 40)}`)
     .join('\n');
 
-  const longSummary = (getLongTermSummary ? formatSummaryForAI(getLongTermSummary()) : '');
-
-  // Current scene context from last event
-  const lastEvent = eventHistory.length > 0 ? eventHistory[eventHistory.length - 1] : null;
-  const currentSceneText = lastEvent ? `当前场景: ${lastEvent.scene.title} — ${lastEvent.scene.text.slice(0, 100)}` : '';
-
-  // Brief story so far (last 3 event titles)
-  const storySoFar = eventHistory.length > 1
-    ? `剧情: ${eventHistory.slice(-3).map(e => e.scene.title).join(' → ')}`
-    : '';
-
-  // Recent action options offered (to prevent AI from repeating)
-  const recentOptions = eventHistory.slice(-3)
+  // Recent option labels only
+  const recentOptions = eventHistory.slice(-2)
     .flatMap(e => e.actionOptions)
-    .map(o => o.label)
-    .filter((v, i, a) => a.indexOf(v) === i);
-  const recentOptionsText = recentOptions.length > 0
-    ? `[最近选项（不要重复）] ${recentOptions.join(', ')}`
-    : '';
+    .map(o => o.label.slice(0, 10))
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .join(', ');
 
-  // Location: use name if available, fall back to ID
+  // Location
   const locName = worldState.currentLocationName
     || getLocationById(worldState.currentLocation)?.name
-    || worldState.generatedLocations?.[worldState.currentLocation]?.name
     || worldState.currentLocation;
 
+  // Status effects (only if not normal)
+  const status = player.statusEffects.filter(s => s !== '正常').join(', ');
+
   const contextText = [
-    `[角色] ${player.name} Lv.${player.level} ${player.race}${player.classOrigin} | HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} | ${attrs}`,
-    `[位置] ${locName} (${worldState.currentLocation}) | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
-    `[技能] ${usableSkills}`,
-    `[装备] ${gear}`,
-    `[重要物品] ${importantItems}`,
-    `[任务] ${activeQuests}`,
-    storySoFar,
-    currentSceneText,
-    recentOptionsText,
-    `[长期] ${longSummary}`,
-  ].filter(Boolean).join('\n');
+    `${player.name} Lv.${player.level} ${player.race}${player.classOrigin} HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp}`,
+    `${attrs}`,
+    `📍${locName} ${worldState.timeOfDay} ${worldState.weather}`,
+    `技能:${equippedSkills}`,
+    gear ? `装备:${gear}` : '',
+    importantItems !== '无' ? `物品:${importantItems}` : '',
+    activeQuests !== '无' ? `任务:${activeQuests}` : '',
+    status ? `状态:${status}` : '',
+    recentOptions ? `已选:${recentOptions}` : '',
+    recentLogsText ? `日志:\n${recentLogsText}` : '',
+  ].filter(Boolean).join(' | ');
 
   return {
     contextText,
