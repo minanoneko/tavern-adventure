@@ -258,10 +258,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // 2.5 Resolve skill cost from relatedSkill (AI doesn't send mpCost)
       let skillMpCost = 0;
+      let skillHpCost = 0;
       if (playerAction.relatedSkill) {
         const skill = getSkillById(playerAction.relatedSkill);
         if (skill && player.skills.learned.includes(skill.id)) {
           skillMpCost = skill.castRequirements.mpCost || 0;
+          skillHpCost = skill.castRequirements.hpCost || 0;
         }
       }
       // Also detect skill usage from custom text
@@ -271,18 +273,19 @@ export const useGameStore = create<GameState>((set, get) => ({
           if (skill && playerAction.customText.includes(skill.name)) {
             playerAction.relatedSkill = skill.id;
             skillMpCost = skill.castRequirements.mpCost || 0;
+            skillHpCost = skill.castRequirements.hpCost || 0;
             break;
           }
         }
       }
       // 2.6 Apply MP/HP cost locally (AI doesn't do this anymore)
       const totalMpCost = playerAction.mpCost || skillMpCost || judgeResult.consumption?.mp || 0;
-      const hpCost = judgeResult.consumption?.hp || 0;
-      if (totalMpCost > 0 || hpCost > 0) {
+      const totalHpCost = skillHpCost || judgeResult.consumption?.hp || 0;
+      if (totalMpCost > 0 || totalHpCost > 0) {
         player.resources.mp = Math.max(0, player.resources.mp - totalMpCost);
-        player.resources.hp = Math.max(0, player.resources.hp - hpCost);
+        player.resources.hp = Math.max(0, player.resources.hp - totalHpCost);
         if (totalMpCost > 0) logs.push({ id: `mp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `MP -${totalMpCost}` });
-        if (hpCost > 0) logs.push({ id: `hp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${hpCost}` });
+        if (totalHpCost > 0) logs.push({ id: `hp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${totalHpCost}` });
       }
 
       // 3. Get AI response
