@@ -57,7 +57,7 @@ export async function sendPlayerAction(
   judgeResult: JudgeResult,
   recentLogs: LogEntry[],
   eventHistory: AIResponse[],
-  settings: { aiMode: string; apiBaseUrl: string; apiModel: string; apiKey: string }
+  settings: { aiMode: string; apiBaseUrl: string; apiModel: string; apiKey: string; customGMRules?: string }
 ): Promise<AIResult> {
   // Mock mode
   if (settings.aiMode === 'mock') {
@@ -85,11 +85,11 @@ async function sendAIRequest(
   judgeResult: JudgeResult,
   recentLogs: LogEntry[],
   eventHistory: AIResponse[],
-  settings: { aiMode: string; apiBaseUrl: string; apiModel: string; apiKey: string }
+  settings: { aiMode: string; apiBaseUrl: string; apiModel: string; apiKey: string; customGMRules?: string }
 ): Promise<AIResult> {
   const context = buildAIContext(player, worldState, recentLogs, eventHistory);
   const userMessage = buildEventPromptFull(context, playerAction, judgeResult);
-  const messages = [...buildSystemMessages(), { role: 'user', content: userMessage }];
+  const messages = [...buildSystemMessages(settings.customGMRules), { role: 'user', content: userMessage }];
   const maxTokens = getMaxTokensByAction(playerAction);
 
   logRequest(messages, maxTokens);

@@ -14,6 +14,7 @@ export interface AISettings {
   openingMode: OpeningMode;
   optionMode: OptionMode;
   useJsonMode: boolean;
+  customGMRules: string;
 }
 
 interface TestResult {
@@ -34,6 +35,7 @@ interface SettingsState extends AISettings {
   setOpeningMode: (mode: OpeningMode) => void;
   setOptionMode: (mode: OptionMode) => void;
   setUseJsonMode: (v: boolean) => void;
+  setCustomGMRules: (v: string) => void;
   testConnection: () => Promise<void>;
   clearTestResult: () => void;
 }
@@ -68,6 +70,7 @@ function loadInitialSettings(): AISettings {
     openingMode: 'mock_template' as OpeningMode,
     optionMode: 'ai_options' as OptionMode,
     useJsonMode: false,
+    customGMRules: '',
   };
 }
 
@@ -180,6 +183,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
 
   setUseJsonMode: (v: boolean) => set({ useJsonMode: v }),
+
+  setCustomGMRules: (v: string) => {
+    set({ customGMRules: v });
+    const { keyStorage } = get();
+    if (keyStorage === 'session') saveToSession({ customGMRules: v });
+    else if (keyStorage === 'local') saveToLocal({ customGMRules: v });
+  },
 
   testConnection: async () => {
     const { apiBaseUrl, apiModel, apiKey } = get();

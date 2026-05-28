@@ -14,9 +14,8 @@ ${logsJson}
 4. importantItems：关键背包物品
 5. knownNpcs：已知重要 NPC 及关系
 6. knownLocations：已解锁地点列表
-7. worldSituation：世界局势摘要和近期重要播报
-8. importantFlags：重要事件标记
-9. recentEvents：最近 5 个事件的关键点
+7. importantFlags：重要事件标记
+8. recentEvents：最近 5 个事件的关键点
 
 规则：
 - 不要保留无意义细节

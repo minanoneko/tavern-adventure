@@ -1,6 +1,7 @@
 import { useSettingsStore, type AIMode, type KeyStorage } from '../store/settingsStore';
 import { useGameStore } from '../store/gameStore';
 import { maskApiKey } from '../utils/maskApiKey';
+import { GM_PRESETS } from '../services/customPromptGuard';
 import { useState } from 'react';
 
 export default function SettingsPanel({ inGame, onBack }: { inGame?: boolean; onBack?: () => void }) {
@@ -143,6 +144,27 @@ export default function SettingsPanel({ inGame, onBack }: { inGame?: boolean; on
           <input type="checkbox" checked={settings.useJsonMode || false} onChange={e => settings.setUseJsonMode(e.target.checked)} />
         </div>
         <div className="text-xs text-muted mt-1">部分 API 支持 response_format: json_object。开启后减少 JSON 格式错误。DeepSeek 目前不支持此功能，建议关闭。</div>
+      </div>
+
+      {/* Custom GM Rules */}
+      <div className="panel p-3 space-y-2">
+        <div className="panel-header">自定义 GM 提示词</div>
+        <textarea
+          className="input h-20 resize-none text-xs"
+          value={settings.customGMRules || ''}
+          onChange={e => settings.setCustomGMRules(e.target.value)}
+          placeholder="例：剧情侧重调查和解谜，减少战斗。NPC对话多给线索。"
+          maxLength={600}
+        />
+        <div className="text-xs text-muted">{(settings.customGMRules || '').length}/600 字 · 只影响叙事倾向，不改变系统规则</div>
+        <div className="flex flex-wrap gap-1">
+          {GM_PRESETS.map(p => (
+            <button key={p.label} className="btn text-xs py-1 px-2"
+              onClick={() => settings.setCustomGMRules((settings.customGMRules ? settings.customGMRules + ' ' : '') + p.prompt)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Save management */}

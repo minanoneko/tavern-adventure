@@ -269,7 +269,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const settings = useSettingsStore.getState();
       const aiResult = await sendPlayerAction(
         player, worldState, playerAction, judgeResult,
-        logs, eventHistory, settings
+        logs, eventHistory, { ...settings, customGMRules: settings.customGMRules }
       );
 
       // 4. Handle AI result
