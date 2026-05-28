@@ -102,7 +102,10 @@ export function applyAIResponse(
   // 9. Apply map updates
   updatedWorld = applyMapUpdate(updatedWorld, response, logs);
 
-  // 10. Apply memory updates
+  // 10. Apply scene location (before memory update)
+  updatedWorld = applySceneLocation(updatedWorld, response, logs);
+
+  // 11. Apply memory updates
   updatedWorld = applyMemoryUpdate(updatedWorld, response);
 
   // 11. Broadcasts
@@ -508,6 +511,41 @@ function applyMapUpdate(world: WorldState, response: AIResponse, logs: LogEntry[
   }
 
   return w;
+}
+
+/** Update current location from AI scene response */
+function applySceneLocation(world: WorldState, response: AIResponse, logs: LogEntry[]): WorldState {
+  let locId = response.scene.locationId
+    || response.memoryUpdate?.currentLocationId
+    || response.memoryUpdate?.currentLocation
+    || '';
+  const locName = response.scene.location || '';
+
+  // If we have a name but no id, generate a story location id
+  if (!locId && locName) {
+    const generatedId = `story_${locName.replace(/[^a-zA-Z一-鿿]/g, '_').toLowerCase().slice(0, 30)}`;
+    if (!world.generatedLocations[generatedId]) {
+      world.generatedLocations[generatedId] = {
+        id: generatedId,
+        name: locName,
+        type: 'story_location',
+        discovered: true,
+        createdAt: new Date().toISOString(),
+      };
+      logs.push(createLogEntry('world', `发现新地点：${locName}`));
+    }
+    locId = generatedId;
+  }
+
+  if (locId) {
+    const w = { ...world, currentLocation: locId, currentLocationName: locName || world.currentLocationName, generatedLocations: { ...world.generatedLocations } };
+    if (!w.discoveredLocations.includes(locId) && !locId.startsWith('gray_deer') && !locId.startsWith('whitestone') && !locId.startsWith('forest_road')) {
+      w.discoveredLocations = [...w.discoveredLocations, locId];
+    }
+    return w;
+  }
+
+  return world;
 }
 
 function applyMemoryUpdate(world: WorldState, response: AIResponse): WorldState {

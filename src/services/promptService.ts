@@ -6,6 +6,7 @@ import { EVENT_INSTRUCTION } from '../prompts/eventPrompt';
 import { buildActionParsePrompt } from '../prompts/actionParsePrompt';
 import { buildContextSummaryPrompt } from '../prompts/contextSummaryPrompt';
 import { getLongTermSummary, formatSummaryForAI } from './memoryService';
+import { getLocationById } from '../data/regions';
 
 /**
  * Build system messages array.
@@ -88,9 +89,15 @@ export function buildAIContext(
     ? `[最近选项（不要重复）] ${recentOptions.join(', ')}`
     : '';
 
+  // Location: use name if available, fall back to ID
+  const locName = worldState.currentLocationName
+    || getLocationById(worldState.currentLocation)?.name
+    || worldState.generatedLocations?.[worldState.currentLocation]?.name
+    || worldState.currentLocation;
+
   const contextText = [
     `[角色] ${player.name} Lv.${player.level} ${player.race}${player.classOrigin} | HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} | ${attrs}`,
-    `[位置] ${worldState.currentLocation} | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
+    `[位置] ${locName} (${worldState.currentLocation}) | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
     `[技能] ${usableSkills}`,
     `[装备] ${gear}`,
     `[重要物品] ${importantItems}`,

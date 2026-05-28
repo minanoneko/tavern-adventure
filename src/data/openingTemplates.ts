@@ -32,7 +32,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern'] },
       },
       {
-        scene: { title: '退学之路', text: '你站在白石镇外的土路上，回头还能看到魔法学院的塔尖——已经很远很远了。\n\n退学手续比你想象的简单：签个字，交出学院徽章，门卫就让你走了。你怀里只剩那本破旧笔记。\n\n天快黑了。前面是灰鹿酒馆的灯光。', location: '白石镇郊外', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '阴' },
+        scene: { title: '退学之路', text: '你站在白石镇外的土路上，回头还能看到魔法学院的塔尖——已经很远很远了。\n\n退学手续比你想象的简单：签个字，交出学院徽章，门卫就让你走了。你怀里只剩那本破旧笔记。\n\n天快黑了。前面是灰鹿酒馆的灯光。', location: '白石镇郊外', locationId: 'whitestone_outskirts', time: '雾月3日 傍晚', weather: '阴' },
         event: { id: 'opening_mage_2', type: 'travel_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '快天黑了。灰鹿酒馆就在前面不远处。' }],
         actionOptions: [
@@ -45,7 +45,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         inventoryUpdate: [], questUpdate: [], skillStateUpdate: [], equipmentUpdate: [], relationshipUpdate: [],
         mapUpdate: [{ targetId: 'gray_deer_tavern', targetType: 'location', name: '灰鹿酒馆', status: 'discovered' }],
         worldBroadcasts: [],
-        memoryUpdate: { flags: ['game_started'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern'] },
+        memoryUpdate: { flags: ['game_started'], currentLocation: 'whitestone_outskirts', currentLocationId: 'whitestone_outskirts', knownLocations: ['whitestone_outskirts', 'gray_deer_tavern'] },
       },
     ],
   },
@@ -114,7 +114,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern'] },
       },
       {
-        scene: { title: '白石镇城门', text: '你靠在白石镇的城门边，看着陆续进出的马车和旅人。佣兵团的旗子已经收起来了——队长说至少三个月内不会有新合同。\n\n城门口有两个城卫兵在闲聊。其中一个提到"矿洞那边又出事了"，另一个让他别多管闲事。\n\n你需要新的收入来源。灰鹿酒馆是个开始的好地方。', location: '白石镇城门', locationId: 'gray_deer_tavern', time: '雾月3日 下午', weather: '阴' },
+        scene: { title: '白石镇城门', text: '你靠在白石镇的城门边，看着陆续进出的马车和旅人。佣兵团的旗子已经收起来了——队长说至少三个月内不会有新合同。\n\n城门口有两个城卫兵在闲聊。其中一个提到"矿洞那边又出事了"，另一个让他别多管闲事。\n\n你需要新的收入来源。灰鹿酒馆是个开始的好地方。', location: '白石镇城门', locationId: 'whitestone_gate', time: '雾月3日 下午', weather: '阴' },
         event: { id: 'opening_warrior_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '你听到城卫兵提到了矿洞。但你不一定非得去——酒馆里的委托板选择更多。' }],
         actionOptions: [
@@ -127,7 +127,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         inventoryUpdate: [], questUpdate: [], skillStateUpdate: [], equipmentUpdate: [], relationshipUpdate: [],
         mapUpdate: [{ targetId: 'gray_deer_tavern', targetType: 'location', name: '灰鹿酒馆', status: 'discovered' }],
         worldBroadcasts: [],
-        memoryUpdate: { flags: ['game_started'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern'] },
+        memoryUpdate: { flags: ['game_started'], currentLocation: 'whitestone_gate', currentLocationId: 'whitestone_gate', knownLocations: ['whitestone_gate', 'gray_deer_tavern'] },
       },
     ],
   },
@@ -477,7 +477,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'witch_hunter',
     responses: [
       {
-        scene: { title: '白石镇墓园外', text: '墓园的铁栅栏上结了一层不该有的霜——现在是雾月，但霜只在墓园里面。你用银匕首在栅栏上划了一道，刃尖微微发蓝。\n\n有低等邪祟来过。不严重——但足以让几座新坟的草长得比周围快。\n\n你站起身。这种事不值得报告教会，但值得查下去。灰鹿酒馆的旅人常带些边远地方的消息。', location: '白石镇墓园', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '阴' },
+        scene: { title: '白石镇墓园外', text: '墓园的铁栅栏上结了一层不该有的霜——现在是雾月，但霜只在墓园里面。你用银匕首在栅栏上划了一道，刃尖微微发蓝。\n\n有低等邪祟来过。不严重——但足以让几座新坟的草长得比周围快。\n\n你站起身。这种事不值得报告教会，但值得查下去。灰鹿酒馆的旅人常带些边远地方的消息。', location: '白石镇墓园', locationId: 'whitestone_cemetery', time: '雾月3日 傍晚', weather: '阴' },
         event: { id: 'opening_witch_hunter_1', type: 'exploration_event', urgency: 'normal', riskLevel: 'medium' },
         systemEvents: [{ type: 'info', text: '低等邪祟的活动——目前只是痕迹，不构成直接威胁。但你在边境待久了就知道：小事后面常跟着大事。' }],
         actionOptions: [
@@ -491,7 +491,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         inventoryUpdate: [], questUpdate: [], skillStateUpdate: [], equipmentUpdate: [], relationshipUpdate: [],
         mapUpdate: [{ targetId: 'gray_deer_tavern', targetType: 'location', name: '灰鹿酒馆', status: 'discovered' }],
         worldBroadcasts: [],
-        memoryUpdate: { flags: ['game_started'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern'] },
+        memoryUpdate: { flags: ['game_started'], currentLocation: 'whitestone_cemetery', currentLocationId: 'whitestone_cemetery', knownLocations: ['whitestone_cemetery', 'gray_deer_tavern'] },
       },
       {
         scene: { title: '林道旁', text: '你在林道旁发现了一头死鹿。不是被狼咬死的——没有血。尸体完整，但瞳孔全白。\n\n你把银匕首靠近鹿的额头，刃身微微发暗。这不是低等邪祟——至少要强一些。痕迹朝东南方向延伸，恰好是白石镇的方向。\n\n你需要在镇上找个据点。灰鹿酒馆是最容易收集信息的地方。', location: '林道', locationId: 'forest_road', time: '雾月3日 清晨', weather: '雾' },

@@ -74,8 +74,18 @@ export interface CombatState {
   enemy?: import('./ai').CombatEnemy;
 }
 
+export interface GeneratedLocation {
+  id: string;
+  name: string;
+  type: 'story_location';
+  discovered: boolean;
+  createdAt: string;
+}
+
 export interface WorldState {
   currentLocation: string;
+  currentLocationName?: string;
+  generatedLocations: Record<string, GeneratedLocation>;
   date: string;
   timeOfDay: TimeOfDay;
   weather: Weather;
@@ -91,6 +101,8 @@ export interface WorldState {
 export function createDefaultWorldState(): WorldState {
   return {
     currentLocation: 'gray_deer_tavern',
+    currentLocationName: '灰鹿酒馆',
+    generatedLocations: {},
     date: '雾月3日',
     timeOfDay: '夜晚',
     weather: '雨',
