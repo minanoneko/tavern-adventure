@@ -331,6 +331,13 @@ export function normalizeAndComplete(raw: unknown): { success: true; response: A
         return s;
       });
     }
+    // 1.7 Normalize single objects to arrays for optional array fields
+    for (const field of ['mapUpdate', 'questUpdate', 'inventoryUpdate', 'relationshipUpdate']) {
+      const val = (normalized as any)[field];
+      if (val && !Array.isArray(val) && typeof val === 'object') {
+        (normalized as any)[field] = [val];
+      }
+    }
 
     // 2. Normalize enum values
     const enumFixed = normalizeEnumValues(normalized);
