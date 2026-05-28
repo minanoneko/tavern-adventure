@@ -195,7 +195,10 @@ export function extractJsonObject(text: string): string {
 export function completeAIResponse(partial: Record<string, unknown>): AIResponse {
   const scene = (partial.scene || {}) as Record<string, string>;
   const rawOptions = (partial.actionOptions || []) as Partial<ActionOption>[];
-  const actionOptions: ActionOption[] = rawOptions.length > 0 ? rawOptions.map((opt, i) => ({
+
+  // Filter out obviously bad options (empty labels, truncated)
+  const validOptions = rawOptions.filter(o => o.label && o.label.length > 0);
+  const actionOptions: ActionOption[] = validOptions.length > 0 ? validOptions.map((opt, i) => ({
     id: `opt_${Date.now()}_${i}`,
     label: opt.label || '行动',
     type: opt.type || 'dialogue',
@@ -204,13 +207,24 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     relatedSkill: opt.relatedSkill || null,
     mpCost: opt.mpCost || 0,
     difficultyPreview: opt.difficultyPreview || '简单',
-  })) : [{ id: `opt_${Date.now()}_0`, label: '继续', type: 'dialogue', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单' }];
+  })) : [{ id: `opt_${Date.now()}_0`, label: '继续探索', type: 'exploration', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单' },
+        { id: `opt_${Date.now()}_1`, label: '观察周围', type: 'check', risk: 'low', relatedAttribute: 'wis', relatedSkill: null, mpCost: 0, difficultyPreview: '简单' },
+        { id: `opt_${Date.now()}_2`, label: '和附近的人交谈', type: 'dialogue', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单' }];
   const systemEvents = (partial.systemEvents || []) as Array<{ type: string; text: string }>;
+
+  // Detect and fix truncated text (ends without proper sentence closure)
+  let sceneText = scene.text || '你环顾四周。';
+  const lastChar = sceneText.trim().slice(-1);
+  if (!'。！？…~.?!'.includes(lastChar)) {
+    sceneText = sceneText.trim() + '…';
+  }
+  // Cap scene text length
+  if (sceneText.length > 600) sceneText = sceneText.slice(0, 600) + '…';
 
   const completed: AIResponse = {
     scene: {
       title: scene.title || '继续冒险',
-      text: scene.text || '你环顾四周。',
+      text: sceneText,
       location: scene.location || '当前地点',
       locationId: scene.locationId || undefined,
       time: scene.time || '稍后',
@@ -302,6 +316,21 @@ export function normalizeAndComplete(raw: unknown): { success: true; response: A
 
     // 1. Normalize snake_case → camelCase
     const normalized = snakeToCamel(parsed) as Record<string, unknown>;
+
+    // 1.5 Normalize worldBroadcasts (AI often sends strings instead of objects)
+    if (Array.isArray(normalized.worldBroadcasts)) {
+      normalized.worldBroadcasts = normalized.worldBroadcasts.map((b: unknown) => {
+        if (typeof b === 'string') return { type: 'rumor', text: b };
+        return b;
+      });
+    }
+    // 1.6 Normalize systemEvents (AI may send strings instead of objects)
+    if (Array.isArray(normalized.systemEvents)) {
+      (normalized as any).systemEvents = (normalized as any).systemEvents.map((s: unknown) => {
+        if (typeof s === 'string') return { type: 'info', text: s };
+        return s;
+      });
+    }
 
     // 2. Normalize enum values
     const enumFixed = normalizeEnumValues(normalized);

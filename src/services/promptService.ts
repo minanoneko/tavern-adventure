@@ -2,7 +2,7 @@ import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntr
 import { SYSTEM_PROMPT } from '../prompts/systemPrompt';
 import { STYLE_PROMPT } from '../prompts/stylePrompt';
 import { JSON_FORMAT_PROMPT } from '../prompts/jsonFormatPrompt';
-import { buildEventPrompt, EVENT_INSTRUCTION } from '../prompts/eventPrompt';
+import { EVENT_INSTRUCTION } from '../prompts/eventPrompt';
 import { buildActionParsePrompt } from '../prompts/actionParsePrompt';
 import { buildContextSummaryPrompt } from '../prompts/contextSummaryPrompt';
 import { buildWorldBroadcastPrompt } from '../prompts/worldBroadcastPrompt';
@@ -58,6 +58,15 @@ export function buildAIContext(
 
   const longSummary = (getLongTermSummary ? formatSummaryForAI(getLongTermSummary()) : '');
 
+  // Current scene context from last event
+  const lastEvent = eventHistory.length > 0 ? eventHistory[eventHistory.length - 1] : null;
+  const currentSceneText = lastEvent ? `当前场景: ${lastEvent.scene.title} — ${lastEvent.scene.text.slice(0, 100)}` : '';
+
+  // Brief story so far (last 3 event titles)
+  const storySoFar = eventHistory.length > 1
+    ? `剧情: ${eventHistory.slice(-3).map(e => e.scene.title).join(' → ')}`
+    : '';
+
   const contextText = [
     `[角色] ${player.name} Lv.${player.level} ${player.race}${player.classOrigin} | HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} | ${attrs}`,
     `[位置] ${worldState.currentLocation} | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
@@ -65,8 +74,9 @@ export function buildAIContext(
     `[装备] ${gear}`,
     `[重要物品] ${importantItems}`,
     `[任务] ${activeQuests}`,
+    storySoFar,
+    currentSceneText,
     `[长期] ${longSummary}`,
-    `[最近日志]\n${recentLogsText}`,
   ].filter(Boolean).join('\n');
 
   return {
@@ -82,19 +92,23 @@ export function buildEventPromptFull(
   playerAction: PlayerAction,
   judgeResult: JudgeResult
 ): string {
-  // context now contains 'contextText' from buildAIContext — use it directly
-  const contextText = (context as any).contextText || JSON.stringify(context, null, 2);
-  const actionJson = JSON.stringify({ type: playerAction.type, risk: playerAction.risk, isCustom: playerAction.isCustom }, null, 2);
-  const judgeJson = JSON.stringify(judgeResult, null, 2);
+  const contextText = (context as any).contextText || '';
 
-  // The contextText already contains the 10-module summary. Just append action + judge.
-  return `${contextText}
+  // Player action — put the actual text front and center
+  let actionText: string;
+  if (playerAction.isCustom && playerAction.customText) {
+    actionText = `玩家输入了自定义行动："${playerAction.customText}"`;
+  } else if (playerAction.label) {
+    actionText = `玩家选择了："${playerAction.label}"`;
+  } else {
+    actionText = `玩家行动类型：${playerAction.type}`;
+  }
 
-=== 玩家行动 ===
-${actionJson}
+  const judgeText = judgeResult.dc > 0
+    ? `判定结果：${judgeResult.outcome}（掷骰${judgeResult.roll} vs DC${judgeResult.dc}）`
+    : '无需判定';
 
-=== 判定结果 ===
-${judgeJson}`;
+  return `${actionText}\n${judgeText}\n\n${contextText}`;
 }
 
 export function buildActionParsePromptFull(playerInput: string, context: Record<string, unknown>): string {

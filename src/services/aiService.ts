@@ -41,9 +41,11 @@ function logResponse(content: string, elapsed: number): void {
 /** Pick max_tokens based on event type */
 function getMaxTokensByAction(action: PlayerAction): number {
   switch (action.type) {
-    case 'combat': return 900;
-    case 'exploration': return 800;
-    default: return 700;
+    case 'combat': return 1200;
+    case 'exploration': return 1100;
+    case 'dialogue':
+    case 'social': return 1000;
+    default: return 900;
   }
 }
 
