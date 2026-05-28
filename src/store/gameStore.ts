@@ -278,11 +278,29 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
         }
       }
-      // 2.6 Award base exp based on action type (AI doesn't do this)
+      // 2.6 Award base exp + money based on action type (AI doesn't do this)
       const expAward = getExpAward(playerAction, judgeResult);
       if (expAward > 0) {
         player.exp += expAward;
         logs.push({ id: `exp_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `经验 +${expAward}` });
+      }
+      const moneyAward = getMoneyChange(playerAction, judgeResult);
+      if (moneyAward.copper !== 0 || moneyAward.silver !== 0 || moneyAward.gold !== 0) {
+        player.money.copper += moneyAward.copper;
+        player.money.silver += moneyAward.silver;
+        player.money.gold += moneyAward.gold;
+        // Normalize (prevent negative or overflow)
+        while (player.money.copper < 0) { player.money.copper += 100; player.money.silver -= 1; }
+        while (player.money.copper >= 100) { player.money.copper -= 100; player.money.silver += 1; }
+        while (player.money.silver < 0) { player.money.silver += 100; player.money.gold -= 1; }
+        while (player.money.silver >= 100) { player.money.silver -= 100; player.money.gold += 1; }
+        if (player.money.gold < 0) player.money.gold = 0;
+        const sign = moneyAward.gold > 0 || moneyAward.silver > 0 || moneyAward.copper > 0 ? '+' : '';
+        const parts = [];
+        if (moneyAward.gold !== 0) parts.push(`${sign}${moneyAward.gold}金`);
+        if (moneyAward.silver !== 0) parts.push(`${sign}${moneyAward.silver}银`);
+        if (moneyAward.copper !== 0) parts.push(`${sign}${moneyAward.copper}铜`);
+        if (parts.length > 0) logs.push({ id: `money_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `金钱 ${parts.join(' ')}` });
       }
 
       // 2.7 Apply MP/HP cost locally (AI doesn't do this anymore)
@@ -427,4 +445,35 @@ function getExpAward(action: PlayerAction, judge: JudgeResult): number {
   else if (judge.outcome === '大失败') exp = 0;
 
   return Math.max(0, exp);
+}
+
+/** Award small money based on action type. Main income comes from quest rewards, not per-action. */
+function getMoneyChange(action: PlayerAction, judge: JudgeResult): { gold: number; silver: number; copper: number } {
+  // Very small amounts — most money comes from quests
+  const base: Record<string, number> = {
+    combat: 5,       // 5 copper from loot
+    exploration: 3,
+    check: 2,
+    dialogue: 1,
+    social: 3,
+    stealth: 8,      // thief bonus
+    travel: 1,
+    skill: 2,
+    magic: 1,
+    cautious: 0,
+    item: 0,
+    trade: 5,
+  };
+  let copper = base[action.type] || 1;
+
+  // Outcome bonus
+  if (judge.outcome === '大成功') copper = Math.floor(copper * 2);
+  else if (judge.outcome === '大失败') copper = 0;
+
+  // Resting costs money
+  if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {
+    return { gold: 0, silver: 0, copper: -5 };
+  }
+
+  return { gold: 0, silver: 0, copper: Math.max(0, copper) };
 }
