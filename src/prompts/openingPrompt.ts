@@ -43,12 +43,12 @@ ${contextJson}
    钩子可以是一张委托纸条、一段对话片段、一个奇怪的梦、一件异常物品、一个匆匆离开的人等。
 
 6. **行动选项**：
-   生成 3-5 个推荐行动选项。
-   至少包含：一个稳妥选项、一个观察选项、一个对话选项。
-   根据职业不同，可以给一个技能相关选项。
-   选项 label 要短，像游戏按钮，不要替玩家决定情绪。
+   生成 3 个推荐行动选项。至少包含一个稳妥选项和一个观察选项。
+   选项 label 不超过 20 中文，像游戏按钮，不要替玩家决定情绪。
 
-7. **第一幕内容关联**：
+7. **scene.text 控制在 120-220 中文字**。不要过长的开场白。
+
+8. **第一幕内容关联**：
    第一幕应该和玩家的职业、种族、性格特征、自定义开端（sanitizedOrigin）有关。
    如果 sanitizedOrigin 有内容，第一幕应该自然融入这些元素。
 
@@ -56,24 +56,20 @@ ${contextJson}
    输出必须是完整的合法 JSON，使用 camelCase 字段名。
    所有字段必须填写，无更新时也要写空数组或 0。
 
-   JSON 结构（camelCase）：
+   输出最小化格式（camelCase），没有变化的字段不要返回：
    {
-     "scene": { "title": "", "text": "", "location": "", "locationId": "", "time": "", "weather": "" },
-     "event": { "id": "", "type": "", "urgency": "low", "riskLevel": "low" },
-     "systemEvents": [],
+     "scene": { "title": "", "text": "(120-220字)", "location": "", "locationId": "", "time": "", "weather": "" },
      "actionOptions": [
-       { "id": "", "label": "", "type": "", "risk": "low", "relatedAttribute": "none", "relatedSkill": null, "mpCost": 0, "difficultyPreview": "" }
+       { "label": "选项(≤20字)", "type": "dialogue", "risk": "low", "relatedSkill": null }
      ],
      "customActionEnabled": true,
-     "playerUpdate": { "hpChange": 0, "mpChange": 0, "expChange": 0, "moneyChange": { "gold": 0, "silver": 0, "copper": 0 } },
-     "inventoryUpdate": [],
-     "questUpdate": [],
-     "skillStateUpdate": [],
-     "equipmentUpdate": [],
-     "relationshipUpdate": [],
-     "mapUpdate": [],
-     "worldBroadcasts": [],
-     "memoryUpdate": { "flags": [], "currentLocation": "", "currentLocationId": "", "knownLocations": [] }
+     "systemEvents": [],        // 可选
+     "questUpdate": [],         // 可选
+     "inventoryUpdate": [],     // 可选
+     "relationshipUpdate": [],  // 可选
+     "mapUpdate": [],           // 可选
+     "worldBroadcasts": [],     // 可选
+     "memoryUpdate": {}         // 可选
    }
 
 请直接输出 JSON，不要输出任何解释文字。`;

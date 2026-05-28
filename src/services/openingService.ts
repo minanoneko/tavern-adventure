@@ -5,7 +5,7 @@ import { sanitizeOrigin } from './backgroundGuard';
 import { getOpeningByClass } from '../data/openingTemplates';
 import { buildOpeningPrompt } from '../prompts/openingPrompt';
 import { buildSystemMessages } from './promptService';
-import { validateAIResponse } from './aiService';
+import { normalizeAndComplete } from './responseAdapter';
 
 export interface OpeningResult {
   event: AIResponse;
@@ -95,7 +95,7 @@ async function generateWithAI(
         model: settings.apiModel,
         messages,
         temperature: 0.6,
-        max_tokens: 800,
+        max_tokens: 1200,
       }),
       signal: controller.signal,
     });
@@ -108,11 +108,10 @@ async function generateWithAI(
     const content = data.choices?.[0]?.message?.content;
     if (!content) return null;
 
-    // Parse and validate
-    const parsed = JSON.parse(content);
-    const result = validateAIResponse(parsed);
-    if (result.success) return result.data;
+    const result = normalizeAndComplete(content);
+    if (result.success) return result.response;
 
+    console.warn('Opening AI response failed:', result.errors);
     return null;
   } catch {
     clearTimeout(timeoutId);

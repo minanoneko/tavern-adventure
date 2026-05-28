@@ -4,13 +4,11 @@
 export const EVENT_INSTRUCTION = `根据以下信息生成下一轮冒险事件。
 
 === 生成要求 ===
-1. scene：当前场景标题、文本、地点、时间、天气（含 locationId）。
-2. event：事件信息（id, type, urgency, riskLevel）。
-3. systemEvents：判定结果在剧情中的体现。
-4. actionOptions：3-5 个推荐行动。至少包含一个稳妥选项、一个观察选项。如果玩家有合适技能，给一个技能选项。
-5. 选项 label 要短，像游戏按钮。示例："询问任务细节" "观察对方袖口的血迹" "使用【魔力感知】检查银币"。
-6. 所有 playerUpdate 中的数值变化必须合理，不要随意给大量 HP/MP/经验/金钱变化。
-7. 输出必须为完整的合法 JSON，字段名使用 camelCase。`;
+1. scene.text 控制在 120-220 中文字，包含场景描写、NPC 对白和氛围。
+2. actionOptions 通常3个，重要事件最多4个。label 不超过 20 中文。
+3. 至少包含一个稳妥选项和一个观察选项。有合适技能时给一个技能选项。
+4. 不要返回无变化的 update 字段。数值变化（HP/MP/经验/金钱）已由本地系统处理，不需要 AI 返回。
+5. AI 不负责数值裁判，只负责剧情、选项和少量剧情更新建议（任务/物品/关系/地图）。`;
 
 /**
  * Builds the variable user message content. Only the changing data, no static instructions.
