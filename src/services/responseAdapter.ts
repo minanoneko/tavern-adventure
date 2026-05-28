@@ -120,6 +120,24 @@ function snakeToCamel(raw: unknown): unknown {
 }
 
 // ========== Enum normalizer ==========
+const CHINESE_ENUM: Record<string, Record<string, string>> = {
+  risk: {
+    '低': 'low', '中': 'medium', '中等': 'medium', '高': 'high', '极高': 'extreme',
+    '无': 'low', 'none': 'low',
+  },
+  type: {
+    '对话': 'dialogue', '交谈': 'dialogue', '询问': 'dialogue',
+    '观察': 'check', '检查': 'check', '调查': 'check',
+    '战斗': 'combat', '攻击': 'combat',
+    '探索': 'exploration', '旅行': 'travel',
+    '潜行': 'stealth', '隐匿': 'stealth',
+    '社交': 'social', '交涉': 'social',
+    '魔法': 'magic', '技能': 'skill', '施法': 'magic',
+    '谨慎': 'cautious', '小心': 'cautious', '休息': 'cautious',
+    '物品': 'item', '交易': 'trade', '使用物品': 'item',
+  },
+};
+
 const ENUM_MAP: Record<string, Record<string, string>> = {
   risk: { low: 'low', medium: 'medium', high: 'high', extreme: 'extreme' },
   type: {
@@ -132,9 +150,14 @@ const ENUM_MAP: Record<string, Record<string, string>> = {
 
 /** Fix enum values that might be Chinese or non-standard */
 function normalizeEnumValue(key: string, value: string): string {
-  const map = ENUM_MAP[key];
-  if (!map) return value;
-  return map[value] || value;
+  if (!value || typeof value !== 'string') return value;
+  // First try Chinese→English
+  const cnMap = CHINESE_ENUM[key];
+  if (cnMap && cnMap[value]) return cnMap[value];
+  // Then try alias matching
+  const enMap = ENUM_MAP[key];
+  if (enMap) return enMap[value] || value;
+  return value;
 }
 
 /** Recursively normalize enum values in minimal AI response */
@@ -154,6 +177,10 @@ export function normalizeEnumValues(raw: Record<string, unknown>): Record<string
 // ========== Extract JSON from LLM output ==========
 export function extractJsonObject(text: string): string {
   let clean = text.trim();
+  // Remove <think>...</think> blocks (DeepSeek R1 reasoning)
+  clean = clean.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // Remove residual `<thinking>` or `【思考】` blocks
+  clean = clean.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
   // ```json ... ```
   const block = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (block) return block[1].trim();

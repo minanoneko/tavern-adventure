@@ -8,6 +8,17 @@ import {
 } from './promptService';
 import { normalizeAndComplete } from './responseAdapter';
 
+/** Pick max_tokens based on event type to balance speed vs quality */
+function getMaxTokensByAction(action: PlayerAction): number {
+  switch (action.type) {
+    case 'combat': return 1000;
+    case 'exploration': return 900;
+    case 'skill':
+    case 'magic': return 800;
+    default: return 800;
+  }
+}
+
 // ========== Main API ==========
 export async function sendPlayerAction(
   player: Player,
@@ -44,7 +55,7 @@ export async function sendPlayerAction(
         model: settings.apiModel,
         messages,
         temperature: 0.6,
-        max_tokens: 800,
+        max_tokens: getMaxTokensByAction(playerAction),
       }),
       signal: controller.signal,
     });
