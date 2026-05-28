@@ -150,6 +150,24 @@ export function parseCustomAction(input: string, _player: Player): PlayerAction 
   let relatedAttr: string | undefined;
   let risk: 'low' | 'medium' | 'high' | 'extreme' = 'medium';
 
+  // Travel detection (highest priority — change location)
+  const travelKeywords = ['前往', '去', '进入', '离开', '来到', '抵达', '航向', '登上', '回到', '返回'];
+  const isTravel = travelKeywords.some(k => input.includes(k));
+  if (isTravel) {
+    actionType = 'travel';
+    risk = 'medium';
+    // Extract target location hint for AI
+    return {
+      id: `custom_${Date.now()}`,
+      label: input.slice(0, 30),
+      type: 'travel',
+      risk: 'medium',
+      mpCost: 0,
+      isCustom: true,
+      customText: `玩家正在移动到新地点：${input}。请生成新地点的场景，不要回到酒馆或之前的地点。scene.location 必须更新为玩家去的新地点。`,
+    };
+  }
+
   // Type detection
   if (lower.includes('观察') || lower.includes('查看') || lower.includes('检查') || lower.includes('注意')) {
     actionType = 'check';
@@ -171,7 +189,7 @@ export function parseCustomAction(input: string, _player: Player): PlayerAction 
     actionType = 'magic';
     relatedAttr = 'int';
     risk = 'medium';
-  } else if (lower.includes('离开') || lower.includes('逃跑') || lower.includes('撤退')) {
+  } else if (lower.includes('逃跑') || lower.includes('撤退')) {
     actionType = 'travel';
     risk = 'low';
   } else if (lower.includes('使用') || lower.includes('喝') || lower.includes('投掷')) {
