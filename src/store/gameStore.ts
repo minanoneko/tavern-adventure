@@ -15,6 +15,7 @@ import { useSettingsStore } from './settingsStore';
 import { getMockResponse } from '../data/mockEventPool';
 import { generateOpeningEvent } from '../services/openingService';
 import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLogs, getLongTermSummary, getGameFlags, loadMemoryFromSave, formatSummaryForAI } from '../services/memoryService';
+import { getEquipmentById } from '../data/equipment';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
@@ -90,8 +91,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     const classOrigin = getClassById(data.classId);
     if (!race || !classOrigin) return;
 
-    const player = createDefaultPlayer(data, race, classOrigin);
+    let player = createDefaultPlayer(data, race, classOrigin);
     let worldState = createDefaultWorldState();
+
+    // Equip starting gear from class origin
+    const equipSlots: Record<string, string> = {
+      mainWeapon: 'mainWeapon', offHand: 'offHand', armor: 'armor',
+      head: 'head', hands: 'hands', feet: 'feet',
+      accessory1: 'accessory1', accessory2: 'accessory2', special: 'special',
+    };
+    for (const equipId of classOrigin.equipment) {
+      const equip = getEquipmentById(equipId);
+      if (!equip) continue;
+      // Add to inventory
+      player.inventory.push({
+        id: equip.id,
+        name: equip.name,
+        type: equip.slot === 'mainWeapon' ? 'weapon' : equip.slot === 'armor' ? 'armor' : 'material',
+        description: equip.description,
+        quantity: 1,
+        rarity: equip.quality as any || 'common',
+        usable: true,
+        tags: [],
+        importance: 'high',
+      });
+      // Auto-equip to matching slot
+      const slot = equip.slot as keyof typeof player.equipment;
+      if (slot in player.equipment) {
+        (player.equipment as any)[slot] = equip.id;
+      }
+    }
 
     const logs: LogEntry[] = [{
       id: 'log_init',
@@ -225,6 +254,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       const judgeResult = doCheck ? evaluate(player, playerAction, worldState) : {
         outcome: '成功' as const, roll: 0, dc: 0, modifier: 0, notes: '无需判定',
       };
+
+      // 2.5 Apply MP/HP cost locally (AI doesn't do this anymore)
+      if (playerAction.mpCost || (judgeResult.consumption?.mp || 0) > 0 || (judgeResult.consumption?.hp || 0) > 0) {
+        const mpCost = playerAction.mpCost || judgeResult.consumption?.mp || 0;
+        const hpCost = judgeResult.consumption?.hp || 0;
+        player.resources.mp = Math.max(0, player.resources.mp - mpCost);
+        player.resources.hp = Math.max(0, player.resources.hp - hpCost);
+        if (mpCost > 0) logs.push({ id: `mp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `MP -${mpCost}` });
+        if (hpCost > 0) logs.push({ id: `hp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${hpCost}` });
+      }
 
       // 3. Get AI response
       const settings = useSettingsStore.getState();
