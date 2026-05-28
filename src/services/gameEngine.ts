@@ -70,6 +70,9 @@ export function applyAIResponse(
   let didLevelUp = false;
   let newLevel: number | undefined;
 
+  // 0. Scan narrative text for money
+  updatedPlayer = parseMoneyFromNarrative(updatedPlayer, response.scene.text, logs);
+
   // 1. Log scene
   logs.push(createLogEntry('narrative', `【${response.scene.title}】${response.scene.text.slice(0, 100)}...`));
 
@@ -275,6 +278,69 @@ function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]
         if (parts.length > 0) logs.push(createLogEntry('quest', `任务奖励：${parts.join(' ')}`));
       }
     }
+  }
+
+  return p;
+}
+
+/** Parse money gains/losses from AI narrative text */
+function parseMoneyFromNarrative(player: Player, text: string, logs: LogEntry[]): Player {
+  const p = { ...player, money: { ...player.money } };
+  let totalChange = 0;
+
+  // Match patterns: "给了你X金币", "获得X银币", "递给X枚铜币", "失去X金币", "花了X银币", "报酬X金币"
+  const gainPatterns = [
+    /(?:给|递给|交给|塞给|付给|递给|扔给).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
+    /(?:获得|得到|收到|拿到|捡到|赚了).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
+    /(?:报酬|奖励|赏金|工钱).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
+    /(?:掉落|爆出|遗落).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
+  ];
+  const lossPatterns = [
+    /(?:花了|花费|支付|付出|用了|被拿走|被抢|丢失|损失).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
+    /(?:买|购入|购买).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
+  ];
+
+  const applyMatch = (match: RegExpExecArray, isGain: boolean) => {
+    const amount = parseInt(match[1]);
+    const unit = match[2];
+    let copper = 0;
+    if (unit.startsWith('金')) copper = amount * 10000;
+    else if (unit.startsWith('银')) copper = amount * 100;
+    else copper = amount;
+    totalChange += isGain ? copper : -copper;
+  };
+
+  for (const pattern of gainPatterns) {
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      applyMatch(m, true);
+    }
+  }
+  for (const pattern of lossPatterns) {
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      applyMatch(m, false);
+    }
+  }
+
+  if (totalChange !== 0) {
+    p.money.copper += totalChange;
+    while (p.money.copper >= 100) { p.money.copper -= 100; p.money.silver += 1; }
+    while (p.money.silver >= 100) { p.money.silver -= 100; p.money.gold += 1; }
+    while (p.money.copper < 0) { p.money.copper += 100; p.money.silver -= 1; }
+    while (p.money.silver < 0) { p.money.silver += 100; p.money.gold -= 1; }
+    if (p.money.gold < 0) p.money.gold = 0;
+
+    const sign = totalChange > 0 ? '+' : '';
+    const absCopper = Math.abs(totalChange);
+    const g = Math.floor(absCopper / 10000);
+    const s = Math.floor((absCopper % 10000) / 100);
+    const c = absCopper % 100;
+    const parts = [];
+    if (g > 0) parts.push(`${sign}${g}金`);
+    if (s > 0) parts.push(`${sign}${s}银`);
+    if (c > 0) parts.push(`${sign}${c}铜`);
+    if (parts.length > 0) logs.push(createLogEntry('system', `金钱 ${parts.join(' ')}（从文本解析）`));
   }
 
   return p;
