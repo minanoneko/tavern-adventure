@@ -137,6 +137,12 @@ export default function SettingsPanel({ inGame, onBack }: { inGame?: boolean; on
           </select>
           <div className="text-xs text-muted mt-1">当前仅支持 AI 生成全部选项。manual/hybrid 模式在后续版本中开放。</div>
         </div>
+
+        <div className="flex items-center justify-between mt-2">
+          <label className="text-xs text-muted">JSON Mode（强制 AI 输出 JSON）</label>
+          <input type="checkbox" checked={settings.useJsonMode || false} onChange={e => settings.setUseJsonMode(e.target.checked)} />
+        </div>
+        <div className="text-xs text-muted mt-1">部分 API 支持 response_format: json_object。开启后减少 JSON 格式错误。DeepSeek 目前不支持此功能，建议关闭。</div>
       </div>
 
       {/* Save management */}

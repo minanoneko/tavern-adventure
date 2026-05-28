@@ -13,6 +13,7 @@ export interface AISettings {
   keyStorage: KeyStorage;
   openingMode: OpeningMode;
   optionMode: OptionMode;
+  useJsonMode: boolean;
 }
 
 interface TestResult {
@@ -32,6 +33,7 @@ interface SettingsState extends AISettings {
   setKeyStorage: (mode: KeyStorage) => void;
   setOpeningMode: (mode: OpeningMode) => void;
   setOptionMode: (mode: OptionMode) => void;
+  setUseJsonMode: (v: boolean) => void;
   testConnection: () => Promise<void>;
   clearTestResult: () => void;
 }
@@ -65,6 +67,7 @@ function loadInitialSettings(): AISettings {
     keyStorage: 'session',
     openingMode: 'mock_template' as OpeningMode,
     optionMode: 'ai_options' as OptionMode,
+    useJsonMode: false,
   };
 }
 
@@ -175,6 +178,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     if (keyStorage === 'session') saveToSession({ optionMode: mode });
     else if (keyStorage === 'local') saveToLocal({ optionMode: mode });
   },
+
+  setUseJsonMode: (v: boolean) => set({ useJsonMode: v }),
 
   testConnection: async () => {
     const { apiBaseUrl, apiModel, apiKey } = get();

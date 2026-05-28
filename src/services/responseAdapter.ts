@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { jsonrepair } from 'jsonrepair';
 import type { AIResponse, ActionOption } from '../types';
 import { EMPTY_MONEY } from '../types/common';
 
@@ -263,15 +264,36 @@ export function validateMinimalAIResponse(raw: unknown): { success: true; data: 
   return { success: false, errors };
 }
 
+// ========== JSON parsing with repair ==========
+function tryParseJson(text: string): { success: true; data: Record<string, unknown> } | { success: false; error: string } {
+  // 1. Direct parse
+  try {
+    return { success: true, data: JSON.parse(text) as Record<string, unknown> };
+  } catch {
+    // continue
+  }
+  // 2. jsonrepair
+  try {
+    const repaired = jsonrepair(text);
+    const parsed = JSON.parse(repaired) as Record<string, unknown>;
+    return { success: true, data: parsed };
+  } catch (e2) {
+    return { success: false, error: e2 instanceof Error ? e2.message : 'JSON repair failed' };
+  }
+}
+
 // ========== Main normalize + validate + complete pipeline ==========
 export function normalizeAndComplete(raw: unknown): { success: true; response: AIResponse } | { success: false; errors: string[]; rawText?: string } {
   try {
     let parsed: Record<string, unknown>;
 
     if (typeof raw === 'string') {
-      // Extract JSON from LLM output (handles markdown blocks)
       const clean = extractJsonObject(raw);
-      parsed = JSON.parse(clean) as Record<string, unknown>;
+      const parseResult = tryParseJson(clean);
+      if (!parseResult.success) {
+        return { success: false, errors: [parseResult.error], rawText: raw.slice(0, 1000) };
+      }
+      parsed = parseResult.data;
     } else if (raw && typeof raw === 'object') {
       parsed = raw as Record<string, unknown>;
     } else {

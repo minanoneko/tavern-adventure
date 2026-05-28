@@ -9,6 +9,15 @@ export default function JudgeCard({ judgeResult }: { judgeResult: JudgeResult })
     '大失败': 'var(--color-tavern-danger)',
   };
 
+  // No check needed — show simple card
+  if (judgeResult.dc === 0 && judgeResult.roll === 0 && !judgeResult.relatedAttribute) {
+    return (
+      <div className="panel p-3 text-sm text-muted">
+        无需判定
+      </div>
+    );
+  }
+
   return (
     <div className="panel p-4 text-sm">
       <div className="flex items-center gap-2 mb-1">

@@ -94,8 +94,9 @@ async function generateWithAI(
       body: JSON.stringify({
         model: settings.apiModel,
         messages,
-        temperature: 0.6,
-        max_tokens: 1200,
+        temperature: 0.3,
+        max_tokens: 1000,
+        ...(settings.useJsonMode ? { response_format: { type: 'json_object' as const } } : {}),
       }),
       signal: controller.signal,
     });

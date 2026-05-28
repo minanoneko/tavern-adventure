@@ -1,29 +1,20 @@
-export const JSON_FORMAT_PROMPT = `你必须只输出合法 JSON。不要输出 Markdown、解释、代码块、多余文字。
+export const JSON_FORMAT_PROMPT = `你必须只输出合法 JSON 对象。不要输出 Markdown、代码块、解释。只输出 JSON 对象。
 
-=== 输出格式要求 ===
+=== 关键规则 ===
+1. 所有字符串必须单行。scene.text 不允许真实换行。如需换行用 \\n。
+2. scene.text 推荐写成单段文本。
+3. 字符串内双引号必须用反斜杠转义：\\"
+4. 输出必须是纯 JSON，不加前后标记。
+
 必填字段：
 - scene.title
-- scene.text（120-220 中文字）
-- actionOptions（通常3个，重要事件最多4个）
-- customActionEnabled（始终为 true）
+- scene.text（120-220中文字，单行，换行用\\n）
+- actionOptions（通常3个，label不超过20字）
+- customActionEnabled（始终为true）
 
-可选字段（只在有变化时返回，没有变化不要返回）：
-- systemEvents（系统判定结果或剧情提示）
-- questUpdate（任务状态变化时）
-- inventoryUpdate（获得或失去物品时）
-- relationshipUpdate（关系变化时）
-- mapUpdate（发现新地点时）
-- worldBroadcasts（世界播报）
-- memoryUpdate（flags、地点变化时）
+可选字段（有变化才返回，无变化不返回）：
+- systemEvents, questUpdate, inventoryUpdate, relationshipUpdate, mapUpdate, worldBroadcasts, memoryUpdate
 
-actionOptions 返回格式（简化）：
-[{
-  "label": "行动选项（不超过20中文）",
-  "type": "dialogue | check | combat | exploration | travel | social | stealth | magic | skill | item | trade | cautious",
-  "risk": "low | medium | high | extreme",
-  "relatedSkill": null
-}]
+actionOptions格式（简化）：
+[{"label":"选项","type":"dialogue","risk":"low","relatedSkill":null}]`;
 
-scene.text 控制在 120-220 中文字。
-actionOptions 的 label 不超过 20 个中文。
-不要返回无变化的字段。`;

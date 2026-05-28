@@ -99,18 +99,24 @@ async function sendAIRequest(
     const controller = new AbortController();
     timeoutId = setTimeout(() => controller.abort(), 30000);
 
+    const body: Record<string, unknown> = {
+      model: settings.apiModel,
+      messages,
+      temperature: 0.3,
+      max_tokens: maxTokens,
+    };
+    // JSON mode if enabled in settings
+    if ((settings as any).useJsonMode) {
+      body.response_format = { type: 'json_object' };
+    }
+
     const response = await fetch(`${settings.apiBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${settings.apiKey}`,
       },
-      body: JSON.stringify({
-        model: settings.apiModel,
-        messages,
-        temperature: 0.6,
-        max_tokens: maxTokens,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 

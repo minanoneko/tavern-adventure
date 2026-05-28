@@ -20,18 +20,13 @@ const errorSuggestions: Record<string, string> = {
 };
 
 export default function ErrorCard({ error, validationErrors }: { error?: AIError; validationErrors?: string[] }) {
-  const submitAction = useGameStore(s => s.submitAction);
   const clearError = useGameStore(s => s.clearError);
+  const lastAIResult = useGameStore(s => s.lastAIResult);
 
   const errorType = error?.type || 'unknown';
   const key = errorType === 'http_error' ? `http_error_${error?.statusCode}` : errorType;
   const message = error?.message || errorMessages[key] || '未知错误';
   const suggestion = errorSuggestions[key] || '';
-
-  const handleRetry = () => {
-    clearError();
-    submitAction('retry');
-  };
 
   const handleSwitchToMock = () => {
     clearError();
@@ -46,6 +41,14 @@ export default function ErrorCard({ error, validationErrors }: { error?: AIError
         <div className="text-xs mb-2 p-2 rounded" style={{ background: 'rgba(0,0,0,0.3)', color: '#ff8888', wordBreak: 'break-all' }}>
           {error.details.slice(0, 200)}
         </div>
+      )}
+      {lastAIResult?.rawText && (error?.type === 'parse_error' || error?.type === 'validation_error') && (
+        <details className="mb-2">
+          <summary className="text-xs text-muted cursor-pointer">AI 原始返回（前1000字）</summary>
+          <pre className="text-xs mt-1 p-2 rounded overflow-auto max-h-40" style={{ background: 'rgba(0,0,0,0.4)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {lastAIResult.rawText.slice(0, 1000)}
+          </pre>
+        </details>
       )}
       {suggestion && <div className="text-xs text-muted mb-3">{suggestion}</div>}
       {validationErrors && validationErrors.length > 0 && (
