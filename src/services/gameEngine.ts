@@ -189,17 +189,23 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
 
       // Convert coin items to actual money
       const coinName = update.name || '';
-      const isCoin = coinName.includes('金币') || coinName.includes('银币') || coinName.includes('铜币') || itemType === 'money';
+      const isCoin = coinName.includes('金币') || coinName.includes('银币') || coinName.includes('铜币')
+        || coinName.includes('Gold') || coinName.includes('Silver') || coinName.includes('Copper')
+        || itemType === 'money';
       if (isCoin) {
+        // Extract numeric amount from name (e.g. "5铜币" → 5, "铜币 x3" → 3)
         let coinValue = update.quantity || 1;
-        if (coinName.includes('金币')) p.money.gold += coinValue;
-        else if (coinName.includes('银币')) p.money.silver += coinValue;
+        const numMatch = coinName.match(/(\d+)/);
+        if (numMatch) coinValue = Math.max(coinValue, parseInt(numMatch[1]));
+        // Determine coin type
+        if (coinName.includes('金') || coinName.includes('Gold')) p.money.gold += coinValue;
+        else if (coinName.includes('银') || coinName.includes('Silver')) p.money.silver += coinValue;
         else p.money.copper += coinValue;
         // Normalize
         while (p.money.copper >= 100) { p.money.copper -= 100; p.money.silver += 1; }
         while (p.money.silver >= 100) { p.money.silver -= 100; p.money.gold += 1; }
         while (p.money.copper < 0) { p.money.copper += 100; p.money.silver -= 1; }
-        logs.push(createLogEntry('item', `获得：${coinName} x${update.quantity}`));
+        logs.push(createLogEntry('item', `获得：${coinName}${coinValue > 1 ? ` x${coinValue}` : ''}（已转入钱包）`));
         continue;
       }
 
