@@ -1,23 +1,23 @@
 import type { Attributes } from './common';
 
-// ========== Skill Types ==========
 export type SkillType =
   | 'active' | 'passive' | 'reaction' | 'exploration'
-  | 'social' | 'hidden' | 'combat' | 'magic' | 'class' | 'equipment';
+  | 'social' | 'ritual' | 'crafting' | 'combat' | 'magic' | 'class' | 'equipment';
+
+export type SkillRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 export type SkillStatus =
   | 'undiscovered' | 'discovered' | 'learnable' | 'not_learnable'
   | 'learned' | 'learned_locked' | 'castable' | 'upgraded'
   | 'equipment_granted' | 'disabled';
 
-// ========== Requirements ==========
 export interface LearnRequirement {
   minLevel?: number;
   attributes?: Partial<Attributes>;
   prerequisiteSkills?: string[];
-  requiresItem?: string;
-  requiresQuest?: string;
-  requiresFaction?: { factionId: string; minStanding: number };
+  requiredClassOrigin?: string[];
+  requiredItems?: string[];
+  requiredFlags?: string[];
 }
 
 export interface CastRequirement {
@@ -25,35 +25,39 @@ export interface CastRequirement {
   attributes?: Partial<Attributes>;
   mpCost?: number;
   hpCost?: number;
-  requiresWeaponType?: string;    // 'staff', 'bow', 'sword', etc.
+  maxHpCost?: number;
+  requiresWeaponType?: string;
   requiresEquipment?: string;
-  requiresStatusFree?: string[];   // status effects that block casting
+  requiresStatusFree?: string[];
   requiresLocation?: string[];
   requiresItem?: string;
-  cooldown?: number;               // turns
+  oncePerRest?: boolean;
+  cooldownTurns?: number;
 }
 
-// ========== Skill Definition ==========
 export interface Skill {
   id: string;
   name: string;
   type: SkillType;
+  rarity: SkillRarity;
+  slotCost: number;
   description: string;
+  classTags?: string[];
   learnRequirements: LearnRequirement;
   castRequirements: CastRequirement;
+  effectsDescription?: string;
   source?: string;
-  proficiency?: number;            // 0-100
-  upgradeCondition?: string;
 }
 
-// ========== Skill State ==========
 export interface SkillState {
-  learned: string[];     // skill ids
-  discovered: string[];  // known but not learned
-  locked: string[];      // not yet known
+  learned: string[];
+  discovered: string[];
+  locked: string[];
+  equipped: string[];
+  maxSlots: number;
+  learnTokens: number;
 }
 
-// ========== Lock Reason ==========
 export interface SkillLockInfo {
   skillId: string;
   skillName: string;

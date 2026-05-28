@@ -610,6 +610,12 @@ export function processLevelUp(player: Player, logs: LogEntry[]): { player: Play
       mp: p.resources.maxMp + mpGain,
     };
     p.level = newLevel;
+    p.level = Math.min(p.level, 21); // Cap at 21
+
+    if (newLevel % 3 === 0 && p.skills.learnTokens !== undefined) {
+      p.skills.learnTokens += 1;
+      logs.push(createLogEntry('system', `Lv.${newLevel}！获得新技能学习机会+1。`));
+    }
 
     logs.push(createLogEntry('system', `升级！Lv.${newLevel}。HP/MP回满。属性点+2，技能点+1。`));
   }

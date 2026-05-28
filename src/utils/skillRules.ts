@@ -151,3 +151,148 @@ export function getAllSkillInfos(player: Player, currentLocation?: string): Skil
     .map(id => getSkillLockInfo(id, player, currentLocation))
     .filter((s): s is SkillLockInfo => s !== null);
 }
+
+// ====== Skill Slots & Equip ======
+
+/** Calculate total used skill slots from equipped skills */
+export function getUsedSkillSlots(player: Player): number {
+  return player.skills.equipped.reduce((sum, sid) => {
+    const skill = getSkillById(sid);
+    return sum + (skill?.slotCost || 1);
+  }, 0);
+}
+
+export function isSkillEquipped(player: Player, skillId: string): boolean {
+  return player.skills.equipped.includes(skillId);
+}
+
+/** Check if current location allows skill loadout changes */
+export function canChangeSkillLoadout(worldState?: { currentLocation: string; combatState?: { active: boolean } }): boolean {
+  if (!worldState) return false;
+  if (worldState.combatState?.active) return false;
+  const safeLocations = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch', 'small_chapel'];
+  return safeLocations.includes(worldState.currentLocation);
+}
+
+/** Check if player can learn a skill */
+export function canLearn(player: Player, skill: Skill): boolean {
+  if (player.skills.learned.includes(skill.id)) return false;
+  if (player.skills.learnTokens <= 0) return false;
+  const req = skill.learnRequirements;
+  if (req.minLevel && player.level < req.minLevel) return false;
+  if (req.requiredClassOrigin && !req.requiredClassOrigin.includes(player.classOrigin)) return false;
+  if (req.attributes) {
+    for (const [k, v] of Object.entries(req.attributes)) {
+      if ((player.attributes as any)[k] < v) return false;
+    }
+  }
+  if (req.prerequisiteSkills) {
+    for (const sid of req.prerequisiteSkills) {
+      if (!player.skills.learned.includes(sid)) return false;
+    }
+  }
+  if (req.requiredFlags) {
+    for (const f of req.requiredFlags) {
+      // flags are in worldState, not passed here. Skip for now.
+    }
+  }
+  return true;
+}
+
+/** Equip a skill */
+export function equipSkill(player: Player, skillId: string, worldState?: { currentLocation: string; combatState?: { active: boolean } }): { success: boolean; player: Player; reason?: string } {
+  if (!canChangeSkillLoadout(worldState)) {
+    return { success: false, player, reason: '当前位置不允许替换技能（需要酒馆/旅店/安全营地）' };
+  }
+  if (!player.skills.learned.includes(skillId)) {
+    return { success: false, player, reason: '未学会该技能' };
+  }
+  if (player.skills.equipped.includes(skillId)) {
+    return { success: false, player, reason: '技能已装备' };
+  }
+  const skill = getSkillById(skillId);
+  if (!skill) return { success: false, player, reason: '技能不存在' };
+
+  const used = getUsedSkillSlots(player);
+  if (used + skill.slotCost > player.skills.maxSlots) {
+    return { success: false, player, reason: `技能栏不足（${used}/${player.skills.maxSlots}，需${skill.slotCost}格）` };
+  }
+
+  const p = { ...player, skills: { ...player.skills, equipped: [...player.skills.equipped, skillId] } };
+  return { success: true, player: p };
+}
+
+/** Unequip a skill */
+export function unequipSkill(player: Player, skillId: string, worldState?: { currentLocation: string; combatState?: { active: boolean } }): { success: boolean; player: Player; reason?: string } {
+  if (!canChangeSkillLoadout(worldState)) {
+    return { success: false, player, reason: '当前位置不允许替换技能' };
+  }
+  if (!player.skills.equipped.includes(skillId)) {
+    return { success: false, player, reason: '技能未装备' };
+  }
+  const p = { ...player, skills: { ...player.skills, equipped: player.skills.equipped.filter(s => s !== skillId) } };
+  return { success: true, player: p };
+}
+
+/** Learn a skill (consume learnToken) */
+export function learnSkill(player: Player, skillId: string): { success: boolean; player: Player; reason?: string } {
+  const skill = getSkillById(skillId);
+  if (!skill) return { success: false, player, reason: '技能不存在于技能库' };
+  if (player.skills.learned.includes(skillId)) return { success: false, player, reason: '已学会' };
+  if (!canLearn(player, skill)) {
+    const reasons = getSkillLearnReasons(player, skill);
+    return { success: false, player, reason: reasons.join('；') || '不满足学习条件' };
+  }
+  const p = {
+    ...player,
+    skills: {
+      ...player.skills,
+      learned: [...player.skills.learned, skillId],
+      discovered: player.skills.discovered.filter(s => s !== skillId),
+      learnTokens: player.skills.learnTokens - 1,
+    },
+  };
+  return { success: true, player: p };
+}
+
+function getSkillLearnReasons(player: Player, skill: Skill): string[] {
+  const reasons: string[] = [];
+  const req = skill.learnRequirements;
+  if (player.skills.learnTokens <= 0) reasons.push('没有新技能学习机会');
+  if (req.minLevel && player.level < req.minLevel) reasons.push(`等级不足，需要Lv.${req.minLevel}`);
+  if (req.attributes) {
+    const labels: Record<string, string> = { str: '力量', dex: '敏捷', con: '体质', int: '智力', wis: '感知', cha: '魅力' };
+    for (const [k, v] of Object.entries(req.attributes)) {
+      if ((player.attributes as any)[k] < v) reasons.push(`${labels[k] || k}不足，需要${v}`);
+    }
+  }
+  if (req.prerequisiteSkills) {
+    for (const sid of req.prerequisiteSkills) {
+      if (!player.skills.learned.includes(sid)) {
+        const pre = getSkillById(sid);
+        reasons.push(`缺少前置技能：${pre?.name || sid}`);
+      }
+    }
+  }
+  return reasons.length > 0 ? reasons : ['不满足学习条件'];
+}
+
+/** Validate skill usage from custom text or AI output */
+export function validateSkillAttempt(player: Player, skillNameOrId: string): { valid: boolean; skillId?: string; reason?: string } {
+  // Try to find skill by name or id
+  let skill = getSkillById(skillNameOrId);
+  if (!skill) {
+    // Search by name
+    const allSkills = getAllSkillInfos(player);
+    const found = allSkills.find(s => s.skillName === skillNameOrId);
+    skill = found ? getSkillById(found.skillId) : undefined;
+  }
+  if (!skill) return { valid: false, reason: `未知技能"${skillNameOrId}"不在技能库中` };
+  if (!player.skills.learned.includes(skill.id)) return { valid: false, skillId: skill.id, reason: `未学会技能"${skill.name}"` };
+  if (!player.skills.equipped.includes(skill.id)) return { valid: false, skillId: skill.id, reason: `技能"${skill.name}"未装备到技能栏` };
+  if (!canCastSkill(skill, player)) {
+    const reasons = getSkillLockReasons(skill, player);
+    return { valid: false, skillId: skill.id, reason: reasons.join('；') };
+  }
+  return { valid: true, skillId: skill.id };
+}

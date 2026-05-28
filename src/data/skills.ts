@@ -6,6 +6,9 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     id: 'spark',
     name: '火苗术',
     type: 'magic',
+    rarity: 'common',
+    slotCost: 1,
+    classTags: ['mage'],
     description: '在指尖凝聚一小团火焰，可用于点燃、照明或轻微灼烧目标。',
     learnRequirements: {},
     castRequirements: { mpCost: 2, requiresWeaponType: 'staff' },
@@ -13,7 +16,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   magic_sense: {
     id: 'magic_sense',
     name: '魔力感知',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '感知周围的魔力流动，发现魔法物品、符文或隐藏的魔法陷阱。',
     learnRequirements: {},
     castRequirements: { mpCost: 1 },
@@ -21,7 +24,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   read_runes: {
     id: 'read_runes',
     name: '读魔文',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '阅读古代魔法文字和符文，理解魔法阵、魔导书和远古碑文。',
     learnRequirements: {},
     castRequirements: { mpCost: 1 },
@@ -29,7 +32,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   focus_cast: {
     id: 'focus_cast',
     name: '专注施法',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '在施法时获得额外集中加成，降低被打断的几率。',
     learnRequirements: {},
     castRequirements: {},
@@ -39,7 +42,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   precise_shot: {
     id: 'precise_shot',
     name: '精准射击',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '屏息瞄准，大幅提升弓箭命中率。',
     learnRequirements: {},
     castRequirements: { requiresWeaponType: 'bow' },
@@ -47,7 +50,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   tracking: {
     id: 'tracking',
     name: '追踪',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '从脚印、折断的树枝和其他痕迹中判断目标的去向。',
     learnRequirements: {},
     castRequirements: {},
@@ -55,7 +58,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   wilderness_survival: {
     id: 'wilderness_survival',
     name: '野外生存',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '在野外寻找食物、水源和安全营地。减少野外旅行的疲劳累积。',
     learnRequirements: {},
     castRequirements: {},
@@ -63,7 +66,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   trap_detect: {
     id: 'trap_detect',
     name: '陷阱识别',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '发现隐藏的陷阱、机关和伏击。',
     learnRequirements: {},
     castRequirements: {},
@@ -73,7 +76,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   heavy_strike: {
     id: 'heavy_strike',
     name: '重击',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '蓄力一击，造成比普通攻击更高的伤害。',
     learnRequirements: {},
     castRequirements: { requiresWeaponType: 'sword', mpCost: 3 },
@@ -81,7 +84,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   shield_block: {
     id: 'shield_block',
     name: '格挡',
-    type: 'reaction',
+    type: 'reaction', rarity: 'uncommon', slotCost: 1,
     description: '使用盾牌格挡一次攻击，减少受到的伤害。',
     learnRequirements: {},
     castRequirements: { requiresEquipment: 'shield' },
@@ -89,7 +92,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   sword_basics: {
     id: 'sword_basics',
     name: '剑术入门',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '掌握剑术的基本架势和发力技巧，提升剑类武器的命中率。',
     learnRequirements: {},
     castRequirements: {},
@@ -97,7 +100,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   combat_instinct: {
     id: 'combat_instinct',
     name: '战斗直觉',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '在战斗中更快察觉对手的意图，对第一次攻击有额外的反应加成。',
     learnRequirements: {},
     castRequirements: {},
@@ -107,7 +110,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   stealth: {
     id: 'stealth',
     name: '潜行',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '隐藏气息和身形，在不被发现的情况下移动。',
     learnRequirements: {},
     castRequirements: { requiresStatusFree: ['束缚'] },
@@ -115,7 +118,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   backstab: {
     id: 'backstab',
     name: '背刺',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '从背后发起偷袭，造成额外伤害。需要未被目标察觉。',
     learnRequirements: {},
     castRequirements: { requiresWeaponType: 'dagger' },
@@ -123,7 +126,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   lockpick: {
     id: 'lockpick',
     name: '开锁',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '使用工具打开大多数常见的锁。有些魔法锁无法以此方式开启。',
     learnRequirements: {},
     castRequirements: { requiresItem: 'lockpick_tools' },
@@ -131,7 +134,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   eavesdrop: {
     id: 'eavesdrop',
     name: '偷听',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '在不被发现的情况下窃听他人的对话，获得隐藏情报。',
     learnRequirements: {},
     castRequirements: {},
@@ -141,7 +144,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   minor_heal: {
     id: 'minor_heal',
     name: '小治疗术',
-    type: 'magic',
+    type: 'magic', rarity: 'common', slotCost: 1,
     description: '引导圣光治愈轻伤，恢复少量 HP。',
     learnRequirements: {},
     castRequirements: { mpCost: 4, requiresEquipment: 'holy_symbol' },
@@ -149,7 +152,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   blessing: {
     id: 'blessing',
     name: '祝福',
-    type: 'magic',
+    type: 'magic', rarity: 'common', slotCost: 1,
     description: '对目标施加祝福，短时间内提升其属性判定。',
     learnRequirements: {},
     castRequirements: { mpCost: 3, requiresEquipment: 'holy_symbol' },
@@ -157,7 +160,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   dispel_weak_evil: {
     id: 'dispel_weak_evil',
     name: '驱散微弱邪祟',
-    type: 'magic',
+    type: 'magic', rarity: 'common', slotCost: 1,
     description: '驱散微弱的邪祟和不洁之物。对强大的邪恶存在无效。',
     learnRequirements: {},
     castRequirements: { mpCost: 5, requiresEquipment: 'holy_symbol' },
@@ -165,7 +168,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   soothe: {
     id: 'soothe',
     name: '安抚',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '以温和的语言和圣光的力量安抚他人的情绪，降低冲突升级的可能。',
     learnRequirements: {},
     castRequirements: {},
@@ -175,7 +178,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   rage: {
     id: 'rage',
     name: '狂暴',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '进入狂暴状态，攻击力大幅上升但防御力降低。狂暴期间不会因受伤而中断行动。',
     learnRequirements: {},
     castRequirements: { hpCost: 5 },
@@ -183,7 +186,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   smash: {
     id: 'smash',
     name: '猛砸',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '用蛮力砸开障碍物、门或……人。',
     learnRequirements: {},
     castRequirements: {},
@@ -191,7 +194,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   pain_resist: {
     id: 'pain_resist',
     name: '抗痛',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '对疼痛有超常的忍耐力，在受伤时仍然能正常行动。',
     learnRequirements: {},
     castRequirements: {},
@@ -199,7 +202,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   intimidate: {
     id: 'intimidate',
     name: '威吓',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '以体型和气势威慑对方，令其退让或屈服。',
     learnRequirements: {},
     castRequirements: {},
@@ -209,7 +212,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   brew_potion: {
     id: 'brew_potion',
     name: '调制药剂',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '使用材料和炼金工具调制药剂。需要材料和配方。',
     learnRequirements: {},
     castRequirements: { requiresItem: 'alchemy_kit' },
@@ -217,7 +220,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   identify_herb: {
     id: 'identify_herb',
     name: '辨认草药',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '识别野外的草药和材料，判断其用途和毒性。',
     learnRequirements: {},
     castRequirements: {},
@@ -225,7 +228,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   throw_bottle: {
     id: 'throw_bottle',
     name: '投掷瓶',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '精准投掷燃烧瓶、酸瓶或其他炼金瓶。',
     learnRequirements: {},
     castRequirements: {},
@@ -233,7 +236,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   material_analysis: {
     id: 'material_analysis',
     name: '材料分析',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '分析物质的成分和性质，判断物品的真伪、材质和作用。',
     learnRequirements: {},
     castRequirements: {},
@@ -243,7 +246,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   noble_etiquette: {
     id: 'noble_etiquette',
     name: '贵族礼仪',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '熟稔贵族社交规则，在上流社会场合获得优势。',
     learnRequirements: {},
     castRequirements: {},
@@ -251,7 +254,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   negotiation: {
     id: 'negotiation',
     name: '交涉',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '以技巧性的谈判争取更好的条件。',
     learnRequirements: {},
     castRequirements: {},
@@ -259,7 +262,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   read_people: {
     id: 'read_people',
     name: '识人',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '从言行举止中判断对方的真实意图和社会地位。',
     learnRequirements: {},
     castRequirements: {},
@@ -267,7 +270,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   duel_footwork: {
     id: 'duel_footwork',
     name: '决斗步法',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '贵族式的轻巧步法，在单挑时提升闪避能力。',
     learnRequirements: {},
     castRequirements: {},
@@ -277,7 +280,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   survival_instinct: {
     id: 'survival_instinct',
     name: '求生本能',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '在极端情况下身体会自动做出求生的判断和反应。',
     learnRequirements: {},
     castRequirements: {},
@@ -285,7 +288,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   quick_reaction: {
     id: 'quick_reaction',
     name: '临场反应',
-    type: 'reaction',
+    type: 'reaction', rarity: 'uncommon', slotCost: 1,
     description: '面对突发事件时反应迅速，获得先手优势。',
     learnRequirements: {},
     castRequirements: {},
@@ -293,7 +296,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   small_talk: {
     id: 'small_talk',
     name: '闲聊',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '以轻松自然的闲聊拉近与他人的距离，获取零碎的信息。',
     learnRequirements: {},
     castRequirements: {},
@@ -301,7 +304,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   basic_weapon: {
     id: 'basic_weapon',
     name: '基础武器掌握',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '能熟练使用大多数基础武器，不会因为武器生疏而受到额外惩罚。',
     learnRequirements: {},
     castRequirements: {},
@@ -311,7 +314,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   inspire: {
     id: 'inspire',
     name: '鼓舞',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '以音乐和言辞鼓舞友方士气，提升战斗表现和属性判定。',
     learnRequirements: {},
     castRequirements: { mpCost: 3 },
@@ -319,7 +322,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   rumor_gathering: {
     id: 'rumor_gathering',
     name: '传闻收集',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '在酒馆、市场和街头收集传闻和信息。获取的传闻比其他职业更多。',
     learnRequirements: {},
     castRequirements: {},
@@ -327,7 +330,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   performance: {
     id: 'performance',
     name: '表演',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '以音乐或故事吸引注意，可以转移人群焦点或获取微薄收入。',
     learnRequirements: {},
     castRequirements: {},
@@ -335,7 +338,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   soothe_emotion: {
     id: 'soothe_emotion',
     name: '安抚情绪',
-    type: 'social',
+    type: 'social', rarity: 'common', slotCost: 1,
     description: '以恰到好处的旋律平息愤怒、悲伤或恐惧的情绪。',
     learnRequirements: {},
     castRequirements: {},
@@ -345,7 +348,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   history_knowledge: {
     id: 'history_knowledge',
     name: '历史知识',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '对旧王国历史、古代事件和过往记载有深入了解。',
     learnRequirements: {},
     castRequirements: {},
@@ -353,7 +356,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   ancient_script: {
     id: 'ancient_script',
     name: '古文阅读',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '破译古代文字、碑文和古籍中的内容。',
     learnRequirements: {},
     castRequirements: {},
@@ -361,7 +364,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   logic_analysis: {
     id: 'logic_analysis',
     name: '逻辑分析',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '以严谨的逻辑分析线索和矛盾，发现隐藏的模式和真相。',
     learnRequirements: {},
     castRequirements: {},
@@ -369,7 +372,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   note_organize: {
     id: 'note_organize',
     name: '笔记整理',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '高效地记录和整理信息，减少遗忘重要线索的几率。',
     learnRequirements: {},
     castRequirements: {},
@@ -379,7 +382,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   monster_identify: {
     id: 'monster_identify',
     name: '怪物辨识',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '识别怪物的种类、弱点、习性和危险等级。',
     learnRequirements: {},
     castRequirements: {},
@@ -387,7 +390,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   silver_blade: {
     id: 'silver_blade',
     name: '银刃技巧',
-    type: 'combat',
+    type: 'combat', rarity: 'common', slotCost: 1,
     description: '掌握银制武器对邪祟和怪物作战的特殊技巧。',
     learnRequirements: {},
     castRequirements: { requiresWeaponType: 'dagger' },
@@ -395,7 +398,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   track_evil: {
     id: 'track_evil',
     name: '追踪邪祟',
-    type: 'exploration',
+    type: 'exploration', rarity: 'common', slotCost: 1,
     description: '感知邪恶存在留下的痕迹，追踪被诅咒和邪祟污染的区域。',
     learnRequirements: {},
     castRequirements: { mpCost: 2 },
@@ -403,41 +406,24 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   curse_resist: {
     id: 'curse_resist',
     name: '抗诅咒',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '对诅咒和负能量有天然的抗性，减轻诅咒和负能量带来的效果。',
     learnRequirements: {},
     castRequirements: {},
   },
 
-  // ===== 额外技能（可学习） =====
-  fire_arrow: {
-    id: 'fire_arrow',
-    name: '火焰箭',
-    type: 'magic',
-    description: '将火焰凝聚成箭矢射出，造成火焰伤害。',
-    learnRequirements: { minLevel: 3, attributes: { int: 8 } },
-    castRequirements: { minLevel: 3, attributes: { int: 8 }, mpCost: 4, requiresWeaponType: 'staff' },
-  },
   dual_wield: {
     id: 'dual_wield',
     name: '双持武器',
-    type: 'passive',
+    type: 'passive', rarity: 'common', slotCost: 1,
     description: '能同时在双手装备武器进行战斗。',
     learnRequirements: { minLevel: 4, attributes: { dex: 8 } },
     castRequirements: {},
   },
-  mana_blast: {
-    id: 'mana_blast',
-    name: '魔力爆破',
-    type: 'magic',
-    description: '释放积蓄的魔力，对前方区域造成冲击伤害。',
-    learnRequirements: { minLevel: 4, attributes: { int: 9 } },
-    castRequirements: { mpCost: 8, requiresWeaponType: 'staff' },
-  },
-  shadow_step: {
-    id: 'shadow_step',
+  stealth_step: {
+    id: 'stealth_step',
     name: '潜行步',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '在阴影中快速移动而不发出声音。',
     learnRequirements: { minLevel: 2, attributes: { dex: 7 } },
     castRequirements: { mpCost: 2 },
@@ -445,10 +431,136 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
   alchemy_craft: {
     id: 'alchemy_craft',
     name: '炼金合成',
-    type: 'active',
+    type: 'active', rarity: 'common', slotCost: 1,
     description: '将材料合成为药剂或炼金道具。需要炼金包和配方。',
     learnRequirements: { minLevel: 3, attributes: { int: 7 } },
     castRequirements: { requiresItem: 'alchemy_kit' },
+  },
+
+  // ===== 高级 / 隐藏技能 =====
+  fire_arrow: {
+    id: 'fire_arrow',
+    name: '火焰箭',
+    type: 'magic', rarity: 'uncommon', slotCost: 1,
+    classTags: ['mage'],
+    description: '将火焰凝聚成箭矢射出，造成远程火焰伤害。',
+    learnRequirements: { minLevel: 3, attributes: { int: 8 } },
+    castRequirements: { mpCost: 4, requiresWeaponType: 'staff' },
+  },
+  frost_bind: {
+    id: 'frost_bind',
+    name: '寒霜束缚',
+    type: 'magic', rarity: 'uncommon', slotCost: 1,
+    classTags: ['mage'],
+    description: '用冰霜魔法束缚敌人的双脚，减缓其行动速度。',
+    learnRequirements: { minLevel: 5, attributes: { int: 10 } },
+    castRequirements: { mpCost: 5, requiresWeaponType: 'staff' },
+  },
+  arcane_lock: {
+    id: 'arcane_lock',
+    name: '奥术锁',
+    type: 'magic', rarity: 'uncommon', slotCost: 1,
+    classTags: ['mage'],
+    description: '以魔法封印一扇门或箱子，只有施法者或特定条件才能打开。',
+    learnRequirements: { minLevel: 5, attributes: { int: 10 }, prerequisiteSkills: ['read_runes'] },
+    castRequirements: { mpCost: 6, requiresWeaponType: 'staff' },
+  },
+  mana_shield: {
+    id: 'mana_shield',
+    name: '魔力护盾',
+    type: 'reaction', rarity: 'uncommon', slotCost: 1,
+    classTags: ['mage'],
+    description: '瞬间凝聚魔力形成护盾，吸收一次攻击的部分伤害。',
+    learnRequirements: { minLevel: 7, attributes: { int: 12 } },
+    castRequirements: { mpCost: 8, requiresWeaponType: 'staff' },
+  },
+  mana_blast: {
+    id: 'mana_blast',
+    name: '魔力爆破',
+    type: 'magic', rarity: 'rare', slotCost: 2,
+    classTags: ['mage'],
+    description: '释放积蓄的魔力对目标区域造成范围伤害。威力强大但消耗极高。',
+    learnRequirements: { minLevel: 12, attributes: { int: 14 }, prerequisiteSkills: ['fire_arrow'] },
+    castRequirements: { mpCost: 15, requiresWeaponType: 'staff', oncePerRest: true },
+  },
+  spatial_rift: {
+    id: 'spatial_rift',
+    name: '空间裂隙',
+    type: 'magic', rarity: 'epic', slotCost: 2,
+    classTags: ['mage'],
+    description: '短暂撕裂空间，创造一条通往附近地点的临时通道。极其危险，使用不当可能导致迷失在裂隙中。',
+    learnRequirements: { minLevel: 18, attributes: { int: 16 }, prerequisiteSkills: ['mana_blast', 'arcane_lock'] },
+    castRequirements: { mpCost: 20, maxHpCost: 5, oncePerRest: true },
+  },
+  grand_prophecy: {
+    id: 'grand_prophecy',
+    name: '大预言术',
+    type: 'ritual', rarity: 'legendary', slotCost: 3,
+    classTags: ['mage'],
+    description: '窥见未来的一条关键线索、灾难预兆或隐藏真相。消耗极大，但可能改变整个故事的走向。',
+    learnRequirements: { minLevel: 21, attributes: { int: 16, wis: 16 }, prerequisiteSkills: ['magic_sense', 'read_runes'] },
+    castRequirements: { mpCost: 20, maxHpCost: 10, oncePerRest: true },
+    effectsDescription: 'GM根据当前剧情给出一个关键预兆或隐藏真相，但施法者永久失去10点 HP 上限。',
+  },
+
+  // ===== 剑士高级 =====
+  armor_break: {
+    id: 'armor_break',
+    name: '破甲斩',
+    type: 'combat', rarity: 'uncommon', slotCost: 1,
+    classTags: ['warrior'],
+    description: '针对敌人的护甲弱点进行精准打击，无视部分护甲。',
+    learnRequirements: { minLevel: 5, attributes: { str: 10 } },
+    castRequirements: { mpCost: 3, requiresWeaponType: 'sword' },
+  },
+  counter_strike: {
+    id: 'counter_strike',
+    name: '反击',
+    type: 'reaction', rarity: 'uncommon', slotCost: 1,
+    classTags: ['warrior'],
+    description: '在成功格挡后立即反击，造成额外伤害。',
+    learnRequirements: { minLevel: 7, attributes: { str: 12 }, prerequisiteSkills: ['shield_block'] },
+    castRequirements: { mpCost: 5, requiresEquipment: 'shield' },
+  },
+
+  // ===== 牧师高级 =====
+  purification: {
+    id: 'purification',
+    name: '净化',
+    type: 'magic', rarity: 'uncommon', slotCost: 1,
+    classTags: ['priest'],
+    description: '净化目标身上的毒素、诅咒或疾病。对强力诅咒只能部分缓解。',
+    learnRequirements: { minLevel: 5, attributes: { wis: 10 } },
+    castRequirements: { mpCost: 6, requiresEquipment: 'holy_symbol' },
+  },
+  holy_shield: {
+    id: 'holy_shield',
+    name: '圣盾',
+    type: 'magic', rarity: 'uncommon', slotCost: 1,
+    classTags: ['priest'],
+    description: '以圣光形成护盾，保护目标免受一次伤害。',
+    learnRequirements: { minLevel: 7, attributes: { wis: 12 } },
+    castRequirements: { mpCost: 8, requiresEquipment: 'holy_symbol' },
+  },
+
+  // ===== 盗贼高级 =====
+  shadow_step: {
+    id: 'shadow_step',
+    name: '暗影步',
+    type: 'active', rarity: 'uncommon', slotCost: 1,
+    classTags: ['thief'],
+    description: '在阴影中瞬间位移到附近位置，不被敌人察觉。',
+    learnRequirements: { minLevel: 5, attributes: { dex: 10 }, prerequisiteSkills: ['stealth'] },
+    castRequirements: { mpCost: 4 },
+  },
+  poison_blade: {
+    id: 'poison_blade',
+    name: '毒刃',
+    type: 'combat', rarity: 'uncommon', slotCost: 1,
+    classTags: ['thief'],
+    description: '在武器上涂毒，命中后使目标中毒。',
+    learnRequirements: { minLevel: 7, attributes: { dex: 12 } },
+    castRequirements: { mpCost: 3, requiresWeaponType: 'dagger' },
   },
 };
 

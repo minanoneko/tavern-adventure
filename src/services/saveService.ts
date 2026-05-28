@@ -78,6 +78,16 @@ export function loadGame(): SaveFile | null {
     if (!saved.worldState.combatState) {
       saved.worldState.combatState = { active: false };
     }
+    // Skills migration
+    if (!saved.player.skills.equipped) {
+      (saved.player.skills as any).equipped = [...(saved.player.skills.learned || [])];
+    }
+    if (!saved.player.skills.maxSlots) {
+      (saved.player.skills as any).maxSlots = 7;
+    }
+    if (saved.player.skills.learnTokens === undefined) {
+      (saved.player.skills as any).learnTokens = 0;
+    }
     return saved;
   } catch (e) {
     console.error('Failed to load game:', e);

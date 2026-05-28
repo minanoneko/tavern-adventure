@@ -135,9 +135,12 @@ export function createDefaultPlayer(data: CharacterCreationData, race: Race, cla
     },
     inventory: [],
     skills: {
-      learned: classOrigin.skills,
+      learned: [...classOrigin.skills],
       discovered: [],
       locked: [],
+      equipped: [...classOrigin.skills],
+      maxSlots: 7,
+      learnTokens: 0,
     },
     relationships: [],
     quests: [],
