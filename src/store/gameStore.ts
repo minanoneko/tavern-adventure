@@ -278,7 +278,14 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
         }
       }
-      // 2.6 Apply MP/HP cost locally (AI doesn't do this anymore)
+      // 2.6 Award base exp based on action type (AI doesn't do this)
+      const expAward = getExpAward(playerAction, judgeResult);
+      if (expAward > 0) {
+        player.exp += expAward;
+        logs.push({ id: `exp_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `经验 +${expAward}` });
+      }
+
+      // 2.7 Apply MP/HP cost locally (AI doesn't do this anymore)
       const totalMpCost = playerAction.mpCost || skillMpCost || judgeResult.consumption?.mp || 0;
       const totalHpCost = skillHpCost || judgeResult.consumption?.hp || 0;
       if (totalMpCost > 0 || totalHpCost > 0) {
@@ -392,3 +399,32 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearError: () => set({ errorMessage: null, lastAIResult: null }),
 }));
+
+/** Award base exp per action type. AI does not control exp anymore. */
+function getExpAward(action: PlayerAction, judge: JudgeResult): number {
+  // Base exp by action type
+  const base: Record<string, number> = {
+    combat: 20,
+    exploration: 12,
+    check: 10,
+    dialogue: 5,
+    social: 8,
+    stealth: 10,
+    travel: 8,
+    skill: 10,
+    magic: 10,
+    cautious: 2,
+    item: 2,
+    trade: 3,
+  };
+  let exp = base[action.type] || 5;
+
+  // Outcome multiplier
+  if (judge.outcome === '大成功') exp = Math.floor(exp * 1.5);
+  else if (judge.outcome === '成功') exp = exp;
+  else if (judge.outcome === '部分成功') exp = Math.floor(exp * 0.8);
+  else if (judge.outcome === '失败') exp = Math.floor(exp * 0.3);
+  else if (judge.outcome === '大失败') exp = 0;
+
+  return Math.max(0, exp);
+}
