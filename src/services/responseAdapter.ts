@@ -196,14 +196,22 @@ export function extractJsonObject(text: string): string {
   let clean = text.trim();
   // Remove <think>...</think> blocks (DeepSeek R1 reasoning)
   clean = clean.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  // Remove residual `<thinking>` or `【思考】` blocks
   clean = clean.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
   // ```json ... ```
   const block = clean.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (block) return block[1].trim();
+  if (block) {
+    clean = block[1].trim();
+  }
   // `...`
   const inline = clean.match(/^`({[\s\S]*})`$/);
-  if (inline) return inline[1].trim();
+  if (inline) {
+    clean = inline[1].trim();
+  }
+  // If text starts with non-JSON characters (Chinese preamble), find first {
+  const firstBrace = clean.indexOf('{');
+  if (firstBrace > 0) {
+    clean = clean.slice(firstBrace);
+  }
   return clean;
 }
 
