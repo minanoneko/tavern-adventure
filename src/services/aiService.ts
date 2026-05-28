@@ -107,8 +107,8 @@ async function sendAIRequest(
       temperature: 0.3,
       max_tokens: maxTokens,
     };
-    // JSON mode if enabled in settings
-    if ((settings as any).useJsonMode) {
+    // JSON mode only for OpenAI-compatible APIs (NOT DeepSeek)
+    if ((settings as any).useJsonMode && !settings.apiBaseUrl.includes('deepseek')) {
       body.response_format = { type: 'json_object' };
     }
 
@@ -142,7 +142,15 @@ async function sendAIRequest(
     logResponse(content || '', elapsed);
 
     if (!content) {
-      return { success: false, error: { type: 'parse_error', message: 'AI 返回内容为空。' } };
+      // Log raw response for debugging
+      console.error('[AI] Empty content. Full response:', JSON.stringify(data).slice(0, 500));
+      const finishReason = data.choices?.[0]?.finish_reason || 'unknown';
+      let hint = '';
+      if (finishReason === 'length') hint = '（输出被截断，可能需要提高 max_tokens）';
+      else if (finishReason === 'content_filter') hint = '（内容被过滤）';
+      else if (finishReason === 'stop') hint = '（模型提前停止）';
+      else hint = `（finish_reason: ${finishReason}）`;
+      return { success: false, error: { type: 'parse_error', message: `AI 返回内容为空。${hint}`, details: JSON.stringify(data).slice(0, 300) } };
     }
 
     // Single-pass: normalizeAndComplete handles JSON extraction internally
