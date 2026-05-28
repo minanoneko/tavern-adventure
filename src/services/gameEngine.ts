@@ -219,6 +219,7 @@ function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]
 
   for (const update of response.questUpdate) {
     const existingIdx = p.quests.findIndex(q => q.id === update.id);
+    const oldStatus = existingIdx >= 0 ? p.quests[existingIdx].status : null;
     const quest = {
       id: update.id,
       name: update.name,
@@ -235,9 +236,39 @@ function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]
       p.quests.push(quest);
     }
     logs.push(createLogEntry('quest', `任务：${update.name}（${update.status}）`));
+
+    // Award exp + money on quest completion
+    if (update.status === 'completed' && oldStatus !== 'completed' && update.rewards) {
+      if (update.rewards.exp) {
+        p.exp += update.rewards.exp;
+        logs.push(createLogEntry('quest', `任务奖励：经验 +${update.rewards.exp}`));
+      }
+      if (update.rewards.money) {
+        p.money = addMoneyToPlayer(p.money, update.rewards.money);
+        const m = update.rewards.money;
+        const parts = [];
+        if (m.gold) parts.push(`${m.gold}金`);
+        if (m.silver) parts.push(`${m.silver}银`);
+        if (m.copper) parts.push(`${m.copper}铜`);
+        if (parts.length > 0) logs.push(createLogEntry('quest', `任务奖励：${parts.join(' ')}`));
+      }
+    }
   }
 
   return p;
+}
+
+function addMoneyToPlayer(current: { gold: number; silver: number; copper: number }, reward: { gold?: number; silver?: number; copper?: number }): { gold: number; silver: number; copper: number } {
+  const m = { ...current };
+  m.copper += reward.copper || 0;
+  m.silver += reward.silver || 0;
+  m.gold += reward.gold || 0;
+  while (m.copper < 0) { m.copper += 100; m.silver -= 1; }
+  while (m.copper >= 100) { m.copper -= 100; m.silver += 1; }
+  while (m.silver < 0) { m.silver += 100; m.gold -= 1; }
+  while (m.silver >= 100) { m.silver -= 100; m.gold += 1; }
+  if (m.gold < 0) m.gold = 0;
+  return m;
 }
 
 function applySkillUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
