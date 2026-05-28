@@ -95,7 +95,7 @@ async function generateWithAI(
         model: settings.apiModel,
         messages,
         temperature: 0.3,
-        max_tokens: 1000,
+        max_tokens: 1500,
         ...(settings.useJsonMode ? { response_format: { type: 'json_object' as const } } : {}),
       }),
       signal: controller.signal,

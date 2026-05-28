@@ -41,11 +41,11 @@ function logResponse(content: string, elapsed: number): void {
 /** Pick max_tokens based on event type */
 function getMaxTokensByAction(action: PlayerAction): number {
   switch (action.type) {
-    case 'combat': return 1200;
-    case 'exploration': return 1100;
+    case 'combat': return 1500;
+    case 'exploration': return 1300;
     case 'dialogue':
-    case 'social': return 1000;
-    default: return 900;
+    case 'social': return 1200;
+    default: return 1100;
   }
 }
 
@@ -146,10 +146,10 @@ async function sendAIRequest(
       console.error('[AI] Empty content. Full response:', JSON.stringify(data).slice(0, 500));
       const finishReason = data.choices?.[0]?.finish_reason || 'unknown';
       let hint = '';
-      if (finishReason === 'length') hint = '（输出被截断，可能需要提高 max_tokens）';
-      else if (finishReason === 'content_filter') hint = '（内容被过滤）';
-      else if (finishReason === 'stop') hint = '（模型提前停止）';
-      else hint = `（finish_reason: ${finishReason}）`;
+      if (finishReason === 'length') hint = '（AI输出被截断，请重试）';
+      else if (finishReason === 'content_filter') hint = '（内容被安全审查拦截，请换种表述方式）';
+      else if (finishReason === 'stop') hint = '（模型提前停止，请重试）';
+      else hint = `（状态: ${finishReason}，请重试）`;
       return { success: false, error: { type: 'parse_error', message: `AI 返回内容为空。${hint}`, details: JSON.stringify(data).slice(0, 300) } };
     }
 
