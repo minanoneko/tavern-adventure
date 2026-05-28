@@ -251,14 +251,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
 
-      // 1.5 Detect non-fantasy content in custom input
-      if (playerAction.isCustom && playerAction.customText) {
-        const nonFantasy = detectNonFantasy(playerAction.customText);
-        if (nonFantasy.length > 0) {
-          logs.push({ id: `warn_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `⚠ 检测到非奇幻元素：${nonFantasy.join('、')}。AI将按奇幻世界观处理。` });
-        }
-      }
-
       // 2. Judge — only if action needs a check
       const doCheck = needsCheck(playerAction);
       const judgeResult = doCheck ? evaluate(player, playerAction, worldState) : {
@@ -469,19 +461,6 @@ function resolveCombat(player: Player, enemy: CombatEnemy): { playerDamage: numb
     (enemyDefeated ? ' ✓击败!' : '');
 
   return { playerDamage: enemyDmg, enemyDefeated, log };
-}
-
-/** Detect non-fantasy keywords in player input */
-function detectNonFantasy(text: string): string[] {
-  const banned = [
-    '手枪', '步枪', '机枪', '子弹', '炸弹', '导弹',
-    '手机', '电话', '电脑', '网络', 'wifi',
-    '汽车', '飞机', '火车', '坦克', '火箭',
-    '灵力', '修仙', '金丹', '元婴', '渡劫', '飞升', '仙界',
-    '太空', '飞船', '外星', '激光', '机器人', '机甲',
-    '核弹', 'AK47', 'M4A1',
-  ];
-  return banned.filter(w => text.includes(w));
 }
 
 function getMoneyChange(action: PlayerAction, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
