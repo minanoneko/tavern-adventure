@@ -17,6 +17,7 @@ import { getMockResponse } from '../data/mockEventPool';
 import { generateOpeningEvent } from '../services/openingService';
 import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLogs, getLongTermSummary, getGameFlags, loadMemoryFromSave, formatSummaryForAI } from '../services/memoryService';
 import { getEquipmentById } from '../data/equipment';
+import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 import type { CombatEnemy } from '../types/ai';
 
 export type GamePhase = 'start' | 'create' | 'game';
@@ -261,17 +262,29 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (playerAction.isCustom && playerAction.customText) {
         playerAction = validateCustomSkillIntent(playerAction, player);
       }
-      // Resolve skill costs
+      // Resolve skill costs with canCastSkill check
       let skillMpCost = 0;
       let skillHpCost = 0;
       if (playerAction.relatedSkill) {
         const skill = getSkillById(playerAction.relatedSkill);
-        if (skill && player.skills.learned.includes(skill.id)) {
+        if (!skill || !player.skills.learned.includes(skill.id)) {
+          playerAction.relatedSkill = undefined;
+        } else if (!canCastSkill(skill, player)) {
+          const reasons = getSkillLockReasons(skill, player);
+          logs.push({ id: `skill_block_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `技能"${skill.name}"无法释放：${reasons.join('、')}` });
+          if (playerAction.isCustom) {
+            playerAction.customText = `玩家尝试使用技能"${skill.name}"但本地规则判定无效（${reasons.join('、')}）。请生成失败或无效后果。`;
+          }
+          playerAction.relatedSkill = undefined;
+        } else {
           skillMpCost = skill.castRequirements.mpCost || 0;
           skillHpCost = skill.castRequirements.hpCost || 0;
-        } else {
-          // AI suggested an unlearned skill — user typed it, invalid
-          playerAction.relatedSkill = undefined;
+          // Check MP sufficiency
+          if (player.resources.mp < skillMpCost) {
+            logs.push({ id: `mp_block_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `MP不足（需${skillMpCost}，当前${player.resources.mp}），技能释放失败。` });
+            playerAction.relatedSkill = undefined;
+            skillMpCost = 0;
+          }
         }
       }
 
@@ -462,6 +475,22 @@ export const useGameStore = create<GameState>((set, get) => ({
 }));
 
 /** Money only changes for rest costs. Income comes from quests and text parsing. */
+/** Whitelist of items that have local effects */
+const ITEM_EFFECTS: Record<string, (player: Player, _: PlayerAction, logs: LogEntry[]) => { hpDelta: number; mpDelta: number; damageBonus: number; consume: boolean; log: string }> = {
+  healing_potion: (p, _a, logs) => ({
+    hpDelta: 5, mpDelta: 0, damageBonus: 0, consume: true,
+    log: 'HP +5（治疗药水）',
+  }),
+  fire_bomb: (_p, _a, logs) => ({
+    hpDelta: 0, mpDelta: 0, damageBonus: 6, consume: true,
+    log: '额外火焰伤害 +6（燃烧瓶）',
+  }),
+  smoke_bomb: (_p, _a, logs) => ({
+    hpDelta: 0, mpDelta: 0, damageBonus: 0, consume: true,
+    log: '烟雾遮蔽，潜行/逃跑判定+4',
+  }),
+};
+
 /** Roll a d20 */
 function d20(): number { return Math.floor(Math.random() * 20) + 1; }
 /** Attribute modifier = (value - 10) / 2, rounded down */

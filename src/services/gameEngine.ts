@@ -70,8 +70,7 @@ export function applyAIResponse(
   let didLevelUp = false;
   let newLevel: number | undefined;
 
-  // 0. Scan narrative text for money and HP changes
-  updatedPlayer = parseMoneyFromNarrative(updatedPlayer, response.scene.text, logs);
+  // 0. Scan narrative text for HP changes only (money from explicit sources only)
   updatedPlayer = parseHPFromNarrative(updatedPlayer, response.scene.text, logs);
 
   // 1. Log scene
