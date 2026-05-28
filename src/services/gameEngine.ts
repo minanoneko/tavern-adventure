@@ -154,7 +154,7 @@ function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[
 }
 
 function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
-  const p = { ...player, inventory: [...player.inventory] };
+  const p = { ...player, inventory: [...player.inventory], money: { ...player.money } };
   const equipLib = ['old_wooden_staff', 'apprentice_robe', 'old_magic_note', 'short_bow', 'hunting_knife',
     'leather_armor', 'iron_sword', 'old_round_shield', 'chainmail', 'dagger', 'black_cloak',
     'lockpick_tools', 'smoke_bomb', 'rusty_greatsword', 'elven_bow', 'holy_symbol',
@@ -185,6 +185,22 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
       // DEFENSE: Epic/legendary/relic → always quest_item unless known
       if (['epic', 'legendary', 'relic'].includes(itemRarity)) {
         itemType = 'quest_item';
+      }
+
+      // Convert coin items to actual money
+      const coinName = update.name || '';
+      const isCoin = coinName.includes('金币') || coinName.includes('银币') || coinName.includes('铜币') || itemType === 'money';
+      if (isCoin) {
+        let coinValue = update.quantity || 1;
+        if (coinName.includes('金币')) p.money.gold += coinValue;
+        else if (coinName.includes('银币')) p.money.silver += coinValue;
+        else p.money.copper += coinValue;
+        // Normalize
+        while (p.money.copper >= 100) { p.money.copper -= 100; p.money.silver += 1; }
+        while (p.money.silver >= 100) { p.money.silver -= 100; p.money.gold += 1; }
+        while (p.money.copper < 0) { p.money.copper += 100; p.money.silver -= 1; }
+        logs.push(createLogEntry('item', `获得：${coinName} x${update.quantity}`));
+        continue;
       }
 
       const existing = p.inventory.find(i => i.id === update.itemId);

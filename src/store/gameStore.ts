@@ -418,62 +418,38 @@ export const useGameStore = create<GameState>((set, get) => ({
   clearError: () => set({ errorMessage: null, lastAIResult: null }),
 }));
 
-/** Award base exp per action type. AI does not control exp anymore. */
+/** Award exp only for meaningful actions that involve risk/skill/combat. */
 function getExpAward(action: PlayerAction, judge: JudgeResult): number {
-  // Base exp by action type
+  // Only award exp when action requires a check or is combat
+  const awardTypes = ['combat', 'exploration', 'check', 'stealth', 'skill', 'magic'];
+  if (!awardTypes.includes(action.type)) return 0;
+
+  // Must have successful engagement
+  if (judge.dc === 0 && judge.roll === 0 && action.type !== 'combat') return 0;
+
   const base: Record<string, number> = {
-    combat: 20,
-    exploration: 12,
-    check: 10,
-    dialogue: 5,
-    social: 8,
-    stealth: 10,
-    travel: 8,
-    skill: 10,
-    magic: 10,
-    cautious: 2,
-    item: 2,
-    trade: 3,
+    combat: 25,
+    exploration: 10,
+    check: 8,
+    stealth: 12,
+    skill: 8,
+    magic: 8,
   };
   let exp = base[action.type] || 5;
 
-  // Outcome multiplier
   if (judge.outcome === '大成功') exp = Math.floor(exp * 1.5);
-  else if (judge.outcome === '成功') exp = exp;
-  else if (judge.outcome === '部分成功') exp = Math.floor(exp * 0.8);
-  else if (judge.outcome === '失败') exp = Math.floor(exp * 0.3);
   else if (judge.outcome === '大失败') exp = 0;
+  else if (judge.outcome === '失败') exp = Math.floor(exp * 0.3);
 
   return Math.max(0, exp);
 }
 
-/** Award small money based on action type. Main income comes from quest rewards, not per-action. */
-function getMoneyChange(action: PlayerAction, judge: JudgeResult): { gold: number; silver: number; copper: number } {
-  // Very small amounts — most money comes from quests
-  const base: Record<string, number> = {
-    combat: 5,       // 5 copper from loot
-    exploration: 3,
-    check: 2,
-    dialogue: 1,
-    social: 3,
-    stealth: 8,      // thief bonus
-    travel: 1,
-    skill: 2,
-    magic: 1,
-    cautious: 0,
-    item: 0,
-    trade: 5,
-  };
-  let copper = base[action.type] || 1;
-
-  // Outcome bonus
-  if (judge.outcome === '大成功') copper = Math.floor(copper * 2);
-  else if (judge.outcome === '大失败') copper = 0;
-
+/** Money only changes for rest costs. Income comes from quests and loot items. */
+function getMoneyChange(action: PlayerAction, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
   // Resting costs money
   if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {
     return { gold: 0, silver: 0, copper: -5 };
   }
-
-  return { gold: 0, silver: 0, copper: Math.max(0, copper) };
+  // No per-action money — income comes from quest completion rewards
+  return { gold: 0, silver: 0, copper: 0 };
 }
