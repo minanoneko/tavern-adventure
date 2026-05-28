@@ -86,6 +86,7 @@ const MinimalAIResponseSchema = z.object({
   mapUpdate: z.array(MinimalMapUpdateSchema).optional().default([]),
   worldBroadcasts: z.array(MinimalWorldBroadcastSchema).optional().default([]),
   memoryUpdate: MinimalAIMemoryUpdateSchema.optional().default({}),
+  enemy: z.any().optional(),
 });
 
 /** Ultra-lenient fallback: accept ANY object with scene and actionOptions */
@@ -100,6 +101,7 @@ const LenientAIResponseSchema = z.object({
   mapUpdate: z.any().optional(),
   worldBroadcasts: z.any().optional(),
   memoryUpdate: z.any().optional(),
+  enemy: z.any().optional(),
 });
 
 // ========== Snake→Camel map ==========
@@ -275,6 +277,7 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       currentLocationId: (partial.memoryUpdate as any)?.currentLocationId || undefined,
       knownLocations: (partial.memoryUpdate as any)?.knownLocations || undefined,
     },
+    enemy: (partial.enemy as any) || undefined,
   };
 
   return completed;

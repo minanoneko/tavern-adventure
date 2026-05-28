@@ -70,8 +70,9 @@ export function applyAIResponse(
   let didLevelUp = false;
   let newLevel: number | undefined;
 
-  // 0. Scan narrative text for money
+  // 0. Scan narrative text for money and HP changes
   updatedPlayer = parseMoneyFromNarrative(updatedPlayer, response.scene.text, logs);
+  updatedPlayer = parseHPFromNarrative(updatedPlayer, response.scene.text, logs);
 
   // 1. Log scene
   logs.push(createLogEntry('narrative', `【${response.scene.title}】${response.scene.text.slice(0, 100)}...`));
@@ -343,6 +344,49 @@ function parseMoneyFromNarrative(player: Player, text: string, logs: LogEntry[])
     if (s > 0) parts.push(`${sign}${s}银`);
     if (c > 0) parts.push(`${sign}${c}铜`);
     if (parts.length > 0) logs.push(createLogEntry('system', `金钱 ${parts.join(' ')}（从文本解析）`));
+  }
+
+  return p;
+}
+
+/** Parse HP loss from narrative (受伤、HP减少等) */
+function parseHPFromNarrative(player: Player, text: string, logs: LogEntry[]): Player {
+  const p = { ...player, resources: { ...player.resources } };
+  let hpChange = 0;
+
+  // Damage patterns: "造成了X点伤害", "受了重伤", "HP -X", "失去X点生命"
+  const damagePatterns = [
+    /(?:造成|受到|受了|扣了|失去|损失|掉了).*?(\d+)\s*(?:点)?\s*(?:伤害|HP|生命|血)/g,
+    /HP\s*[-−]\s*(\d+)/gi,
+    /(?:受了|受了).{0,2}(重伤|轻伤|中等伤)/g,
+  ];
+
+  for (const pattern of damagePatterns) {
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      if (m[1] === '重伤') hpChange -= 8;
+      else if (m[1] === '轻伤') hpChange -= 2;
+      else if (m[1] === '中等伤') hpChange -= 5;
+      else hpChange -= parseInt(m[1]) || 0;
+    }
+  }
+
+  // Healing patterns: "恢复了X点", "HP +X"
+  const healPatterns = [
+    /(?:恢复|回复|治疗|治愈).*?(\d+)\s*(?:点)?\s*(?:HP|生命|血)/g,
+    /HP\s*\+\s*(\d+)/gi,
+  ];
+  for (const pattern of healPatterns) {
+    let m: RegExpExecArray | null;
+    while ((m = pattern.exec(text)) !== null) {
+      hpChange += parseInt(m[1]) || 0;
+    }
+  }
+
+  if (hpChange !== 0) {
+    p.resources.hp = Math.max(0, Math.min(p.resources.maxHp, p.resources.hp + hpChange));
+    const sign = hpChange > 0 ? '+' : '';
+    logs.push(createLogEntry('system', `HP ${sign}${hpChange}（从文本解析）`));
   }
 
   return p;

@@ -17,6 +17,7 @@ import { getMockResponse } from '../data/mockEventPool';
 import { generateOpeningEvent } from '../services/openingService';
 import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLogs, getLongTermSummary, getGameFlags, loadMemoryFromSave, formatSummaryForAI } from '../services/memoryService';
 import { getEquipmentById } from '../data/equipment';
+import type { CombatEnemy } from '../types/ai';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
@@ -250,6 +251,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
 
+      // 1.5 Detect non-fantasy content in custom input
+      if (playerAction.isCustom && playerAction.customText) {
+        const nonFantasy = detectNonFantasy(playerAction.customText);
+        if (nonFantasy.length > 0) {
+          logs.push({ id: `warn_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `⚠ 检测到非奇幻元素：${nonFantasy.join('、')}。AI将按奇幻世界观处理。` });
+        }
+      }
+
       // 2. Judge — only if action needs a check
       const doCheck = needsCheck(playerAction);
       const judgeResult = doCheck ? evaluate(player, playerAction, worldState) : {
@@ -314,6 +323,17 @@ export const useGameStore = create<GameState>((set, get) => ({
         player, worldState, playerAction, judgeResult,
         logs, eventHistory, { ...settings, customGMRules: settings.customGMRules }
       );
+
+      // 3.5 Combat resolution: if AI generated an enemy, resolve fight locally
+      if (aiResult.success && aiResult.response && aiResult.response.enemy && playerAction.type === 'combat') {
+        const combatResult = resolveCombat(player, aiResult.response.enemy);
+        // Apply combat damage to player before gameEngine processing
+        player.resources.hp = Math.max(0, player.resources.hp - combatResult.playerDamage);
+        logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.log });
+        if (combatResult.playerDamage > 0) {
+          logs.push({ id: `hp_dmg_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${combatResult.playerDamage}（战斗伤害）` });
+        }
+      }
 
       // 4. Handle AI result
       if (aiResult.success && aiResult.response) {
@@ -414,6 +434,56 @@ export const useGameStore = create<GameState>((set, get) => ({
 }));
 
 /** Money only changes for rest costs. Income comes from quests and text parsing. */
+/** Roll a d20 */
+function d20(): number { return Math.floor(Math.random() * 20) + 1; }
+/** Attribute modifier = (value - 10) / 2, rounded down */
+function attrMod(val: number): number { return Math.floor((val - 10) / 2); }
+
+/** Resolve combat between player and AI-generated enemy */
+function resolveCombat(player: Player, enemy: CombatEnemy): { playerDamage: number; enemyDefeated: boolean; log: string } {
+  // Player attack
+  const playerAtkRoll = d20() + attrMod(player.attributes.str);
+  const enemyDef = 10 + attrMod(enemy.dex);
+  const playerHit = playerAtkRoll >= enemyDef;
+  let playerDmg = 0;
+  if (playerHit) {
+    // Base damage from weapon type + strength mod
+    playerDmg = Math.max(1, 3 + attrMod(player.attributes.str));
+    enemy.hp -= playerDmg;
+  }
+
+  // Enemy attack
+  const enemyAtkRoll = d20() + attrMod(enemy.str);
+  const playerDef = 10 + attrMod(player.attributes.dex);
+  const enemyHit = enemyAtkRoll >= playerDef;
+  let enemyDmg = 0;
+  if (enemyHit) {
+    enemyDmg = Math.max(1, 2 + attrMod(enemy.str));
+  }
+
+  const enemyDefeated = enemy.hp <= 0;
+  const log = `⚔ vs ${enemy.name} | ` +
+    `玩家掷${playerAtkRoll}${playerHit ? '命中' : '未中'}(${playerDmg}伤) | ` +
+    `敌人掷${enemyAtkRoll}${enemyHit ? `命中(${enemyDmg}伤)` : '未中'} | ` +
+    `敌人HP${Math.max(0, enemy.hp)}/${enemy.maxHp}` +
+    (enemyDefeated ? ' ✓击败!' : '');
+
+  return { playerDamage: enemyDmg, enemyDefeated, log };
+}
+
+/** Detect non-fantasy keywords in player input */
+function detectNonFantasy(text: string): string[] {
+  const banned = [
+    '手枪', '步枪', '机枪', '子弹', '炸弹', '导弹',
+    '手机', '电话', '电脑', '网络', 'wifi',
+    '汽车', '飞机', '火车', '坦克', '火箭',
+    '灵力', '修仙', '金丹', '元婴', '渡劫', '飞升', '仙界',
+    '太空', '飞船', '外星', '激光', '机器人', '机甲',
+    '核弹', 'AK47', 'M4A1',
+  ];
+  return banned.filter(w => text.includes(w));
+}
+
 function getMoneyChange(action: PlayerAction, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
   // Resting costs money
   if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {

@@ -14,7 +14,8 @@ export const JSON_FORMAT_PROMPT = `你必须只输出合法 JSON 对象。不要
 
 可选字段（有变化才返回，无变化不返回）：
 - systemEvents, questUpdate, inventoryUpdate, relationshipUpdate, mapUpdate, worldBroadcasts, memoryUpdate
+- enemy（战斗中必填）: {"name":"敌人名","str":6,"dex":5,"con":4,"hp":12,"maxHp":12,"level":2}
 
-actionOptions格式（简化）：
+actionOptions格式：
 [{"label":"选项","type":"dialogue","risk":"low","relatedSkill":null}]`;
 

@@ -118,6 +118,18 @@ export interface MemoryUpdate {
   knownLocations?: string[];
 }
 
+// ========== Combat Enemy ==========
+export interface CombatEnemy {
+  name: string;
+  str: number;
+  dex: number;
+  con: number;
+  hp: number;
+  maxHp: number;
+  level: number;
+  description?: string;
+}
+
 // ========== AI Response ==========
 export interface AIResponse {
   scene: Scene;
@@ -134,6 +146,7 @@ export interface AIResponse {
   mapUpdate: MapUpdate[];
   worldBroadcasts: WorldBroadcast[];
   memoryUpdate: MemoryUpdate;
+  enemy?: CombatEnemy;
 }
 
 // ========== AI Result (after processing) ==========
