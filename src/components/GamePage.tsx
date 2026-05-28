@@ -120,6 +120,13 @@ export default function GamePage() {
           <span className="text-base">💬</span>
           <span>关系</span>
         </button>
+        <button
+          className="flex-1 py-2 text-xs flex flex-col items-center gap-0.5 text-muted"
+          onClick={() => setShowSettings(true)}
+        >
+          <span className="text-base">⚙️</span>
+          <span>设置</span>
+        </button>
       </div>
 
       {/* Level Up Modal */}
