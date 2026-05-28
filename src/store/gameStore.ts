@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   Player, WorldState, AIResponse, LogEntry,
-  CharacterCreationData, PlayerAction, JudgeResult, AIResult,
+  CharacterCreationData, PlayerAction, JudgeResult, AIResult, ActionOption,
 } from '../types';
 import { createDefaultPlayer } from '../types/character';
 import { createDefaultWorldState } from '../types/common';
@@ -257,7 +257,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         outcome: '成功' as const, roll: 0, dc: 0, modifier: 0, notes: '无需判定',
       };
 
-      // 2.5 Resolve skill cost from relatedSkill (AI doesn't send mpCost)
+      // 2.5 Skill validation & custom skill detection
+      if (playerAction.isCustom && playerAction.customText) {
+        playerAction = validateCustomSkillIntent(playerAction, player);
+      }
+      // Resolve skill costs
       let skillMpCost = 0;
       let skillHpCost = 0;
       if (playerAction.relatedSkill) {
@@ -265,21 +269,25 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (skill && player.skills.learned.includes(skill.id)) {
           skillMpCost = skill.castRequirements.mpCost || 0;
           skillHpCost = skill.castRequirements.hpCost || 0;
+        } else {
+          // AI suggested an unlearned skill — user typed it, invalid
+          playerAction.relatedSkill = undefined;
         }
       }
-      // Also detect skill usage from custom text
-      if (playerAction.isCustom && playerAction.customText && !playerAction.relatedSkill) {
-        for (const sid of player.skills.learned) {
-          const skill = getSkillById(sid);
-          if (skill && playerAction.customText.includes(skill.name)) {
-            playerAction.relatedSkill = skill.id;
-            skillMpCost = skill.castRequirements.mpCost || 0;
-            skillHpCost = skill.castRequirements.hpCost || 0;
-            break;
-          }
+
+      // 2.6 Local healing & potion effects
+      const healResult = applyLocalHealEffect(player, playerAction, logs);
+      if (healResult.hpHealed > 0 || healResult.potionUsed) {
+        player.resources.hp = Math.min(player.resources.maxHp, player.resources.hp + healResult.hpHealed);
+        player.resources.mp = Math.min(player.resources.maxMp, player.resources.mp + healResult.mpRestored);
+        if (healResult.potionUsed) {
+          player.inventory = player.inventory.map(i =>
+            i.id === 'healing_potion' ? { ...i, quantity: i.quantity - 1 } : i
+          ).filter(i => i.quantity > 0);
         }
       }
-      // 2.6 Exp and money changes (only quest completion and rest costs)
+
+      // 2.8 Exp and money changes (only quest completion and rest costs)
       const moneyAward = getMoneyChange(playerAction, judgeResult);
       if (moneyAward.copper !== 0 || moneyAward.silver !== 0 || moneyAward.gold !== 0) {
         player.money.copper += moneyAward.copper;
@@ -316,34 +324,59 @@ export const useGameStore = create<GameState>((set, get) => ({
         logs, eventHistory, { ...settings, customGMRules: settings.customGMRules }
       );
 
-      // 3.5 Combat resolution: enemy attacks every turn when combat is active
-      if (aiResult.success && aiResult.response && aiResult.response.enemy) {
-        // Enemy always attacks when present (not just on player's combat actions)
-        const combatResult = resolveCombat(player, aiResult.response.enemy);
+      // 3.5 Filter AI options: remove unlearned skills
+      if (aiResult.success && aiResult.response) {
+        aiResult.response.actionOptions = filterAIOptions(aiResult.response.actionOptions, player);
+      }
+
+      // 3.6 Combat: carry over enemy from worldState if AI didn't return one
+      if (worldState.combatState.active && worldState.combatState.enemy) {
+        if (aiResult.success && aiResult.response && !aiResult.response.enemy) {
+          (aiResult.response as any).enemy = worldState.combatState.enemy;
+        }
+      }
+
+      // 3.7 Combat resolution with persistent combatState
+      const currentEnemy = aiResult.success && aiResult.response?.enemy ? aiResult.response.enemy : null;
+      if (currentEnemy) {
+        const combatResult = resolveCombatV2(player, currentEnemy);
         player.resources.hp = Math.max(0, player.resources.hp - combatResult.playerDamage);
         logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.log });
         if (combatResult.playerDamage > 0) {
           logs.push({ id: `hp_dmg_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${combatResult.playerDamage}（战斗伤害）` });
         }
         if (combatResult.enemyDefeated) {
-          logs.push({ id: `kill_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `✓ 击败了${aiResult.response.enemy.name}！` });
+          logs.push({ id: `kill_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `✓ 击败了${currentEnemy.name}！` });
+          worldState.combatState = { active: false };
+        } else {
+          worldState.combatState = { active: true, enemy: combatResult.enemy };
         }
+        // Update the enemy in AI response for gameEngine
+        if (aiResult.response) {
+          (aiResult.response as any).enemy = combatResult.enemy;
+        }
+      } else if (worldState.combatState.active) {
+        // No enemy in AI response but combat is active → clear stale combat
+        worldState.combatState = { active: false };
       }
 
       // 4. Handle AI result
       if (aiResult.success && aiResult.response) {
         const engineResult = applyAIResponse(aiResult.response, player, worldState, logs);
 
+        // Ensure combatState changes are preserved
+        const finalWorldState = { ...engineResult.worldState, combatState: worldState.combatState };
+
         // Update long-term memory
         extractImportantFacts(aiResult.response);
-        updateLongTermSummary(engineResult.player, engineResult.worldState, engineResult.logs);
+        updateLongTermSummary(engineResult.player, finalWorldState, engineResult.logs);
         const trimmedLogs = trimRecentLogs(engineResult.logs);
         const newEventHistory = [...eventHistory, aiResult.response].slice(-50);
         const newActionCount = (get().actionCount || 0) + 1;
 
         set({
           player: engineResult.player,
-          worldState: engineResult.worldState,
+          worldState: finalWorldState,
           currentEvent: aiResult.response,
           eventHistory: newEventHistory,
           logs: trimmedLogs,
@@ -434,17 +467,18 @@ function d20(): number { return Math.floor(Math.random() * 20) + 1; }
 /** Attribute modifier = (value - 10) / 2, rounded down */
 function attrMod(val: number): number { return Math.floor((val - 10) / 2); }
 
-/** Resolve combat between player and AI-generated enemy */
-function resolveCombat(player: Player, enemy: CombatEnemy): { playerDamage: number; enemyDefeated: boolean; log: string } {
+/** Resolve combat — returns updated enemy (immutable) */
+function resolveCombatV2(player: Player, enemy: CombatEnemy): { playerDamage: number; enemyDefeated: boolean; enemy: CombatEnemy; log: string } {
+  const updatedEnemy = { ...enemy };
+
   // Player attack
   const playerAtkRoll = d20() + attrMod(player.attributes.str);
   const enemyDef = 10 + attrMod(enemy.dex);
   const playerHit = playerAtkRoll >= enemyDef;
   let playerDmg = 0;
   if (playerHit) {
-    // Base damage from weapon type + strength mod
     playerDmg = Math.max(1, 3 + attrMod(player.attributes.str));
-    enemy.hp -= playerDmg;
+    updatedEnemy.hp = Math.max(0, updatedEnemy.hp - playerDmg);
   }
 
   // Enemy attack
@@ -456,14 +490,88 @@ function resolveCombat(player: Player, enemy: CombatEnemy): { playerDamage: numb
     enemyDmg = Math.max(1, 2 + attrMod(enemy.str));
   }
 
-  const enemyDefeated = enemy.hp <= 0;
+  const enemyDefeated = updatedEnemy.hp <= 0;
   const log = `⚔ vs ${enemy.name} | ` +
     `玩家掷${playerAtkRoll}${playerHit ? '命中' : '未中'}(${playerDmg}伤) | ` +
     `敌人掷${enemyAtkRoll}${enemyHit ? `命中(${enemyDmg}伤)` : '未中'} | ` +
-    `敌人HP${Math.max(0, enemy.hp)}/${enemy.maxHp}` +
+    `敌人HP${updatedEnemy.hp}/${updatedEnemy.maxHp}` +
     (enemyDefeated ? ' ✓击败!' : '');
 
-  return { playerDamage: enemyDmg, enemyDefeated, log };
+  return { playerDamage: enemyDmg, enemyDefeated, enemy: updatedEnemy, log };
+}
+
+/** Validate custom skill intent — block unlearned skills, match learned ones */
+function validateCustomSkillIntent(action: PlayerAction, player: Player): PlayerAction {
+  if (!action.isCustom || !action.customText) return action;
+  const text = action.customText;
+
+  // Check for skill intent keywords
+  const skillIntent = /使用|释放|施展|发动|魔法|术|技能/.test(text);
+  if (!skillIntent) return action;
+
+  // Try to match a learned skill
+  for (const sid of player.skills.learned) {
+    const skill = getSkillById(sid);
+    if (skill && text.includes(skill.name)) {
+      return { ...action, relatedSkill: skill.id };
+    }
+  }
+
+  // No learned skill matched — block it
+  return {
+    ...action,
+    customText: `玩家尝试使用未掌握的技能，但本地规则判定无效。原始输入：${text}。请生成失败或无效后果。`,
+    relatedSkill: undefined,
+  };
+}
+
+/** Apply local healing effects (skills, potions, rest) */
+function applyLocalHealEffect(player: Player, action: PlayerAction, logs: LogEntry[]): { hpHealed: number; mpRestored: number; potionUsed: boolean } {
+  let hpHealed = 0;
+  let mpRestored = 0;
+  let potionUsed = false;
+
+  // Healing skill: minor_heal
+  if (action.relatedSkill === 'minor_heal' && player.skills.learned.includes('minor_heal')) {
+    const outcome = action.relatedSkill ? '成功' : '失败'; // simplified
+    hpHealed = 5;
+    if (action.risk === 'low') hpHealed = 3; // cautious cast
+    hpHealed = Math.min(hpHealed, player.resources.maxHp - player.resources.hp);
+    if (hpHealed > 0) logs.push({ id: `heal_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP +${hpHealed}（小治疗术）` });
+  }
+
+  // Potion use
+  if (action.type === 'item' || (action.customText && /喝|使用.*药水|治疗药水/.test(action.customText))) {
+    const potion = player.inventory.find(i => i.id === 'healing_potion' && i.quantity > 0);
+    if (potion) {
+      hpHealed = Math.min(5, player.resources.maxHp - player.resources.hp);
+      potionUsed = true;
+      logs.push({ id: `potion_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP +${hpHealed}（治疗药水）` });
+    } else if (action.customText && /药水/.test(action.customText)) {
+      logs.push({ id: `no_potion_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '你没有治疗药水。' });
+    }
+  }
+
+  // Rest recovery
+  if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {
+    mpRestored = Math.min(5, player.resources.maxMp - player.resources.mp);
+    hpHealed = Math.min(3, player.resources.maxHp - player.resources.hp);
+    if (hpHealed > 0 || mpRestored > 0) {
+      logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `休息恢复: HP +${hpHealed} MP +${mpRestored}` });
+    }
+  }
+
+  return { hpHealed, mpRestored, potionUsed };
+}
+
+/** Filter AI-generated action options: remove unlearned skills */
+function filterAIOptions(options: ActionOption[], player: Player): ActionOption[] {
+  return options.map(opt => {
+    if (opt.relatedSkill && !player.skills.learned.includes(opt.relatedSkill)) {
+      return { ...opt, relatedSkill: null, mpCost: 0 };
+    }
+    return opt;
+  });
 }
 
 function getMoneyChange(action: PlayerAction, _judge: JudgeResult): { gold: number; silver: number; copper: number } {

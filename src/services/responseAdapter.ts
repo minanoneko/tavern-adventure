@@ -74,12 +74,24 @@ const MinimalAIMemoryUpdateSchema = z.object({
   knownLocations: z.array(z.string()).optional(),
 });
 
+const OptionalPlayerUpdateSchema = z.object({
+  hpChange: z.number().optional(),
+  mpChange: z.number().optional(),
+  expChange: z.number().optional(),
+  moneyChange: z.object({
+    gold: z.number().optional(),
+    silver: z.number().optional(),
+    copper: z.number().optional(),
+  }).optional(),
+}).optional();
+
 /** What the AI minimally needs to return. Everything else is optional and will be completed locally. */
 const MinimalAIResponseSchema = z.object({
   scene: MinimalSceneSchema,
   systemEvents: z.array(MinimalSystemEventSchema).optional().default([]),
   actionOptions: z.array(MinimalActionOptionSchema).optional(),
   customActionEnabled: z.boolean().default(true),
+  playerUpdate: OptionalPlayerUpdateSchema,
   questUpdate: z.array(MinimalQuestUpdateSchema).optional().default([]),
   inventoryUpdate: z.array(MinimalInventoryUpdateSchema).optional().default([]),
   relationshipUpdate: z.array(MinimalRelationshipUpdateSchema).optional().default([]),
@@ -267,10 +279,10 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     actionOptions,
     customActionEnabled: partial.customActionEnabled !== false,
     playerUpdate: {
-      hpChange: 0,
-      mpChange: 0,
-      expChange: 0,
-      moneyChange: { ...EMPTY_MONEY },
+      hpChange: (partial.playerUpdate as any)?.hpChange ?? 0,
+      mpChange: (partial.playerUpdate as any)?.mpChange ?? 0,
+      expChange: (partial.playerUpdate as any)?.expChange ?? 0,
+      moneyChange: (partial.playerUpdate as any)?.moneyChange ? { ...EMPTY_MONEY, ...(partial.playerUpdate as any).moneyChange } : { ...EMPTY_MONEY },
     },
     inventoryUpdate: (partial.inventoryUpdate || []) as any,
     questUpdate: (partial.questUpdate || []) as any,

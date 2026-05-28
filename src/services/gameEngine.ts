@@ -132,8 +132,11 @@ export function applyAIResponse(
 function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
   const p = { ...player, resources: { ...player.resources }, attributes: { ...player.attributes }, money: { ...player.money } };
 
-  p.resources.hp = clampResource(p.resources.hp + response.playerUpdate.hpChange, p.resources.maxHp);
-  p.resources.mp = clampResource(p.resources.mp + response.playerUpdate.mpChange, p.resources.maxMp);
+  // Clamp hp/mp changes to [-10, +10] range from AI
+  const hpChange = Math.max(-10, Math.min(10, response.playerUpdate.hpChange || 0));
+  const mpChange = Math.max(-10, Math.min(10, response.playerUpdate.mpChange || 0));
+  p.resources.hp = clampResource(p.resources.hp + hpChange, p.resources.maxHp);
+  p.resources.mp = clampResource(p.resources.mp + mpChange, p.resources.maxMp);
   // DEFENSE: Cap exp change per event
   const expCap = 100;
   p.exp += Math.min(response.playerUpdate.expChange, expCap);
@@ -349,56 +352,34 @@ function parseMoneyFromNarrative(player: Player, text: string, logs: LogEntry[])
   return p;
 }
 
-/** Parse HP loss from narrative (受伤、HP减少等) */
+/** Parse HP change from narrative — ONLY explicit HP -X / HP +X / 生命 -X / 生命 +X format */
 function parseHPFromNarrative(player: Player, text: string, logs: LogEntry[]): Player {
   const p = { ...player, resources: { ...player.resources } };
   let hpChange = 0;
 
-  // Damage patterns: broad matching for combat descriptions
-  const damagePatterns = [
-    /(?:造成|受到|受了|扣了|失去|损失|掉了|减少|消耗).*?(\d+)\s*(?:点)?\s*(?:伤害|HP|生命|血)/g,
+  // Only explicit numeric format: HP -3, HP +5, 生命 -3, 生命 +5
+  const patterns = [
     /HP\s*[-−]\s*(\d+)/gi,
-    /(?:受了|身负|被打成|伤得很)(重伤|轻伤|中等伤|致命伤)/g,
-    /(?:被|遭到|受到)(?:砍|刺|咬|抓|打|击|命中|击中|攻击)/g, // "被砍了一刀" → -3
-    /(?:血流不止|鲜血直流|血从|伤口|受伤|负伤|挂彩)/g,         // "你受伤了" → -2
-    /(?:剧痛|疼痛难忍|痛得)/g,                                     // pain → -1
-  ];
-
-  for (const pattern of damagePatterns) {
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      if (typeof m[1] === 'string') {
-        if (m[1] === '重伤' || m[1] === '致命伤') hpChange -= 8;
-        else if (m[1] === '轻伤') hpChange -= 2;
-        else if (m[1] === '中等伤') hpChange -= 5;
-        else hpChange -= parseInt(m[1]) || 0;
-      } else {
-        // Non-capturing patterns: default damage
-        const fullMatch = m[0];
-        if (fullMatch.includes('血流') || fullMatch.includes('砍') || fullMatch.includes('刺')) hpChange -= 4;
-        else if (fullMatch.includes('咬') || fullMatch.includes('抓') || fullMatch.includes('打') || fullMatch.includes('击')) hpChange -= 3;
-        else if (fullMatch.includes('受伤') || fullMatch.includes('负伤') || fullMatch.includes('挂彩')) hpChange -= 2;
-        else if (fullMatch.includes('痛')) hpChange -= 1;
-      }
-    }
-  }
-
-  // Healing patterns: "恢复了X点", "HP +X"
-  const healPatterns = [
-    /(?:恢复|回复|治疗|治愈).*?(\d+)\s*(?:点)?\s*(?:HP|生命|血)/g,
     /HP\s*\+\s*(\d+)/gi,
+    /生命\s*[-−]\s*(\d+)/gi,
+    /生命\s*\+\s*(\d+)/gi,
   ];
-  for (const pattern of healPatterns) {
+
+  for (const pattern of patterns) {
     let m: RegExpExecArray | null;
     while ((m = pattern.exec(text)) !== null) {
-      hpChange += parseInt(m[1]) || 0;
+      if (pattern.source.includes('[-−]')) {
+        hpChange -= parseInt(m[1]) || 0;
+      } else {
+        hpChange += parseInt(m[1]) || 0;
+      }
     }
   }
 
   if (hpChange !== 0) {
     p.resources.hp = Math.max(0, Math.min(p.resources.maxHp, p.resources.hp + hpChange));
     const sign = hpChange > 0 ? '+' : '';
-    logs.push(createLogEntry('system', `HP ${sign}${hpChange}（从文本解析）`));
+    logs.push(createLogEntry('system', `HP ${sign}${hpChange}（文本解析）`));
   }
 
   return p;
