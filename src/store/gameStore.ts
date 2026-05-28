@@ -178,8 +178,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   submitAction: async (actionId, customText) => {
-    const { player, worldState, logs, eventHistory, currentEvent } = get();
+    const { player, worldState, logs, eventHistory, currentEvent, isProcessing } = get();
     if (!player) return;
+    // Guard: prevent double-clicks and concurrent AI requests
+    if (isProcessing) return;
 
     set({ isProcessing: true, errorMessage: null });
 

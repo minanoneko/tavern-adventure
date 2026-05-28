@@ -6,7 +6,7 @@ import { buildEventPrompt, EVENT_INSTRUCTION } from '../prompts/eventPrompt';
 import { buildActionParsePrompt } from '../prompts/actionParsePrompt';
 import { buildContextSummaryPrompt } from '../prompts/contextSummaryPrompt';
 import { buildWorldBroadcastPrompt } from '../prompts/worldBroadcastPrompt';
-import { buildAIContext as buildStructuredContext, formatAIContext } from './contextBuilder';
+import { getLongTermSummary, formatSummaryForAI } from './memoryService';
 
 /**
  * Build system messages array.
@@ -28,25 +28,52 @@ export function buildAIContext(
   recentLogs: LogEntry[],
   eventHistory: AIResponse[] = []
 ): Record<string, unknown> {
-  // Build structured context via contextBuilder (10 modules with budgets)
-  // This is a dummy playerAction for the full context, actual calls use buildEventPromptFullWithContext
-  const dummyAction = { id: '', type: '', risk: 'low' as const, mpCost: 0, isCustom: false };
-  const dummyJudge = { outcome: '成功' as const, roll: 0, dc: 0, modifier: 0, notes: '' };
-  const currentEvent = eventHistory.length > 0 ? eventHistory[eventHistory.length - 1] : null;
-  const ctx = buildStructuredContext(player, worldState, dummyAction, dummyJudge, recentLogs, currentEvent);
-  const formatted = formatAIContext(ctx);
+  // Compact context — only what AI needs for this decision
+  const attrKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+  const attrLabels = ['力', '敏', '体', '智', '感', '魅'];
+  const attrs = attrKeys.map((k, i) => `${attrLabels[i]}${player.attributes[k]}`).join(' ');
+
+  const usableSkills = player.skills.learned.slice(0, 8).join(', ') || '无';
+
+  const gear = Object.entries(player.equipment)
+    .filter(([, id]) => id !== null)
+    .map(([, id]) => id)
+    .join(', ') || '无';
+
+  const importantItems = player.inventory
+    .filter(i => i.type === 'quest_item' || i.type === 'skill_book' || ['rare', 'epic', 'legendary'].includes(i.rarity))
+    .slice(0, 6)
+    .map(i => i.name)
+    .join(', ') || '无';
+
+  const activeQuests = player.quests
+    .filter(q => q.status === 'active' || q.status === 'available')
+    .slice(0, 4)
+    .map(q => `${q.status === 'active' ? '▶' : '○'}${q.name}`)
+    .join(', ') || '无';
+
+  const recentLogsText = recentLogs.slice(-6)
+    .map(l => `[${l.type}] ${l.text.slice(0, 50)}`)
+    .join('\n');
+
+  const longSummary = (getLongTermSummary ? formatSummaryForAI(getLongTermSummary()) : '');
+
+  const contextText = [
+    `[角色] ${player.name} Lv.${player.level} ${player.race}${player.classOrigin} | HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} | ${attrs}`,
+    `[位置] ${worldState.currentLocation} | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
+    `[技能] ${usableSkills}`,
+    `[装备] ${gear}`,
+    `[重要物品] ${importantItems}`,
+    `[任务] ${activeQuests}`,
+    `[长期] ${longSummary}`,
+    `[最近日志]\n${recentLogsText}`,
+  ].filter(Boolean).join('\n');
 
   return {
-    contextText: formatted,
+    contextText,
     currentLocation: worldState.currentLocation,
     time: `${worldState.date} ${worldState.timeOfDay}`,
     weather: worldState.weather,
-    customOrigin: player.customOrigin,
-    personalityTraits: player.personalityTraits,
-    hp: `${player.resources.hp}/${player.resources.maxHp}`,
-    mp: `${player.resources.mp}/${player.resources.maxMp}`,
-    statusEffects: player.statusEffects,
-    money: player.money,
   };
 }
 

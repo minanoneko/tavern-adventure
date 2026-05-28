@@ -54,7 +54,6 @@ export default function ErrorCard({ error, validationErrors }: { error?: AIError
         </div>
       )}
       <div className="flex gap-2">
-        <button className="btn text-xs btn-primary" onClick={handleRetry}>重试</button>
         <button className="btn text-xs" onClick={handleSwitchToMock}>切回 Mock 模式</button>
         <button className="btn text-xs" onClick={clearError}>关闭</button>
       </div>
