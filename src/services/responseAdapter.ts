@@ -77,15 +77,29 @@ const MinimalAIMemoryUpdateSchema = z.object({
 /** What the AI minimally needs to return. Everything else is optional and will be completed locally. */
 const MinimalAIResponseSchema = z.object({
   scene: MinimalSceneSchema,
-  systemEvents: z.array(MinimalSystemEventSchema).optional(),
+  systemEvents: z.array(MinimalSystemEventSchema).optional().default([]),
   actionOptions: z.array(MinimalActionOptionSchema).optional(),
   customActionEnabled: z.boolean().default(true),
-  questUpdate: z.array(MinimalQuestUpdateSchema).optional(),
-  inventoryUpdate: z.array(MinimalInventoryUpdateSchema).optional(),
-  relationshipUpdate: z.array(MinimalRelationshipUpdateSchema).optional(),
-  mapUpdate: z.array(MinimalMapUpdateSchema).optional(),
-  worldBroadcasts: z.array(MinimalWorldBroadcastSchema).optional(),
-  memoryUpdate: MinimalAIMemoryUpdateSchema.optional(),
+  questUpdate: z.array(MinimalQuestUpdateSchema).optional().default([]),
+  inventoryUpdate: z.array(MinimalInventoryUpdateSchema).optional().default([]),
+  relationshipUpdate: z.array(MinimalRelationshipUpdateSchema).optional().default([]),
+  mapUpdate: z.array(MinimalMapUpdateSchema).optional().default([]),
+  worldBroadcasts: z.array(MinimalWorldBroadcastSchema).optional().default([]),
+  memoryUpdate: MinimalAIMemoryUpdateSchema.optional().default({}),
+});
+
+/** Ultra-lenient fallback: accept ANY object with scene and actionOptions */
+const LenientAIResponseSchema = z.object({
+  scene: z.any(),
+  actionOptions: z.any().optional(),
+  customActionEnabled: z.any().optional(),
+  systemEvents: z.any().optional(),
+  questUpdate: z.any().optional(),
+  inventoryUpdate: z.any().optional(),
+  relationshipUpdate: z.any().optional(),
+  mapUpdate: z.any().optional(),
+  worldBroadcasts: z.any().optional(),
+  memoryUpdate: z.any().optional(),
 });
 
 // ========== Snake→Camel map ==========
@@ -283,12 +297,19 @@ function tryParseJson(text: string): { success: true; data: Record<string, unkno
   // 1. Direct parse
   try {
     return { success: true, data: JSON.parse(text) as Record<string, unknown> };
-  } catch {
-    // continue
+  } catch (e1) {
+    // JSON.parse failed — continue to repair
   }
+  // 1.5: Pre-fix common issues before jsonrepair
+  let fixed = text;
+  // Fix unterminated strings (missing closing quote)
+  fixed = fixed.replace(/:\s*"([^"]*?)(?:\n|$)/g, (_, val) => {
+    if (val.includes('\\n')) return `: "${val}"`; // already escaped
+    return `: "${val.replace(/\n/g, '\\n')}"`;
+  });
   // 2. jsonrepair
   try {
-    const repaired = jsonrepair(text);
+    const repaired = jsonrepair(fixed);
     const parsed = JSON.parse(repaired) as Record<string, unknown>;
     return { success: true, data: parsed };
   } catch (e2) {
@@ -354,9 +375,15 @@ export function normalizeAndComplete(raw: unknown): { success: true; response: A
     // 2. Normalize enum values
     const enumFixed = normalizeEnumValues(normalized);
 
-    // 3. Validate minimal schema (AI is only required to return minimal fields)
-    const validated = validateMinimalAIResponse(enumFixed);
+    // 3. Validate — try strict first, fall back to lenient
+    let validated = validateMinimalAIResponse(enumFixed);
     if (!validated.success) {
+      // Fallback: lenient schema accepts anything that vaguely looks right
+      const lenient = LenientAIResponseSchema.safeParse(enumFixed);
+      if (lenient.success) {
+        const completed = completeAIResponse(lenient.data as Record<string, unknown>);
+        return { success: true, response: completed };
+      }
       return { success: false, errors: validated.errors };
     }
 

@@ -114,11 +114,11 @@ export default function GamePage() {
           <span>背包</span>
         </button>
         <button
-          className="flex-1 py-2 text-xs flex flex-col items-center gap-0.5 text-muted"
-          onClick={() => setShowSettings(true)}
+          className={`flex-1 py-2 text-xs flex flex-col items-center gap-0.5 ${mobilePanel === 'tabs' && mobileTab === 'relation' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
+          onClick={() => { setMobileTab('relation'); setMobilePanel('tabs'); }}
         >
-          <span className="text-base">⚙️</span>
-          <span>设置</span>
+          <span className="text-base">💬</span>
+          <span>关系</span>
         </button>
       </div>
 

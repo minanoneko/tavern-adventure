@@ -278,12 +278,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
         }
       }
-      // 2.6 Award base exp + money based on action type (AI doesn't do this)
-      const expAward = getExpAward(playerAction, judgeResult);
-      if (expAward > 0) {
-        player.exp += expAward;
-        logs.push({ id: `exp_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `经验 +${expAward}` });
-      }
+      // 2.6 Exp and money changes (only quest completion and rest costs)
       const moneyAward = getMoneyChange(playerAction, judgeResult);
       if (moneyAward.copper !== 0 || moneyAward.silver !== 0 || moneyAward.gold !== 0) {
         player.money.copper += moneyAward.copper;
@@ -418,33 +413,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   clearError: () => set({ errorMessage: null, lastAIResult: null }),
 }));
 
-/** Award exp only for meaningful actions that involve risk/skill/combat. */
-function getExpAward(action: PlayerAction, judge: JudgeResult): number {
-  // Only award exp when action requires a check or is combat
-  const awardTypes = ['combat', 'exploration', 'check', 'stealth', 'skill', 'magic'];
-  if (!awardTypes.includes(action.type)) return 0;
-
-  // Must have successful engagement
-  if (judge.dc === 0 && judge.roll === 0 && action.type !== 'combat') return 0;
-
-  const base: Record<string, number> = {
-    combat: 25,
-    exploration: 10,
-    check: 8,
-    stealth: 12,
-    skill: 8,
-    magic: 8,
-  };
-  let exp = base[action.type] || 5;
-
-  if (judge.outcome === '大成功') exp = Math.floor(exp * 1.5);
-  else if (judge.outcome === '大失败') exp = 0;
-  else if (judge.outcome === '失败') exp = Math.floor(exp * 0.3);
-
-  return Math.max(0, exp);
-}
-
-/** Money only changes for rest costs. Income comes from quests and loot items. */
+/** Money only changes for rest costs. Income comes from quests and text parsing. */
 function getMoneyChange(action: PlayerAction, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
   // Resting costs money
   if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {

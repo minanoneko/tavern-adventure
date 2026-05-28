@@ -92,6 +92,9 @@ export interface RelationshipUpdate {
   change: number;
   reason: string;
   type?: 'npc' | 'faction';
+  race?: string;
+  occupation?: string;
+  description?: string;
 }
 
 export interface MapUpdate {

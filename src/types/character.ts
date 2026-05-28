@@ -96,6 +96,8 @@ export interface Relationship {
   type: 'npc' | 'faction';
   standing: number;
   description: string;
+  race?: string;
+  occupation?: string;
 }
 
 // ========== Player Creation helper ==========

@@ -138,7 +138,9 @@ function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[
   p.exp += Math.min(response.playerUpdate.expChange, expCap);
 
   // DEFENSE: Cap money change per event (both positive and negative)
-  p.money = clampMoneyChangeByLevel(p, response.playerUpdate.moneyChange, logs);
+  // clampMoneyChangeByLevel returns a clamped CHANGE, NOT a total — must add, not replace
+  const clampedChange = clampMoneyChangeByLevel(p, response.playerUpdate.moneyChange, logs);
+  p.money = addMoneyToPlayer(p.money, clampedChange);
 
   // Status effects
   if (response.playerUpdate.statusEffectAdd) {
@@ -394,6 +396,8 @@ function applyRelationshipUpdate(player: Player, response: AIResponse, logs: Log
     if (existing) {
       existing.standing += update.change;
       existing.description = update.reason;
+      if (update.race) existing.race = update.race;
+      if (update.occupation) existing.occupation = update.occupation;
     } else {
       p.relationships.push({
         targetId: update.targetId,
@@ -401,6 +405,8 @@ function applyRelationshipUpdate(player: Player, response: AIResponse, logs: Log
         type: update.type || 'npc',
         standing: update.change,
         description: update.reason,
+        race: update.race,
+        occupation: update.occupation,
       });
     }
     if (update.change !== 0) {

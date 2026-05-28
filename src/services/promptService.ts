@@ -79,6 +79,15 @@ export function buildAIContext(
     ? `剧情: ${eventHistory.slice(-3).map(e => e.scene.title).join(' → ')}`
     : '';
 
+  // Recent action options offered (to prevent AI from repeating)
+  const recentOptions = eventHistory.slice(-3)
+    .flatMap(e => e.actionOptions)
+    .map(o => o.label)
+    .filter((v, i, a) => a.indexOf(v) === i);
+  const recentOptionsText = recentOptions.length > 0
+    ? `[最近选项（不要重复）] ${recentOptions.join(', ')}`
+    : '';
+
   const contextText = [
     `[角色] ${player.name} Lv.${player.level} ${player.race}${player.classOrigin} | HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} | ${attrs}`,
     `[位置] ${worldState.currentLocation} | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
@@ -88,6 +97,7 @@ export function buildAIContext(
     `[任务] ${activeQuests}`,
     storySoFar,
     currentSceneText,
+    recentOptionsText,
     `[长期] ${longSummary}`,
   ].filter(Boolean).join('\n');
 

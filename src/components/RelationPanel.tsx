@@ -50,6 +50,13 @@ export default function RelationPanel() {
                     {getLevelLabel(npc.standing)} ({npc.standing > 0 ? '+' : ''}{npc.standing})
                   </span>
                 </div>
+                {(npc.race || npc.occupation) && (
+                  <div className="text-xs text-muted mb-1">
+                    {npc.race && <span>{npc.race}</span>}
+                    {npc.race && npc.occupation && <span> · </span>}
+                    {npc.occupation && <span>{npc.occupation}</span>}
+                  </div>
+                )}
                 {npc.description && <div className="text-xs text-muted">{npc.description}</div>}
               </div>
             ))}
