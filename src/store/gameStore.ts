@@ -214,12 +214,18 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   submitAction: async (actionId, customText) => {
-    const { player, worldState, logs, eventHistory, currentEvent, isProcessing } = get();
-    if (!player) return;
-    // Guard: prevent double-clicks and concurrent AI requests
-    if (isProcessing) return;
+    const state = get();
+    if (!state.player) return;
+    if (state.isProcessing) return;
 
     set({ isProcessing: true, errorMessage: null });
+
+    // Clone: all mutations go to working copies, not Zustand state
+    let player = structuredClone(state.player);
+    let worldState = structuredClone(state.worldState);
+    const logs = [...state.logs];
+    const eventHistory = state.eventHistory;
+    const currentEvent = state.currentEvent;
 
     try {
       // 1. Build player action

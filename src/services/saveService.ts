@@ -62,12 +62,21 @@ export function loadGame(): SaveFile | null {
       console.warn('Save file is corrupted or from an incompatible version');
       return null;
     }
-    // Ensure longTermSummary exists for old saves
+    // Migrate old saves to current format
     if (!saved.longTermSummary) {
       saved.longTermSummary = createEmptySummary();
     }
     if (!saved.gameFlags) {
       saved.gameFlags = [];
+    }
+    if (!saved.worldState.generatedLocations) {
+      saved.worldState.generatedLocations = {};
+    }
+    if (!saved.worldState.currentLocationName) {
+      saved.worldState.currentLocationName = saved.worldState.currentLocation || '未知地点';
+    }
+    if (!saved.worldState.combatState) {
+      saved.worldState.combatState = { active: false };
     }
     return saved;
   } catch (e) {

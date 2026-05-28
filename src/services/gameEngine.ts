@@ -458,23 +458,36 @@ function applyRelationshipUpdate(player: Player, response: AIResponse, logs: Log
 
 function applyEquipmentUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
   const p = { ...player, equipment: { ...player.equipment } };
+  const validSlots = ['mainWeapon', 'offHand', 'armor', 'head', 'hands', 'feet', 'accessory1', 'accessory2', 'special'];
 
   for (const update of response.equipmentUpdate) {
     if (update.action === 'equip' && update.slot) {
-      const isKnownEquip = update.itemId in EQUIPMENT_LIBRARY;
-      const isInInventory = player.inventory.some(i => i.id === update.itemId);
-
-      if (!isKnownEquip) {
-        // Unknown equipment: ignore equip, log warning
-        logs.push(createLogEntry('system', `AI提议装备未知物品"${update.name || update.itemId}"，已忽略。`));
-      } else if (!isInInventory) {
-        // Known but not in inventory: ignore equip
-        logs.push(createLogEntry('system', `AI提议装备不在背包中的物品"${update.name || update.itemId}"，已忽略。`));
-      } else {
-        (p.equipment as any)[update.slot] = update.itemId;
+      // Validate slot exists
+      if (!validSlots.includes(update.slot)) {
+        logs.push(createLogEntry('system', `无效装备槽"${update.slot}"，已忽略。`));
+        continue;
       }
+      // Validate item exists in equipment library
+      const equip = EQUIPMENT_LIBRARY[update.itemId];
+      if (!equip) {
+        logs.push(createLogEntry('system', `AI提议装备未知物品"${update.name || update.itemId}"，已忽略。`));
+        continue;
+      }
+      // Validate item is in player inventory
+      if (!player.inventory.some(i => i.id === update.itemId)) {
+        logs.push(createLogEntry('system', `AI提议装备不在背包中的物品"${update.name || update.itemId}"，已忽略。`));
+        continue;
+      }
+      // Validate slot matches equipment's intended slot
+      if (equip.slot !== update.slot) {
+        logs.push(createLogEntry('system', `装备"${equip.name}"不能装备到${update.slot}槽（应装备到${equip.slot}），已忽略。`));
+        continue;
+      }
+      (p.equipment as any)[update.slot] = update.itemId;
     } else if (update.action === 'unequip' && update.slot) {
-      (p.equipment as any)[update.slot] = null;
+      if (validSlots.includes(update.slot)) {
+        (p.equipment as any)[update.slot] = null;
+      }
     }
   }
 
@@ -573,27 +586,33 @@ function applyMemoryUpdate(world: WorldState, response: AIResponse): WorldState 
 }
 
 export function processLevelUp(player: Player, logs: LogEntry[]): { player: Player; newLevel: number } {
-  const newLevel = player.level + 1;
-  const conBonus = player.attributes.con;
-  const intWisBonus = Math.floor((player.attributes.int + player.attributes.wis) / 2);
+  let p = { ...player };
+  let newLevel = player.level;
 
-  const p = {
-    ...player,
-    level: newLevel,
-    exp: player.exp - player.nextExp,
-    nextExp: Math.floor(player.nextExp * 1.5),
-    attributePoints: player.attributePoints + 2,
-    skillPoints: player.skillPoints + 1,
-    resources: {
-      ...player.resources,
-      maxHp: player.resources.maxHp + 3 + Math.floor(conBonus / 3),
-      maxMp: player.resources.maxMp + 2 + Math.floor(intWisBonus / 4),
-      hp: player.resources.maxHp + 3 + Math.floor(conBonus / 3),
-      mp: player.resources.maxMp + 2 + Math.floor(intWisBonus / 4),
-    },
-  };
+  // While loop: support consecutive multi-level jumps
+  while (p.exp >= p.nextExp) {
+    newLevel++;
+    p.exp -= p.nextExp;
+    p.nextExp = Math.floor(p.nextExp * 1.5);
+    p.attributePoints += 2;
+    p.skillPoints += 1;
 
-  logs.push(createLogEntry('system', `升级！Lv.${newLevel}。属性点+2，技能点+1。`));
+    const conBonus = p.attributes.con;
+    const intWisBonus = Math.floor((p.attributes.int + p.attributes.wis) / 2);
+    const hpGain = 3 + Math.floor(conBonus / 3);
+    const mpGain = 2 + Math.floor(intWisBonus / 4);
+
+    p.resources = {
+      ...p.resources,
+      maxHp: p.resources.maxHp + hpGain,
+      maxMp: p.resources.maxMp + mpGain,
+      hp: p.resources.maxHp + hpGain,  // Heal to full on level up
+      mp: p.resources.maxMp + mpGain,
+    };
+    p.level = newLevel;
+
+    logs.push(createLogEntry('system', `升级！Lv.${newLevel}。HP/MP回满。属性点+2，技能点+1。`));
+  }
 
   return { player: p, newLevel };
 }

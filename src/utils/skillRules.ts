@@ -1,5 +1,6 @@
 import type { Player, Skill, SkillStatus, SkillLockInfo } from '../types';
 import { getSkillById } from '../data/skills';
+import { getEquipmentById } from '../data/equipment';
 
 export function canLearnSkill(skill: Skill, player: Player): boolean {
   const req = skill.learnRequirements;
@@ -26,6 +27,27 @@ export function canCastSkill(skill: Skill, player: Player, currentLocation?: str
     for (const [key, val] of Object.entries(req.attributes)) {
       if ((player.attributes[key as keyof typeof player.attributes] ?? 0) < val) return false;
     }
+  }
+  // Check weapon type requirement
+  if (req.requiresWeaponType) {
+    const mainWeapon = player.equipment.mainWeapon;
+    if (!mainWeapon) return false;
+    const equip = getEquipmentById(mainWeapon);
+    if (!equip || equip.slot !== 'mainWeapon') return false;
+    // Simple check: weapon ID includes the type
+    if (req.requiresWeaponType === 'staff' && !mainWeapon.includes('staff')) return false;
+    if (req.requiresWeaponType === 'bow' && !mainWeapon.includes('bow')) return false;
+    if (req.requiresWeaponType === 'sword' && !mainWeapon.includes('sword')) return false;
+    if (req.requiresWeaponType === 'dagger' && !mainWeapon.includes('dagger')) return false;
+  }
+  // Check equipment requirement
+  if (req.requiresEquipment) {
+    const hasEquipment = Object.values(player.equipment).some(id => id === req.requiresEquipment);
+    if (!hasEquipment) return false;
+  }
+  // Check item requirement
+  if (req.requiresItem) {
+    if (!player.inventory.some(i => i.id === req.requiresItem)) return false;
   }
   if (req.requiresStatusFree) {
     for (const status of req.requiresStatusFree) {
@@ -60,10 +82,23 @@ export function getSkillLockReasons(skill: Skill, player: Player, currentLocatio
     }
   }
   if (req.requiresWeaponType) {
-    reasons.push(`需要装备${req.requiresWeaponType === 'staff' ? '法杖' : req.requiresWeaponType === 'bow' ? '弓' : req.requiresWeaponType === 'dagger' ? '匕首' : req.requiresWeaponType === 'sword' ? '剑' : req.requiresWeaponType}`);
+    const mainWeapon = player.equipment.mainWeapon;
+    const hasWeapon = mainWeapon && (
+      (req.requiresWeaponType === 'staff' && mainWeapon.includes('staff')) ||
+      (req.requiresWeaponType === 'bow' && mainWeapon.includes('bow')) ||
+      (req.requiresWeaponType === 'sword' && mainWeapon.includes('sword')) ||
+      (req.requiresWeaponType === 'dagger' && mainWeapon.includes('dagger'))
+    );
+    if (!hasWeapon) {
+      const label = req.requiresWeaponType === 'staff' ? '法杖' : req.requiresWeaponType === 'bow' ? '弓' : req.requiresWeaponType === 'dagger' ? '匕首' : req.requiresWeaponType === 'sword' ? '剑' : req.requiresWeaponType;
+      reasons.push(`需要装备${label}`);
+    }
   }
   if (req.requiresEquipment) {
-    reasons.push(`需要装备：${req.requiresEquipment}`);
+    const hasEquip = Object.values(player.equipment).some(id => id === req.requiresEquipment);
+    if (!hasEquip) {
+      reasons.push(`需要装备：${req.requiresEquipment}`);
+    }
   }
   if (req.requiresStatusFree) {
     for (const status of req.requiresStatusFree) {
