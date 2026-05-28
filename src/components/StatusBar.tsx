@@ -16,23 +16,33 @@ export default function StatusBar({ onSettingsClick }: { onSettingsClick: () => 
   return (
     <div className="flex items-center gap-2 lg:gap-4 px-2 lg:px-4 py-1.5 lg:py-2 panel" style={{ borderLeft: 'none', borderRight: 'none', borderRadius: 0 }}>
 
-      {/* Mobile compact row */}
-      <div className="flex lg:hidden items-center gap-2 w-full">
-        <span className="text-sm font-bold flex-shrink-0" style={{ color: 'var(--color-tavern-accent)' }}>{player.name}</span>
-        <span className="text-xs text-muted">Lv.{player.level}</span>
-        <div className="flex items-center gap-1 flex-1 min-w-0">
-          <span className="text-xs text-danger">HP</span>
-          <div className="flex-1 bar-bg h-1.5">
-            <div className="bar-hp" style={{ width: `${hpPct}%` }} />
+      {/* Mobile compact rows */}
+      <div className="flex lg:hidden flex-col w-full gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold flex-shrink-0" style={{ color: 'var(--color-tavern-accent)' }}>{player.name}</span>
+          <span className="text-xs text-muted">Lv.{player.level}</span>
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span className="text-xs text-danger">HP</span>
+            <div className="flex-1 bar-bg h-1.5">
+              <div className="bar-hp" style={{ width: `${hpPct}%` }} />
+            </div>
+            <span className="text-xs w-12 text-right">{player.resources.hp}/{player.resources.maxHp}</span>
           </div>
-          <span className="text-xs w-12 text-right">{player.resources.hp}/{player.resources.maxHp}</span>
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span className="text-xs text-info">MP</span>
+            <div className="flex-1 bar-bg h-1.5">
+              <div className="bar-mp" style={{ width: `${mpPct}%` }} />
+            </div>
+            <span className="text-xs w-12 text-right">{player.resources.mp}/{player.resources.maxMp}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 flex-1 min-w-0">
-          <span className="text-xs text-info">MP</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold w-8" style={{ color: 'var(--color-tavern-exp)' }}>EXP</span>
           <div className="flex-1 bar-bg h-1.5">
-            <div className="bar-mp" style={{ width: `${mpPct}%` }} />
+            <div className="bar-exp" style={{ width: `${expPct}%` }} />
           </div>
-          <span className="text-xs w-12 text-right">{player.resources.mp}/{player.resources.maxMp}</span>
+          <span className="text-xs w-16 text-right">{player.exp}/{player.nextExp}</span>
+          <span className="text-xs flex-shrink-0">{formatMoney(player.money)}</span>
         </div>
       </div>
 
