@@ -3,7 +3,6 @@ import StatusBar from './StatusBar';
 import CharacterPanel from './CharacterPanel';
 import AdventureWindow from './AdventureWindow';
 import TabContainer from './TabContainer';
-import BroadcastBar from './BroadcastBar';
 import LevelUpModal from './LevelUpModal';
 import SettingsPanel from './SettingsPanel';
 import DebugPanel from './DebugPanel';
@@ -82,11 +81,6 @@ export default function GamePage() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Bottom: Broadcast Bar — hidden on mobile */}
-      <div className="hidden lg:block">
-        <BroadcastBar />
       </div>
 
       {/* Mobile Bottom Nav */}
