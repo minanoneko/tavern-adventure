@@ -8,6 +8,7 @@ import { createDefaultWorldState } from '../types/common';
 import { getRaceById, PERSONALITY_TRAITS } from '../data/races';
 import { getClassById } from '../data/classes';
 import { evaluate, parseCustomAction, needsCheck } from '../services/judgeService';
+import { getSkillById } from '../data/skills';
 import { sendPlayerAction } from '../services/aiService';
 import { applyAIResponse, addAttributePoint } from '../services/gameEngine';
 import { saveGame, loadGame, deleteSave, hasSave, getSaveInfo, exportSave } from '../services/saveService';
@@ -255,13 +256,32 @@ export const useGameStore = create<GameState>((set, get) => ({
         outcome: '成功' as const, roll: 0, dc: 0, modifier: 0, notes: '无需判定',
       };
 
-      // 2.5 Apply MP/HP cost locally (AI doesn't do this anymore)
-      if (playerAction.mpCost || (judgeResult.consumption?.mp || 0) > 0 || (judgeResult.consumption?.hp || 0) > 0) {
-        const mpCost = playerAction.mpCost || judgeResult.consumption?.mp || 0;
-        const hpCost = judgeResult.consumption?.hp || 0;
-        player.resources.mp = Math.max(0, player.resources.mp - mpCost);
+      // 2.5 Resolve skill cost from relatedSkill (AI doesn't send mpCost)
+      let skillMpCost = 0;
+      if (playerAction.relatedSkill) {
+        const skill = getSkillById(playerAction.relatedSkill);
+        if (skill && player.skills.learned.includes(skill.id)) {
+          skillMpCost = skill.castRequirements.mpCost || 0;
+        }
+      }
+      // Also detect skill usage from custom text
+      if (playerAction.isCustom && playerAction.customText && !playerAction.relatedSkill) {
+        for (const sid of player.skills.learned) {
+          const skill = getSkillById(sid);
+          if (skill && playerAction.customText.includes(skill.name)) {
+            playerAction.relatedSkill = skill.id;
+            skillMpCost = skill.castRequirements.mpCost || 0;
+            break;
+          }
+        }
+      }
+      // 2.6 Apply MP/HP cost locally (AI doesn't do this anymore)
+      const totalMpCost = playerAction.mpCost || skillMpCost || judgeResult.consumption?.mp || 0;
+      const hpCost = judgeResult.consumption?.hp || 0;
+      if (totalMpCost > 0 || hpCost > 0) {
+        player.resources.mp = Math.max(0, player.resources.mp - totalMpCost);
         player.resources.hp = Math.max(0, player.resources.hp - hpCost);
-        if (mpCost > 0) logs.push({ id: `mp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `MP -${mpCost}` });
+        if (totalMpCost > 0) logs.push({ id: `mp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `MP -${totalMpCost}` });
         if (hpCost > 0) logs.push({ id: `hp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${hpCost}` });
       }
 
