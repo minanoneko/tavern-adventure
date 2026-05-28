@@ -1,0 +1,80 @@
+/**
+ * Builds the opening scene generation prompt from character card + sanitized origin.
+ */
+export function buildOpeningPrompt(contextJson: string): string {
+  return `你需要根据玩家角色卡生成游戏第一幕。
+
+=== 角色卡 ===
+${contextJson}
+
+=== 生成规则 ===
+
+1. **第一幕必须从玩家当前真实能力出发**。
+   玩家是 Lv.1 冒险者，属性、技能、装备和金钱都有限。
+   不允许给玩家额外神器、财富、高阶技能、军队、地位或权力。
+   玩家当前的实际状态以角色卡中的 attributes/resources/money/equipment/skills 为准。
+
+2. **处理超模开端**：
+   如果玩家的 customOrigin 或 sanitizedOrigin 写得很强（如"最强法神""龙王""神器持有者"），
+   你只能将其作为以下形式之一处理：
+   - 传闻（别人听说过，但不确定真假）
+   - 自称（玩家自己说的，别人不一定信）
+   - 梦境（玩家梦到的，醒来就模糊了）
+   - 被封印的力量（当前无法使用的远古能力）
+   - 未觉醒的血脉（血统存在但未激活）
+   - 残缺的记忆（玩家记得一些碎片，但不确定真假）
+   - 破损的遗物（曾经强大但现在失效的物品）
+   - 赝品（玩家以为是真的，其实是假的）
+   - 债务/仇家（曾经的身份带来的负担）
+   - 未来伏笔（暗示未来可能，但现在不行）
+   **你必须再次自检**：即使 sanitizedOrigin 已经过本地处理，也要检查是否有隐性超模内容（如"从不缺钱""所有人都尊重我"等），并做进一步降格。
+
+3. **第一幕地点限制**：
+   第一幕必须在初始低等级区域，但**优先匹配玩家自定义开端（customOrigin）中提到的地点**。
+   如果玩家开端提到魔法学院，第一幕可以发生在魔法学院周边的低等级区域（如学院大门外、学院附属小镇、通往学院的路上），
+   而不必强行安排到酒馆。但禁止将玩家直接丢到龙栖海彼岸、地底暗精灵王国、北境冰原、旧王国废土、
+   矮人山脉、群岛海域、圣都教国、南方沙漠王庭等高级区域。
+
+4. **不要强制任务**：
+   不要强制玩家接受某个具体任务或委托。
+   可以设置场景氛围、提供线索或传闻，但玩家必须有拒绝或绕开的自由。
+
+5. **第一幕要有一个小钩子**，但不要拯救世界。
+   钩子可以是一张委托纸条、一段对话片段、一个奇怪的梦、一件异常物品、一个匆匆离开的人等。
+
+6. **行动选项**：
+   生成 3-5 个推荐行动选项。
+   至少包含：一个稳妥选项、一个观察选项、一个对话选项。
+   根据职业不同，可以给一个技能相关选项。
+   选项 label 要短，像游戏按钮，不要替玩家决定情绪。
+
+7. **第一幕内容关联**：
+   第一幕应该和玩家的职业、种族、性格特征、自定义开端（sanitizedOrigin）有关。
+   如果 sanitizedOrigin 有内容，第一幕应该自然融入这些元素。
+
+8. **输出格式**：
+   输出必须是完整的合法 JSON，使用 camelCase 字段名。
+   所有字段必须填写，无更新时也要写空数组或 0。
+
+   JSON 结构（camelCase）：
+   {
+     "scene": { "title": "", "text": "", "location": "", "locationId": "", "time": "", "weather": "" },
+     "event": { "id": "", "type": "", "urgency": "low", "riskLevel": "low" },
+     "systemEvents": [],
+     "actionOptions": [
+       { "id": "", "label": "", "type": "", "risk": "low", "relatedAttribute": "none", "relatedSkill": null, "mpCost": 0, "difficultyPreview": "" }
+     ],
+     "customActionEnabled": true,
+     "playerUpdate": { "hpChange": 0, "mpChange": 0, "expChange": 0, "moneyChange": { "gold": 0, "silver": 0, "copper": 0 } },
+     "inventoryUpdate": [],
+     "questUpdate": [],
+     "skillStateUpdate": [],
+     "equipmentUpdate": [],
+     "relationshipUpdate": [],
+     "mapUpdate": [],
+     "worldBroadcasts": [],
+     "memoryUpdate": { "flags": [], "currentLocation": "", "currentLocationId": "", "knownLocations": [] }
+   }
+
+请直接输出 JSON，不要输出任何解释文字。`;
+}

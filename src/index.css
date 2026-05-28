@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+  --color-tavern-bg: #1a0f07;
+  --color-tavern-panel: #2d1f0f;
+  --color-tavern-border: #5a3d2e;
+  --color-tavern-text: #d4c5a9;
+  --color-tavern-muted: #8a7a6a;
+  --color-tavern-accent: #c9a44b;
+  --color-tavern-danger: #b8453a;
+  --color-tavern-success: #5a8f4a;
+  --color-tavern-info: #4a7f8f;
+  --color-tavern-hp: #8a3a3a;
+  --color-tavern-mp: #3a5a8a;
+  --color-tavern-exp: #8a7a3a;
+  --color-tavern-gold: #c9a44b;
+  --color-tavern-silver: #a0a0a0;
+  --color-tavern-copper: #b8734a;
+
+  --font-body: "Georgia", "Noto Serif SC", serif;
+  --font-display: "Georgia", "Noto Serif SC", serif;
+  --font-mono: "Fira Code", "Cascadia Code", monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--color-tavern-bg);
+  color: var(--color-tavern-text);
+  font-family: var(--font-body);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-tavern-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-tavern-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-tavern-accent);
+}
+
+::selection {
+  background: rgba(201, 164, 75, 0.3);
+}
+
+.panel {
+  background: rgba(45, 31, 15, 0.85);
+  border: 1px solid var(--color-tavern-border);
+  border-radius: 4px;
+}
+
+.panel-header {
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--color-tavern-border);
+  padding: 8px 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-tavern-accent);
+  font-weight: bold;
+}
+
+.btn {
+  padding: 10px 18px;
+  border: 1px solid var(--color-tavern-border);
+  border-radius: 4px;
+  background: linear-gradient(to bottom, #3d2a14, #2d1f0f);
+  color: var(--color-tavern-text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.btn:hover {
+  border-color: var(--color-tavern-accent);
+  color: var(--color-tavern-accent);
+  background: linear-gradient(to bottom, #4d3a24, #3d2a14);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-primary {
+  border-color: var(--color-tavern-accent);
+  color: var(--color-tavern-accent);
+}
+.btn-danger {
+  border-color: var(--color-tavern-danger);
+  color: var(--color-tavern-danger);
+}
+
+.input {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--color-tavern-border);
+  border-radius: 3px;
+  color: var(--color-tavern-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  width: 100%;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--color-tavern-accent);
+}
+.input::placeholder {
+  color: var(--color-tavern-muted);
+}
+
+.bar-bg {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  overflow: hidden;
+  height: 8px;
+}
+.bar-hp { background: linear-gradient(to right, #6a2020, var(--color-tavern-hp)); height: 100%; }
+.bar-mp { background: linear-gradient(to right, #204060, var(--color-tavern-mp)); height: 100%; }
+.bar-exp { background: linear-gradient(to right, #6a5a20, var(--color-tavern-exp)); height: 100%; }
+
+.tab-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  color: var(--color-tavern-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.tab-btn:hover {
+  color: var(--color-tavern-text);
+}
+.tab-btn.active {
+  color: var(--color-tavern-accent);
+  border-bottom-color: var(--color-tavern-accent);
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 2px;
+  border: 1px solid var(--color-tavern-border);
+}
+.tag-common { border-color: #888; color: #888; }
+.tag-rare { border-color: var(--color-tavern-info); color: var(--color-tavern-info); }
+.tag-epic { border-color: #9a4aaa; color: #9a4aaa; }
+.tag-legendary { border-color: var(--color-tavern-accent); color: var(--color-tavern-accent); }
+.tag-cursed { border-color: var(--color-tavern-danger); color: var(--color-tavern-danger); }
+
+.text-gold { color: var(--color-tavern-gold); }
+.text-silver { color: var(--color-tavern-silver); }
+.text-copper { color: var(--color-tavern-copper); }
+.text-danger { color: var(--color-tavern-danger); }
+.text-success { color: var(--color-tavern-success); }
+.text-info { color: var(--color-tavern-info); }
+.text-muted { color: var(--color-tavern-muted); }
