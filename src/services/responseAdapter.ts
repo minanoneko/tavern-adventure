@@ -338,6 +338,18 @@ export function normalizeAndComplete(raw: unknown): { success: true; response: A
         (normalized as any)[field] = [val];
       }
     }
+    // 1.8 Normalize quest objectives: strings → objects
+    if (Array.isArray((normalized as any).questUpdate)) {
+      (normalized as any).questUpdate = (normalized as any).questUpdate.map((q: any) => {
+        if (q.objectives && Array.isArray(q.objectives)) {
+          q.objectives = q.objectives.map((o: any) => {
+            if (typeof o === 'string') return { id: `obj_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, description: o, completed: false };
+            return o;
+          });
+        }
+        return q;
+      });
+    }
 
     // 2. Normalize enum values
     const enumFixed = normalizeEnumValues(normalized);

@@ -31,6 +31,7 @@ export interface GameState {
   errorMessage: string | null;
   didLevelUp: boolean;
   newLevel: number | null;
+  actionCount: number;
 
   // Actions
   setPhase: (phase: GamePhase) => void;
@@ -62,6 +63,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   errorMessage: null,
   didLevelUp: false,
   newLevel: null,
+  actionCount: 0,
 
   setPhase: (phase) => set({ phase }),
 
@@ -79,6 +81,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       errorMessage: null,
       didLevelUp: false,
       newLevel: null,
+      actionCount: 0,
     });
   },
 
@@ -172,6 +175,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastAIResult: null,
       errorMessage: null,
       isProcessing: false,
+      actionCount: 0,
     });
     // Do NOT call submitAction — wait for player's next action
     return true;
@@ -237,19 +241,29 @@ export const useGameStore = create<GameState>((set, get) => ({
         extractImportantFacts(aiResult.response);
         updateLongTermSummary(engineResult.player, engineResult.worldState, engineResult.logs);
         const trimmedLogs = trimRecentLogs(engineResult.logs);
+        const newEventHistory = [...eventHistory, aiResult.response].slice(-50);
+        const newActionCount = (get().actionCount || 0) + 1;
 
         set({
           player: engineResult.player,
           worldState: engineResult.worldState,
           currentEvent: aiResult.response,
-          eventHistory: [...eventHistory, aiResult.response].slice(-50),
+          eventHistory: newEventHistory,
           logs: trimmedLogs,
           lastJudgeResult: judgeResult,
           lastAIResult: aiResult,
           isProcessing: false,
           didLevelUp: engineResult.didLevelUp,
           newLevel: engineResult.newLevel || null,
+          actionCount: newActionCount,
         });
+
+        // Auto-save every 5 actions
+        if (newActionCount % 5 === 0) {
+          const summary = getLongTermSummary();
+          const flags = getGameFlags();
+          saveGame(engineResult.player, engineResult.worldState, aiResult.response, newEventHistory, trimmedLogs, summary, flags);
+        }
       } else {
         // Handle error
         set({
