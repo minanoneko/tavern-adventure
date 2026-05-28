@@ -354,20 +354,32 @@ function parseHPFromNarrative(player: Player, text: string, logs: LogEntry[]): P
   const p = { ...player, resources: { ...player.resources } };
   let hpChange = 0;
 
-  // Damage patterns: "造成了X点伤害", "受了重伤", "HP -X", "失去X点生命"
+  // Damage patterns: broad matching for combat descriptions
   const damagePatterns = [
-    /(?:造成|受到|受了|扣了|失去|损失|掉了).*?(\d+)\s*(?:点)?\s*(?:伤害|HP|生命|血)/g,
+    /(?:造成|受到|受了|扣了|失去|损失|掉了|减少|消耗).*?(\d+)\s*(?:点)?\s*(?:伤害|HP|生命|血)/g,
     /HP\s*[-−]\s*(\d+)/gi,
-    /(?:受了|受了).{0,2}(重伤|轻伤|中等伤)/g,
+    /(?:受了|身负|被打成|伤得很)(重伤|轻伤|中等伤|致命伤)/g,
+    /(?:被|遭到|受到)(?:砍|刺|咬|抓|打|击|命中|击中|攻击)/g, // "被砍了一刀" → -3
+    /(?:血流不止|鲜血直流|血从|伤口|受伤|负伤|挂彩)/g,         // "你受伤了" → -2
+    /(?:剧痛|疼痛难忍|痛得)/g,                                     // pain → -1
   ];
 
   for (const pattern of damagePatterns) {
     let m: RegExpExecArray | null;
     while ((m = pattern.exec(text)) !== null) {
-      if (m[1] === '重伤') hpChange -= 8;
-      else if (m[1] === '轻伤') hpChange -= 2;
-      else if (m[1] === '中等伤') hpChange -= 5;
-      else hpChange -= parseInt(m[1]) || 0;
+      if (typeof m[1] === 'string') {
+        if (m[1] === '重伤' || m[1] === '致命伤') hpChange -= 8;
+        else if (m[1] === '轻伤') hpChange -= 2;
+        else if (m[1] === '中等伤') hpChange -= 5;
+        else hpChange -= parseInt(m[1]) || 0;
+      } else {
+        // Non-capturing patterns: default damage
+        const fullMatch = m[0];
+        if (fullMatch.includes('血流') || fullMatch.includes('砍') || fullMatch.includes('刺')) hpChange -= 4;
+        else if (fullMatch.includes('咬') || fullMatch.includes('抓') || fullMatch.includes('打') || fullMatch.includes('击')) hpChange -= 3;
+        else if (fullMatch.includes('受伤') || fullMatch.includes('负伤') || fullMatch.includes('挂彩')) hpChange -= 2;
+        else if (fullMatch.includes('痛')) hpChange -= 1;
+      }
     }
   }
 

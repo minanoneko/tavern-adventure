@@ -316,14 +316,17 @@ export const useGameStore = create<GameState>((set, get) => ({
         logs, eventHistory, { ...settings, customGMRules: settings.customGMRules }
       );
 
-      // 3.5 Combat resolution: if AI generated an enemy, resolve fight locally
-      if (aiResult.success && aiResult.response && aiResult.response.enemy && playerAction.type === 'combat') {
+      // 3.5 Combat resolution: enemy attacks every turn when combat is active
+      if (aiResult.success && aiResult.response && aiResult.response.enemy) {
+        // Enemy always attacks when present (not just on player's combat actions)
         const combatResult = resolveCombat(player, aiResult.response.enemy);
-        // Apply combat damage to player before gameEngine processing
         player.resources.hp = Math.max(0, player.resources.hp - combatResult.playerDamage);
         logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.log });
         if (combatResult.playerDamage > 0) {
           logs.push({ id: `hp_dmg_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${combatResult.playerDamage}（战斗伤害）` });
+        }
+        if (combatResult.enemyDefeated) {
+          logs.push({ id: `kill_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `✓ 击败了${aiResult.response.enemy.name}！` });
         }
       }
 
