@@ -95,7 +95,7 @@ async function generateWithAI(
         model: settings.apiModel,
         messages,
         temperature: 0.3,
-        max_tokens: 1500,
+        max_tokens: 2000,
         ...(settings.useJsonMode ? { response_format: { type: 'json_object' as const } } : {}),
       }),
       signal: controller.signal,
@@ -106,7 +106,10 @@ async function generateWithAI(
     if (!response.ok) return null;
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    let content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      content = data.choices?.[0]?.message?.reasoning_content;
+    }
     if (!content) return null;
 
     const result = normalizeAndComplete(content);

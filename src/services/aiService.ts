@@ -40,12 +40,13 @@ function logResponse(content: string, elapsed: number): void {
 
 /** Pick max_tokens based on event type */
 function getMaxTokensByAction(action: PlayerAction): number {
+  // Higher for reasoning models (flash=thinking model)
   switch (action.type) {
-    case 'combat': return 1500;
-    case 'exploration': return 1300;
+    case 'combat': return 2000;
+    case 'exploration': return 1800;
     case 'dialogue':
-    case 'social': return 1200;
-    default: return 1100;
+    case 'social': return 1600;
+    default: return 1500;
   }
 }
 
@@ -137,7 +138,11 @@ async function sendAIRequest(
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    // DeepSeek reasoning models put output in reasoning_content, not content
+    let content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      content = data.choices?.[0]?.message?.reasoning_content;
+    }
 
     logResponse(content || '', elapsed);
 
