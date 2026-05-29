@@ -178,7 +178,7 @@ export default function CombatPanel() {
             >
               <input
                 className="input text-sm flex-1"
-                placeholder="自定义行动（如：召唤帮手、推倒书架...）"
+                placeholder="自定义行动（如：砍向敌人、防御、逃跑、观察弱点、喝治疗药水...）"
                 value={customText}
                 onChange={(e) => setCustomText(e.target.value)}
                 disabled={isProcessing}

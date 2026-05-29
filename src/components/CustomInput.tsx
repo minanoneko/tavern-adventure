@@ -19,7 +19,7 @@ export default function CustomInput() {
         value={input}
         onChange={e => setInput(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
-        placeholder="输入自定义行动..."
+        placeholder="输入行动（如：绕到后门看看、调查墙上的痕迹、悄悄跟踪那个人、礼貌询问老板...）"
         disabled={isProcessing}
       />
       <button className="btn btn-primary" onClick={handleSubmit} disabled={!input.trim() || isProcessing}>
