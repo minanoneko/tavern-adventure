@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { CombatAction, CombatState } from '../types/combat';
-import { parseCombatCustomAction } from '../services/combat/combatRules';
-import { validateCombatCustomAction } from '../services/customActionGuard';
-import { getSkillById, SKILL_LIBRARY } from '../data/skills';
+import { getSkillById } from '../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
-import { sendPlayerAction } from '../services/aiService';
-import { useSettingsStore } from '../store/settingsStore';
-import { applyAIResponse } from '../services/gameEngine';
 
 export default function CombatPanel() {
   const player = useGameStore(s => s.player);
@@ -16,7 +11,6 @@ export default function CombatPanel() {
   const isProcessing = useGameStore(s => s.isProcessing);
 
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
-  const [customText, setCustomText] = useState('');
 
   const shouldShow = combatState.active || combatState.phase === 'victory' || combatState.phase === 'defeat' || combatState.phase === 'fled';
   if (!player || !shouldShow) return null;
@@ -45,36 +39,9 @@ export default function CombatPanel() {
   const hitTarget = 10 + defMod;
   const dmgBase = 2 + (player.attributes.str >= 9 ? 4 : player.attributes.str >= 8 ? 3 : player.attributes.str >= 7 ? 2 : player.attributes.str >= 6 ? 1 : player.attributes.str >= 5 ? 0 : player.attributes.str >= 4 ? -1 : -2);
 
-  // Victory/Defeat/Fled: dismiss immediately, AI narrative in background
+  // Victory/Defeat/Fled: just dismiss
   const handleDismiss = () => {
-    const s = useGameStore.getState();
-    // Dismiss right away
-    s.dismissCombat();
-    // AI narrative in background
-    if (phase !== 'fighting') {
-      const summary = phase === 'victory'
-        ? `战斗胜利！${s.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
-        : phase === 'defeat'
-          ? `玩家被击败了，HP剩余${s.player?.resources.hp}。请生成一段战败后的过渡剧情。`
-          : `玩家逃离了战斗。请生成一段逃跑后的过渡剧情。`;
-      const settings = useSettingsStore.getState();
-      if (settings.aiMode !== 'mock') {
-        sendPlayerAction(
-          s.player!, { ...s.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player' as const, enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
-          { id: 'cb_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
-          { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
-          s.logs, s.eventHistory, { ...settings, customGMRules: settings.customGMRules },
-        ).then(r => {
-          if (r.success && r.response) {
-            r.response.combatStart = undefined;
-            r.response.enemy = undefined;
-            const st = useGameStore.getState();
-            const eng = applyAIResponse(r.response, st.player!, { ...st.worldState, combatCooldown: 4 }, st.logs);
-            useGameStore.setState({ player: eng.player, worldState: { ...eng.worldState, combatCooldown: 4 }, currentEvent: r.response, eventHistory: [...st.eventHistory, r.response], logs: eng.logs, isProcessing: false });
-          }
-        }).catch(() => {});
-      }
-    }
+    useGameStore.getState().dismissCombat();
   };
 
   return (
@@ -169,31 +136,6 @@ export default function CombatPanel() {
               );
             })}
           </div>
-          {combatState.turn === 'player' && (
-            <form className="flex gap-2" onSubmit={e => {
-              e.preventDefault();
-              const t = customText.trim();
-              if (!t) return;
-              const g = validateCombatCustomAction(t, player!, combatState);
-              if (!g.allowed) { alert(g.reason); setCustomText(''); return; }
-              const tid = aliveEnemies[0]?.id;
-              if (g.intent==='attack') submitCombatAction({type:'attack',label:'攻击',targetEnemyId:tid});
-              else if (g.intent==='defend') submitCombatAction({type:'defend',label:'防御'});
-              else if (g.intent==='flee') submitCombatAction({type:'flee',label:'逃跑'});
-              else if (g.intent==='observe') submitCombatAction({type:'observe',label:'观察',targetEnemyId:tid});
-              else if (g.intent==='item') submitCombatAction({type:'item',label:'治疗药水',itemId:'healing_potion'});
-              else if (g.intent==='skill') {
-                const f = Object.values(SKILL_LIBRARY).find((s:any)=>s.name&&t.includes(s.name)) as any;
-                submitCombatAction({type:'skill',label:f?.name||'技能',skillId:f?.id,targetEnemyId:tid});
-              } else {
-                submitCombatAction(parseCombatCustomAction(t, player!));
-              }
-              setCustomText('');
-            }}>
-              <input className="input text-sm flex-1" placeholder="自定义（攻击/技能/防御/逃跑）" value={customText} onChange={e=>setCustomText(e.target.value)} disabled={isProcessing}/>
-              <button className="btn text-sm" disabled={isProcessing}>执行</button>
-            </form>
-          )}
         </>
       ) : (
         <div className="text-center p-3">

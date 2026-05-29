@@ -499,8 +499,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
 
-      // If combat is active after this round, skip normal event processing
-      // The CombatPanel will take over for the next action
+      // Random wild encounter: if AI didn't trigger combat, player is in wild area, cooldown = 0
+      if (!worldState.combatState.active && worldState.combatCooldown <= 0) {
+        const locId = worldState.currentLocation || '';
+        const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('ruin') || locId.includes('cave') || locId.includes('wild');
+        if (isWild && Math.random() < 0.3) {
+          const elv = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
+          const enemyName = getWildEnemyName(locId);
+          const enemy: CombatEnemy = {
+            name: enemyName, str: 4 + elv, dex: 3 + Math.floor(elv / 2), con: 3 + Math.floor(elv / 2),
+            hp: 6 + elv * 2, maxHp: 6 + elv * 2, level: elv,
+          };
+          const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
+          worldState.combatState = combatResult.combatState;
+          logs.push({ id: `wild_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ 野外遭遇！${enemyName}(Lv.${elv})出现了！` });
+        }
+      }
 
       // 4. Handle AI result
       if (aiResult.success && aiResult.response) {
