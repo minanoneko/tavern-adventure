@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { CombatAction, CombatState } from '../types/combat';
-import CombatActionBar from './CombatActionBar';
 import { parseCombatCustomAction } from '../services/combat/combatRules';
 import { validateCombatCustomAction } from '../services/customActionGuard';
 import { getSkillById, SKILL_LIBRARY } from '../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
+import { sendPlayerAction } from '../services/aiService';
+import { useSettingsStore } from '../store/settingsStore';
+import { applyAIResponse } from '../services/gameEngine';
 
 export default function CombatPanel() {
   const player = useGameStore(s => s.player);
@@ -23,9 +25,6 @@ export default function CombatPanel() {
   const phase = combatState.phase;
   const actions = getCombatActions(player, combatState);
 
-  // Extract latest dice roll info from combat log
-  const latestAction = [...combatState.combatLog].reverse().find(l => l.type === 'action' || l.type === 'enemy');
-
   const handleAction = (action: CombatAction) => {
     if ((action.type === 'attack' || action.type === 'skill' || (action.type === 'item' && action.itemId?.includes('bomb'))) && aliveEnemies.length > 0) {
       action = { ...action, targetEnemyId: selectedTarget || aliveEnemies[0].id };
@@ -38,249 +37,189 @@ export default function CombatPanel() {
   const mpPct = (player.resources.mp / player.resources.maxMp) * 100;
   const statusText = player.statusEffects.filter(s => s !== '正常');
 
+  // Latest 3 combat log entries for dice narrative
+  const latestLogs = combatState.combatLog.slice(-3);
+
+  // Victory/Defeat: call AI for narrative on dismiss
+  const handleDismiss = async () => {
+    const store = useGameStore.getState();
+    if (phase === 'victory' || phase === 'defeat') {
+      const summary = phase === 'victory'
+        ? `战斗胜利！${store.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
+        : `玩家被击败了，请生成一段战败后的过渡剧情。HP剩余${store.player?.resources.hp}。`;
+
+      const settings = useSettingsStore.getState();
+      if (settings.aiMode !== 'mock') {
+        try {
+          const result = await sendPlayerAction(
+            store.player!,
+            { ...store.worldState, combatState: store.worldState.combatState },
+            { id: 'combat_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
+            { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
+            store.logs, store.eventHistory,
+            { ...settings, customGMRules: settings.customGMRules },
+          );
+          if (result.success && result.response) {
+            const engineResult = applyAIResponse(result.response, store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, store.logs);
+            useGameStore.setState({
+              player: engineResult.player,
+              worldState: { ...engineResult.worldState, combatCooldown: 4 },
+              currentEvent: result.response,
+              eventHistory: [...store.eventHistory, result.response],
+              logs: engineResult.logs,
+              isProcessing: false,
+            });
+            return;
+          }
+        } catch { /* fall through to basic dismiss */ }
+      }
+    }
+    store.dismissCombat();
+  };
+
   return (
-    <div className="panel p-3 lg:p-4 mb-2 border-2 border-[#c94040] bg-[#1a0a0a]/90 shadow-lg shadow-[#c94040]/20 overflow-auto max-h-full">
-      {/* === Turn Indicator === */}
-      <div className="text-center mb-3">
-        {phase === 'fighting' && combatState.turn === 'player' && (
-          <div className="text-base lg:text-lg font-bold text-info">⚔ 你的回合 —— 选择行动</div>
-        )}
-        {phase === 'fighting' && combatState.turn === 'enemy' && (
-          <div className="text-base lg:text-lg font-bold text-muted">⏳ 敌人行动中...</div>
-        )}
-        {phase === 'victory' && (
-          <div className="text-xl font-bold text-success">⚔ 战斗胜利！</div>
-        )}
-        {phase === 'defeat' && (
-          <div className="text-xl font-bold text-danger">你被击败了...</div>
-        )}
-        {phase === 'fled' && (
-          <div className="text-lg font-bold text-muted">脱离了战斗</div>
-        )}
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-3">
-        {/* === Left: Player + Dice === */}
-        <div className="flex-shrink-0 lg:w-56 space-y-3">
-          {/* Player card */}
-          <div className="p-2 bg-black/30 rounded border border-[#c94040]/50">
-            <div className="text-sm font-bold">{player.name} <span className="text-muted">Lv.{player.level}</span></div>
-            <div className="mt-1 space-y-1">
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-danger w-6">HP</span>
-                <div className="flex-1 h-2 bg-black/50 rounded overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-red-700 to-red-400 transition-all" style={{ width: `${hpPct}%` }} />
-                </div>
-                <span className="w-16 text-right text-xs">{player.resources.hp}/{player.resources.maxHp}</span>
-              </div>
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-info w-6">MP</span>
-                <div className="flex-1 h-2 bg-black/50 rounded overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-blue-800 to-blue-400 transition-all" style={{ width: `${mpPct}%` }} />
-                </div>
-                <span className="w-16 text-right text-xs">{player.resources.mp}/{player.resources.maxMp}</span>
-              </div>
-            </div>
-            {statusText.length > 0 && (
-              <div className="text-xs mt-1 text-warning">状态: {statusText.join(', ')}</div>
-            )}
-          </div>
-
-          {/* Dice roll display */}
-          {latestAction && (
-            <div className="p-3 bg-black/40 rounded border-2 border-[#c94040] text-center">
-              <div className="text-xs text-muted mb-1">最近判定</div>
-              <div className="text-sm font-bold" style={{ color: latestAction.type === 'enemy' ? 'var(--color-tavern-danger)' : 'var(--color-tavern-info)' }}>
-                {latestAction.text}
-              </div>
-              <div className="text-xs text-muted mt-1">回合 {latestAction.round}</div>
-            </div>
+    <div className="border-2 border-[#c94040] bg-[#1a0a0a] shadow-lg shadow-[#c94040]/20 p-3 space-y-3 overflow-auto max-h-full flex-shrink-0" style={{minHeight: '200px'}}>
+      {/* === Turn + Player Bar (compact) === */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          {phase === 'fighting' && combatState.turn === 'player' && (
+            <span className="text-sm lg:text-base font-bold text-info">⚔ 你的回合</span>
           )}
-
-          {/* Buffs */}
-          {combatState.playerBuffs.length > 0 && (
-            <div className="text-xs text-muted">
-              增益: {combatState.playerBuffs.map(b => `${b.name}(${b.duration})`).join(', ')}
-            </div>
+          {phase === 'fighting' && combatState.turn === 'enemy' && (
+            <span className="text-sm lg:text-base font-bold text-muted">⏳ 敌人行动中</span>
+          )}
+          {phase !== 'fighting' && (
+            <span className={`text-sm lg:text-base font-bold ${phase === 'victory' ? 'text-success' : 'text-danger'}`}>
+              {phase === 'victory' ? '⚔ 战斗胜利！' : phase === 'defeat' ? '你被击败了...' : '脱离了战斗'}
+            </span>
           )}
         </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span>{player.name} Lv.{player.level}</span>
+          <span className="text-danger">HP {player.resources.hp}/{player.resources.maxHp}</span>
+          <span className="text-info">MP {player.resources.mp}/{player.resources.maxMp}</span>
+          {statusText.length > 0 && <span className="text-warning">{statusText.join(',')}</span>}
+        </div>
+      </div>
 
-        {/* === Right: Enemies + Log + Actions === */}
-        <div className="flex-1 space-y-3 min-w-0">
-          {/* Enemy cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {combatState.enemies.map(enemy => {
-              const eHpPct = enemy.maxHp > 0 ? (enemy.hp / enemy.maxHp) * 100 : 0;
-              const isSelected = selectedTarget === enemy.id;
-              const canSelect = !enemy.isDefeated && phase === 'fighting' && combatState.turn === 'player';
-              return (
-                <div
-                  key={enemy.id}
-                  className={`p-2 rounded border cursor-pointer transition-all ${
-                    enemy.isDefeated
-                      ? 'border-muted opacity-50 bg-black/20'
-                      : isSelected
-                        ? 'border-[#c94040] border-2 bg-[#2a0a0a]'
-                        : canSelect
-                          ? 'border-[#c94040]/40 hover:border-[#c94040] bg-black/30'
-                          : 'border-[#c94040]/30 bg-black/20'
-                  }`}
-                  onClick={() => canSelect && setSelectedTarget(enemy.id)}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-bold">
-                      {enemy.name}
-                      {enemy.isBoss && <span className="text-danger ml-1 text-xs">[BOSS]</span>}
-                    </span>
-                    <span className="text-xs text-muted">Lv.{enemy.level}</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1 text-xs">
-                    <span className="text-danger w-4">HP</span>
-                    <div className="flex-1 h-2 bg-black/50 rounded overflow-hidden">
-                      <div className={`h-full transition-all ${enemy.isDefeated ? 'bg-gray-600' : eHpPct < 30 ? 'bg-red-600' : 'bg-orange-600'}`} style={{ width: `${eHpPct}%` }} />
-                    </div>
-                    <span className="w-16 text-right">{enemy.hp}/{enemy.maxHp}</span>
-                  </div>
-                  {enemy.isDefeated && (
-                    <div className="text-xs text-muted mt-1">☠ 已击败</div>
-                  )}
-                  {!enemy.isDefeated && enemy.statusEffects.length > 0 && (
-                    <div className="text-xs text-warning mt-1">{enemy.statusEffects.join(', ')}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      {/* === Dice Roll Result (big & prominent) === */}
+      {phase === 'fighting' && latestLogs.length > 0 && (
+        <div className="p-3 bg-black/60 rounded border border-[#c94040] text-center">
+          {latestLogs.map((l, i) => (
+            <div key={l.id} className={`text-sm lg:text-base font-bold ${l.type === 'enemy' ? 'text-danger' : l.type === 'action' ? 'text-info' : 'text-muted'}`}>
+              {l.type === 'action' && '🎲 '}{l.type === 'enemy' && '💢 '}{l.text}
+            </div>
+          ))}
+        </div>
+      )}
 
-          {/* Combat Log (last 5) */}
-          <div className="max-h-24 overflow-auto p-2 bg-black/40 rounded text-xs space-y-0.5">
-            {combatState.combatLog.slice(-5).map(log => (
-              <div key={log.id} className={
-                log.type === 'action' ? 'text-info' :
-                log.type === 'enemy' ? 'text-danger' :
-                log.type === 'reward' ? 'text-success' :
-                log.type === 'system' ? 'text-muted' : 'text-muted'
-              }>
-                <span className="text-muted">[R{log.round}]</span> {log.text}
+      {/* === Enemy cards === */}
+      <div className="grid grid-cols-2 gap-2">
+        {combatState.enemies.map(enemy => {
+          const eHpPct = enemy.maxHp > 0 ? (enemy.hp / enemy.maxHp) * 100 : 0;
+          const isSelected = selectedTarget === enemy.id;
+          return (
+            <div key={enemy.id} className={`p-2 rounded border text-xs lg:text-sm cursor-pointer transition-all ${
+              enemy.isDefeated ? 'border-gray-700 opacity-40 bg-black/20' :
+              isSelected ? 'border-[#c94040] bg-[#2a0a0a]' :
+              'border-[#c94040]/40 hover:border-[#c94040] bg-black/30'
+            }`} onClick={() => !enemy.isDefeated && setSelectedTarget(enemy.id)}>
+              <div className="flex justify-between font-bold">
+                <span>{enemy.name}{enemy.isBoss ? <span className="text-danger ml-1">BOSS</span> : ''}</span>
+                <span className="text-muted">Lv.{enemy.level}</span>
               </div>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-danger text-xs">HP</span>
+                <div className="flex-1 h-2 bg-black/50 rounded overflow-hidden">
+                  <div className={`h-full ${enemy.isDefeated ? 'bg-gray-600' : eHpPct<30 ? 'bg-red-600' : 'bg-orange-600'}`} style={{width:`${eHpPct}%`}}/>
+                </div>
+                <span className="text-xs">{enemy.hp}/{enemy.maxHp}</span>
+              </div>
+              {enemy.isDefeated && <div className="text-xs text-muted mt-1">☠ 已击败</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* === Actions or End Screen === */}
+      {phase === 'fighting' ? (
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {actions.map((a, i) => (
+              <button key={i} className={`btn text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' ? 'opacity-50' : ''}`}
+                style={{ borderColor: a.type==='attack'?'#c97a30':a.type==='skill'?'#6b8cce':a.type==='item'?'#5a9e6f':a.type==='defend'?'#8a8a8a':a.type==='flee'?'#c94040':'var(--color-tavern-muted)' }}
+                onClick={() => handleAction(a)} disabled={isProcessing || combatState.turn !== 'player'}>
+                {a.label}
+              </button>
             ))}
-            {combatState.combatLog.length === 0 && (
-              <div className="text-muted">等待战斗开始...</div>
-            )}
           </div>
-
-          {/* Actions or Victory/Defeat */}
-          {phase === 'fighting' ? (
-            <>
-              <CombatActionBar
-                actions={actions}
-                disabled={isProcessing || combatState.turn !== 'player'}
-                selectedTarget={selectedTarget}
-                onAction={handleAction}
-                onTargetSelect={setSelectedTarget}
-                enemyIds={aliveEnemies.map(e => e.id)}
-              />
-              {combatState.turn === 'player' && (
-                <form className="flex gap-2" onSubmit={(e) => {
-                  e.preventDefault();
-                  const text = customText.trim();
-                  if (!text || !player) return;
-                  const guard = validateCombatCustomAction(text, player, combatState);
-                  if (!guard.allowed) {
-                    alert(guard.reason || '该行动在当前战斗中不被允许。');
-                    setCustomText(''); return;
-                  }
-                  const tid = aliveEnemies[0]?.id;
-                  if (guard.intent === 'attack') { submitCombatAction({ type: 'attack', label: '攻击', targetEnemyId: tid }); }
-                  else if (guard.intent === 'defend') { submitCombatAction({ type: 'defend', label: '防御' }); }
-                  else if (guard.intent === 'flee') { submitCombatAction({ type: 'flee', label: '逃跑' }); }
-                  else if (guard.intent === 'observe') { submitCombatAction({ type: 'observe', label: '观察敌人', targetEnemyId: tid }); }
-                  else if (guard.intent === 'item') { submitCombatAction({ type: 'item', label: '治疗药水', itemId: 'healing_potion' }); }
-                  else if (guard.intent === 'skill') {
-                    const found = Object.values(SKILL_LIBRARY).find((s: any) => s.name && text.includes(s.name)) as any;
-                    if (found) { submitCombatAction({ type: 'skill', label: found.name, skillId: found.id, targetEnemyId: tid }); }
-                    else { submitCombatAction({ type: 'attack', label: '攻击', targetEnemyId: tid }); }
-                  } else {
-                    const customAction = parseCombatCustomAction(text, player);
-                    submitCombatAction(customAction);
-                  }
-                  setCustomText('');
-                }}>
-                  <input className="input text-sm flex-1" placeholder="自定义（攻击/技能/物品/防御/逃跑/观察）..."
-                    value={customText} onChange={(e) => setCustomText(e.target.value)} disabled={isProcessing} />
-                  <button type="submit" className="btn text-sm" disabled={isProcessing || !customText.trim()}>执行</button>
-                </form>
-              )}
-            </>
-          ) : phase === 'victory' ? (
-            <div className="text-center p-3">
-              <div className="text-success font-bold text-lg mb-2">战斗胜利！</div>
-              {combatState.combatLog.filter(l => l.type === 'reward').map((l, i) => (
-                <div key={i} className="text-sm text-success mb-1">{l.text}</div>
-              ))}
-              <button className="btn text-sm mt-2" onClick={() => useGameStore.getState().dismissCombat?.()}>继续冒险</button>
-            </div>
-          ) : phase === 'defeat' ? (
-            <div className="text-center p-3">
-              <div className="text-danger font-bold text-lg mb-2">你被击败了...</div>
-              {combatState.combatLog.slice(-3).filter(l => l.type === 'system').map((l, i) => (
-                <div key={i} className="text-sm text-muted mb-1">{l.text}</div>
-              ))}
-              <button className="btn text-sm mt-2" onClick={() => useGameStore.getState().dismissCombat?.()}>继续冒险</button>
-            </div>
-          ) : (
-            <div className="text-center p-3">
-              <div className="text-sm text-muted">战斗结束。</div>
-            </div>
+          {combatState.turn === 'player' && (
+            <form className="flex gap-2" onSubmit={e => {
+              e.preventDefault();
+              const t = customText.trim();
+              if (!t) return;
+              const g = validateCombatCustomAction(t, player!, combatState);
+              if (!g.allowed) { alert(g.reason); setCustomText(''); return; }
+              const tid = aliveEnemies[0]?.id;
+              if (g.intent==='attack') submitCombatAction({type:'attack',label:'攻击',targetEnemyId:tid});
+              else if (g.intent==='defend') submitCombatAction({type:'defend',label:'防御'});
+              else if (g.intent==='flee') submitCombatAction({type:'flee',label:'逃跑'});
+              else if (g.intent==='observe') submitCombatAction({type:'observe',label:'观察',targetEnemyId:tid});
+              else if (g.intent==='item') submitCombatAction({type:'item',label:'治疗药水',itemId:'healing_potion'});
+              else if (g.intent==='skill') {
+                const f = Object.values(SKILL_LIBRARY).find((s:any)=>s.name&&t.includes(s.name)) as any;
+                submitCombatAction({type:'skill',label:f?.name||'技能',skillId:f?.id,targetEnemyId:tid});
+              } else {
+                submitCombatAction(parseCombatCustomAction(t, player!));
+              }
+              setCustomText('');
+            }}>
+              <input className="input text-sm flex-1" placeholder="自定义（攻击/技能/防御/逃跑）" value={customText} onChange={e=>setCustomText(e.target.value)} disabled={isProcessing}/>
+              <button className="btn text-sm" disabled={isProcessing}>执行</button>
+            </form>
           )}
+        </>
+      ) : (
+        <div className="text-center p-3">
+          {phase === 'victory' && combatState.combatLog.filter(l=>l.type==='reward').map((l,i)=>(
+            <div key={i} className="text-sm text-success">{l.text}</div>
+          ))}
+          <button className="btn text-sm mt-3" onClick={handleDismiss}>继续冒险</button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-/** Generate combat actions locally from player state */
+// --- helpers (unchanged) ---
 function getCombatActions(player: NonNullable<ReturnType<typeof useGameStore.getState>['player']>, combatState: CombatState): CombatAction[] {
   const actions: CombatAction[] = [];
   const aliveEnemies = combatState.enemies.filter(e => !e.isDefeated);
   if (aliveEnemies.length > 0) {
-    const targetId = aliveEnemies[0].id;
-    actions.push({ type: 'attack', label: '攻击', targetEnemyId: targetId });
+    const tid = aliveEnemies[0].id;
+    actions.push({ type: 'attack', label: '攻击', targetEnemyId: tid });
     for (const sid of player.skills.equipped) {
-      const skill = getSkillCombatInfo(sid, player);
-      if (!skill) continue;
-      const name = skill.usable ? skill.name : `${skill.name}(${skill.lockReason || '不可用'})`;
-      actions.push({ type: 'skill', label: name, skillId: sid, targetEnemyId: targetId });
+      const s = getSkillCombatInfo(sid, player);
+      if (!s) continue;
+      actions.push({ type: 'skill', label: s.usable ? s.name : `${s.name}(${s.lockReason||'不可用'})`, skillId: sid, targetEnemyId: tid });
     }
   }
   for (const item of player.inventory) {
     if (item.quantity <= 0) continue;
-    if (item.id === 'healing_potion') { actions.push({ type: 'item', label: `治疗药水(x${item.quantity})`, itemId: item.id }); }
-    if (item.id === 'fire_bomb') { actions.push({ type: 'item', label: `燃烧瓶(x${item.quantity})`, itemId: item.id, targetEnemyId: aliveEnemies[0]?.id }); }
-    if (item.id === 'smoke_bomb') { actions.push({ type: 'item', label: `烟雾弹(x${item.quantity})`, itemId: item.id }); }
+    if (item.id === 'healing_potion') actions.push({ type: 'item', label: `药水(x${item.quantity})`, itemId: item.id });
+    if (item.id === 'fire_bomb') actions.push({ type: 'item', label: `燃烧瓶(x${item.quantity})`, itemId: item.id, targetEnemyId: aliveEnemies[0]?.id });
+    if (item.id === 'smoke_bomb') actions.push({ type: 'item', label: `烟雾弹(x${item.quantity})`, itemId: item.id });
   }
-  actions.push({ type: 'defend', label: '防御' });
-  actions.push({ type: 'flee', label: '逃跑' });
-  actions.push({ type: 'observe', label: '观察', targetEnemyId: aliveEnemies[0]?.id });
+  actions.push({ type: 'defend', label: '防御' }, { type: 'flee', label: '逃跑' }, { type: 'observe', label: '观察', targetEnemyId: aliveEnemies[0]?.id });
   return actions;
 }
 
 function getSkillCombatInfo(sid: string, player: NonNullable<ReturnType<typeof useGameStore.getState>['player']>): { name: string; mpCost: number; hpCost: number; usable: boolean; lockReason?: string } | null {
   const skill = getSkillById(sid);
-  if (!skill) return null;
-  if (!player.skills.learned.includes(sid)) return null;
-  const combatTypes = ['combat', 'magic', 'active', 'reaction'];
-  if (!combatTypes.includes(skill.type)) return null;
-  if (!player.skills.equipped.includes(sid)) {
-    return { name: skill.name, mpCost: 0, hpCost: 0, usable: false, lockReason: '未装备' };
-  }
+  if (!skill || !player.skills.learned.includes(sid)) return null;
+  if (!['combat', 'magic', 'active', 'reaction'].includes(skill.type)) return null;
+  if (!player.skills.equipped.includes(sid)) return { name: skill.name, mpCost: 0, hpCost: 0, usable: false, lockReason: '未装备' };
   const usable = canCastSkill(skill, player);
   const reasons = usable ? [] : getSkillLockReasons(skill, player);
-  return {
-    name: skill.name,
-    mpCost: skill.castRequirements.mpCost || 0,
-    hpCost: skill.castRequirements.hpCost || 0,
-    usable,
-    lockReason: reasons.length > 0 ? reasons.join('、') : undefined,
-  };
+  return { name: skill.name, mpCost: skill.castRequirements.mpCost || 0, hpCost: skill.castRequirements.hpCost || 0, usable, lockReason: reasons.length > 0 ? reasons.join('、') : undefined };
 }

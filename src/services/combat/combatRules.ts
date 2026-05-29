@@ -196,9 +196,9 @@ export function applyCombatResult(
     }
 
     updatedEnemy.hp = Math.max(0, updatedEnemy.hp - damage);
-    results.push(`命中！造成 ${damage} 点伤害（掷骰 ${total}）`);
+    results.push(`d20=${total} → 命中！${damage}伤害`);
   } else {
-    results.push(`未命中（掷骰 ${total}）`);
+    results.push(`d20=${total} → 未命中`);
   }
 
   if (updatedEnemy.hp <= 0) {
@@ -246,12 +246,12 @@ export function enemyAttack(
     if (shield) {
       const absorbed = Math.min(damage, shield.value);
       damage -= absorbed;
-      results.push(`${enemy.name} 攻击命中！护盾吸收了 ${absorbed} 点，实际受到 ${damage} 点伤害`);
+      results.push(`${enemy.name} d20=${total} → 命中！护盾-${absorbed}，实际${damage}伤害`);
     } else {
-      results.push(`${enemy.name} 攻击命中！造成 ${damage} 点伤害`);
+      results.push(`${enemy.name} d20=${total} → 命中！${damage}伤害`);
     }
   } else {
-    results.push(`${enemy.name} 攻击未命中`);
+    results.push(`${enemy.name} d20=${total} → 未命中`);
   }
 
   return { damage, hit, roll: total, results };
