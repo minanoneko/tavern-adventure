@@ -39,11 +39,18 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
       items.push({ id: 'healing_potion', name: '治疗药水', quantity: enemy.isBoss ? 2 : 1, type: 'consumable', rarity: 'common' });
     }
 
-    // Boss: drop actual equipment (30%) or valuable consumables
+    // Boss: 20% rare accessory, 30% normal equip, 50% consumable bundle
     if (enemy.isBoss) {
-      if (Math.random() < 0.3) {
-        // Random equipment drop
-        const equipList = Object.values(EQUIPMENT_LIBRARY).filter(e => e.price && (e.slot === 'mainWeapon' || e.slot === 'armor'));
+      const roll = Math.random();
+      if (roll < 0.2) {
+        // Rare boss-only accessory
+        const bossItems = ['adventurer_ring', 'sage_amulet', 'warrior_bracer', 'guardian_pendant', 'wind_boots', 'bloodstone_charm', 'mana_crystal', 'charm_pendant', 'spirit_ring'];
+        const id = bossItems[Math.floor(Math.random() * bossItems.length)];
+        const eq = EQUIPMENT_LIBRARY[id];
+        if (eq) items.push({ id: eq.id, name: eq.name, quantity: 1, type: 'accessory', rarity: 'rare' });
+      } else if (roll < 0.5) {
+        // Random normal equipment
+        const equipList = Object.values(EQUIPMENT_LIBRARY).filter(e => e.price && !e.id.startsWith('boss_') && (e.slot === 'mainWeapon' || e.slot === 'armor') && e.quality !== '稀有');
         if (equipList.length > 0) {
           const eq = equipList[Math.floor(Math.random() * equipList.length)];
           items.push({ id: eq.id, name: eq.name, quantity: 1, type: eq.slot === 'mainWeapon' ? 'weapon' : 'armor', rarity: eq.quality as string });

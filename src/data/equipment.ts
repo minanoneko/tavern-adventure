@@ -288,6 +288,62 @@ export const EQUIPMENT_LIBRARY: Record<string, EquipmentItem> = {
     effects: ['观察判定+2'],
     price: { silver: 30, copper: 0 },
   },
+
+  // ===== BOSS专属掉落（稀有饰品，不影响商店） =====
+  adventurer_ring: {
+    id: 'adventurer_ring', name: '冒险者之戒', slot: 'accessory1',
+    quality: '稀有', description: '一枚历经风霜的银戒，佩戴者身法轻盈。',
+    stats: { dex: 1 }, requirements: {}, traits: [], effects: ['敏捷+1', '战斗中受伤时减伤1点'],
+    price: { silver: 50, copper: 0 },
+  },
+  sage_amulet: {
+    id: 'sage_amulet', name: '贤者护符', slot: 'accessory1',
+    quality: '稀有', description: '刻有古文字的护符，能增强佩戴者的精神力。',
+    stats: { int: 1 }, requirements: {}, traits: [], effects: ['智力+1', 'MP上限+3'],
+    price: { silver: 50, copper: 0 },
+  },
+  warrior_bracer: {
+    id: 'warrior_bracer', name: '战士腕甲', slot: 'accessory1',
+    quality: '稀有', description: '精铁打造的护腕，握剑时手臂更稳。',
+    stats: { str: 1 }, requirements: {}, traits: [], effects: ['力量+1', '攻击伤害+1'],
+    price: { silver: 50, copper: 0 },
+  },
+  guardian_pendant: {
+    id: 'guardian_pendant', name: '守护吊坠', slot: 'accessory2',
+    quality: '稀有', description: '一枚散发着微弱白光的吊坠。',
+    stats: { con: 1 }, requirements: {}, traits: [], effects: ['体质+1', 'HP上限+5'],
+    price: { silver: 50, copper: 0 },
+  },
+  wind_boots: {
+    id: 'wind_boots', name: '疾风靴', slot: 'feet',
+    quality: '稀有', description: '轻便的皮靴，穿上后步履生风。',
+    stats: { dex: 1 }, requirements: {}, traits: [], effects: ['敏捷+1', '逃跑判定+2'],
+    price: { silver: 50, copper: 0 },
+  },
+  bloodstone_charm: {
+    id: 'bloodstone_charm', name: '血石护符', slot: 'accessory2',
+    quality: '稀有', description: '暗红色的石头，在佩戴者受伤时微微发热。',
+    stats: {}, requirements: {}, traits: [], effects: ['HP低于30%时回复3HP/每场战斗1次'],
+    price: { silver: 60, copper: 0 },
+  },
+  mana_crystal: {
+    id: 'mana_crystal', name: '魔力结晶', slot: 'accessory2',
+    quality: '稀有', description: '一小块天然魔力结晶，握在手心能感受到魔力流动。',
+    stats: {}, requirements: {}, traits: [], effects: ['技能MP消耗-1(最低1)'],
+    price: { silver: 60, copper: 0 },
+  },
+  charm_pendant: {
+    id: 'charm_pendant', name: '魅力吊坠', slot: 'accessory2',
+    quality: '稀有', description: '精致的银吊坠，让人在社交场合更自信。',
+    stats: { cha: 1 }, requirements: {}, traits: [], effects: ['魅力+1', '社交判定+1'],
+    price: { silver: 50, copper: 0 },
+  },
+  spirit_ring: {
+    id: 'spirit_ring', name: '灵感之戒', slot: 'accessory1',
+    quality: '稀有', description: '戴上后思维变得更加敏锐。',
+    stats: { wis: 1 }, requirements: {}, traits: [], effects: ['感知+1', '调查判定+1'],
+    price: { silver: 50, copper: 0 },
+  },
 };
 
 export function getEquipmentById(id: string): EquipmentItem | undefined {
