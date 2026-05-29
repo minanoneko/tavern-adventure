@@ -45,11 +45,14 @@ export default function CombatPanel() {
   const hitTarget = 10 + defMod;
   const dmgBase = 2 + (player.attributes.str >= 9 ? 4 : player.attributes.str >= 8 ? 3 : player.attributes.str >= 7 ? 2 : player.attributes.str >= 6 ? 1 : player.attributes.str >= 5 ? 0 : player.attributes.str >= 4 ? -1 : -2);
 
-  // Victory/Defeat/Fled: clear combat immediately, fetch AI narrative in background
-  const handleDismiss = () => {
+  const [dismissing, setDismissing] = useState(false);
+
+  // Victory/Defeat/Fled: fetch AI narrative, then dismiss
+  const handleDismiss = async () => {
+    setDismissing(true);
     const store = useGameStore.getState();
-    store.dismissCombat();
-    // Fetch AI narrative asynchronously (fire and forget)
+    let newEvent = null;
+
     if (phase === 'victory' || phase === 'defeat' || phase === 'fled') {
       const summary = phase === 'victory'
         ? `战斗胜利！${store.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
@@ -58,30 +61,38 @@ export default function CombatPanel() {
           : `玩家成功逃离了战斗（逃跑）。请生成一段逃跑后的过渡剧情，敌人可能还在附近。`;
       const settings = useSettingsStore.getState();
       if (settings.aiMode !== 'mock') {
-        sendPlayerAction(
-          store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
-          { id: 'combat_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
-          { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
-          store.logs, store.eventHistory, { ...settings, customGMRules: settings.customGMRules },
-        ).then(result => {
+        try {
+          const result = await sendPlayerAction(
+            store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
+            { id: 'combat_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
+            { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
+            store.logs, store.eventHistory, { ...settings, customGMRules: settings.customGMRules },
+          );
           if (result.success && result.response) {
-            // Strip combatStart to prevent re-entering combat
             result.response.combatStart = undefined;
             result.response.enemy = undefined;
-            const state = useGameStore.getState();
-            const engineResult = applyAIResponse(result.response, state.player!, { ...state.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, state.logs);
-            useGameStore.setState({
-              player: engineResult.player,
-              worldState: { ...engineResult.worldState, combatCooldown: 4 },
-              currentEvent: result.response,
-              eventHistory: [...state.eventHistory, result.response],
-              logs: engineResult.logs,
-              isProcessing: false,
-            });
+            const engineResult = applyAIResponse(result.response, store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, store.logs);
+            store.player = engineResult.player;
+            store.worldState = { ...engineResult.worldState, combatCooldown: 4 };
+            newEvent = result.response;
+            store.eventHistory = [...store.eventHistory, result.response];
+            store.logs = engineResult.logs;
           }
-        }).catch(() => {});
+        } catch { /* fall through */ }
       }
     }
+
+    // Now dismiss combat and apply new event
+    const finalState = useGameStore.getState();
+    useGameStore.setState({
+      player: store.player || finalState.player,
+      worldState: { ...(store.worldState || finalState.worldState), combatState: { active: false, phase: 'fighting' as const, round: 0, turn: 'player' as const, enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
+      currentEvent: newEvent || finalState.currentEvent,
+      eventHistory: newEvent ? [...finalState.eventHistory, newEvent] : finalState.eventHistory,
+      logs: store.logs || finalState.logs,
+      isProcessing: false,
+    });
+    setDismissing(false);
   };
 
   return (
@@ -199,7 +210,9 @@ export default function CombatPanel() {
           {phase === 'victory' && combatState.combatLog.filter(l=>l.type==='reward').map((l,i)=>(
             <div key={i} className="text-sm text-success">{l.text}</div>
           ))}
-          <button className="btn text-sm mt-3" onClick={handleDismiss}>继续冒险</button>
+          <button className="btn text-sm mt-3" onClick={handleDismiss} disabled={dismissing}>
+            {dismissing ? 'AI 正在生成剧情...' : '继续冒险'}
+          </button>
         </div>
       )}
     </div>
