@@ -638,6 +638,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     let mpRestored = 0;
     const logs = [...get().logs];
 
+    // Check if already full
+    if (player.resources.hp >= player.resources.maxHp && player.resources.mp >= player.resources.maxMp) {
+      set({ errorMessage: '你的HP和MP已经是满的，不需要休息。' });
+      return;
+    }
+
     if (isSafe) {
       // Full restore at safe locations (cost money)
       const restCost = player.level <= 3 ? { gold: 0, silver: 0, copper: 10 }

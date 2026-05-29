@@ -13,18 +13,28 @@ export default function FixedActions() {
 
   if (!player || combatActive || isProcessing) return null;
 
-  // Determine if current location is safe
+  // Determine if current location is safe / has shop
   const loc = getLocationById(worldState.currentLocation);
   const locType = loc?.type || '';
-  const isSafe = ['tavern', 'inn', 'temple'].includes(locType) ||
-    worldState.currentLocation.includes('inn') ||
-    worldState.currentLocation.includes('tavern') ||
-    worldState.currentLocation.includes('chapel') ||
-    worldState.currentLocation.includes('guild');
-  const isWild = ['wilderness', 'dungeon', 'forest', 'road', 'mine'].includes(locType) ||
-    worldState.currentLocation.includes('forest') ||
-    worldState.currentLocation.includes('mine') ||
-    worldState.currentLocation.includes('road');
+  const hasShop = locType === 'shop' || locType === 'tavern' ||
+    (worldState.currentLocation || '').includes('market') ||
+    (worldState.currentLocation || '').includes('shop') ||
+    (worldState.currentLocation || '').includes('tavern') ||
+    (worldState.currentLocation || '').includes('inn') ||
+    (worldState.currentLocation || '').includes('store') ||
+    (worldState.currentLocationName || '').includes('商店') ||
+    (worldState.currentLocationName || '').includes('店') ||
+    (worldState.currentLocationName || '').includes('酒馆') ||
+    (worldState.currentLocationName || '').includes('旅店') ||
+    (worldState.currentLocationName || '').includes('市场') ||
+    (worldState.currentLocationName || '').includes('集市');
+  const locId = worldState.currentLocation || '';
+  const locName = worldState.currentLocationName || '';
+  const isSafe = ['tavern', 'temple'].includes(locType as string) ||
+    locId.includes('inn') || locId.includes('tavern') || locId.includes('chapel') || locId.includes('guild') ||
+    locName.includes('酒馆') || locName.includes('旅店') || locName.includes('礼拜堂');
+  const isWild = ['wilderness', 'dungeon'].includes(locType as string) ||
+    locId.includes('forest') || locId.includes('mine') || locId.includes('road');
 
   // Wilderness rest limit: 2 per timeOfDay cycle
   const wildRestRemaining = 2 - (worldState.wildernessRestUsed || 0);
@@ -63,7 +73,7 @@ export default function FixedActions() {
         <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={handleRest} title={isSafe ? '全额恢复HP/MP（需花费钱币）' : isWild ? `野外休息(剩余${wildRestRemaining}次)` : '少量恢复'}>
           休息{isSafe ? '(全额)' : isWild ? `(${wildRestRemaining})` : ''}
         </button>
-        {(locType === 'shop' || locType === 'tavern' || worldState.currentLocation.includes('market')) && (
+        {hasShop && (
           <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => setShowShop(!showShop)}>
             商店
           </button>
