@@ -11,6 +11,7 @@ export default function AdventureWindow() {
   const lastAIResult = useGameStore(s => s.lastAIResult);
   const isProcessing = useGameStore(s => s.isProcessing);
   const eventHistory = useGameStore(s => s.eventHistory);
+  const combatActive = useGameStore(s => s.worldState.combatState.active);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -79,8 +80,8 @@ export default function AdventureWindow() {
         )}
       </div>
 
-      {/* Action area (fixed at bottom) */}
-      {currentEvent && !isProcessing && (
+      {/* Action area (fixed at bottom) — hidden during combat */}
+      {currentEvent && !isProcessing && !combatActive && (
         <div className="border-t border-[var(--color-tavern-border)] px-6 py-4 space-y-3 flex-shrink-0">
           <ActionOptions options={currentEvent.actionOptions} />
           <CustomInput />

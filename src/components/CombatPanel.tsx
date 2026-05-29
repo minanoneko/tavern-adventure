@@ -154,7 +154,18 @@ export default function CombatPanel() {
         />
       ) : phase === 'victory' ? (
         <div>
-          <div className="text-sm text-muted mb-2">战斗奖励已自动结算。查看日志获取详细信息。</div>
+          <div className="text-success font-bold text-lg mb-2">战斗胜利！</div>
+          <div className="text-sm text-muted mb-2">奖励已结算，查看战斗日志获取详情。</div>
+          <button className="btn text-sm" onClick={() => useGameStore.getState().dismissCombat?.()}>
+            继续冒险
+          </button>
+        </div>
+      ) : phase === 'defeat' ? (
+        <div>
+          <div className="text-danger font-bold text-lg mb-2">你被击败了...</div>
+          <button className="btn text-sm" onClick={() => useGameStore.getState().dismissCombat?.()}>
+            继续冒险
+          </button>
         </div>
       ) : (
         <div>

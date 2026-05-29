@@ -169,13 +169,20 @@ export function applyCombatResult(
 
   const updatedEnemy = { ...enemy };
 
+  // Skill cost always deducted, even on miss
+  if (action.type === 'skill' && action.skillId) {
+    const skill = getSkillById(action.skillId);
+    if (skill) {
+      mpCost = skill.castRequirements.mpCost || 0;
+      hpCost = skill.castRequirements.hpCost || 0;
+    }
+  }
+
   if (hit) {
     let multiplier = 1.0;
     if (action.type === 'skill' && action.skillId) {
       const skill = getSkillById(action.skillId);
       if (skill) {
-        mpCost = skill.castRequirements.mpCost || 0;
-        hpCost = skill.castRequirements.hpCost || 0;
         multiplier = skill.rarity === 'uncommon' ? 1.5 : skill.rarity === 'rare' ? 2.0 : 1.0;
       }
     }

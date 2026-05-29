@@ -18,9 +18,10 @@ import { generateOpeningEvent } from '../services/openingService';
 import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLogs, getLongTermSummary, getGameFlags, loadMemoryFromSave, formatSummaryForAI } from '../services/memoryService';
 import { getEquipmentById } from '../data/equipment';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
+import { addMoney } from '../utils/moneyUtils';
 import type { CombatEnemy } from '../types/ai';
 import type { CombatAction } from '../types/combat';
-import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy, endCombat } from '../services/combat/combatEngine';
+import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy } from '../services/combat/combatEngine';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
@@ -58,6 +59,7 @@ export interface GameState {
   addLockedStoryFact: (fact: string) => void;
   removeLockedStoryFact: (index: number) => void;
   clearLockedStoryFacts: () => void;
+  dismissCombat: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -177,6 +179,12 @@ export const useGameStore = create<GameState>((set, get) => ({
         worldState = { ...worldState, currentLocation: result.event.memoryUpdate.currentLocationId };
       }
 
+      // Write gender into lockedStoryFacts
+      if (player.gender) {
+        const genderFact = `玩家角色${player.name}的性别是${player.gender === '女' ? '女' : '男'}，叙事称呼必须保持一致，使用${player.gender === '女' ? '她/少女/女士/女冒险者' : '他/少年/先生/男冒险者'}等对应称呼。`;
+        worldState.lockedStoryFacts = [...worldState.lockedStoryFacts, genderFact];
+      }
+
       // Apply opening event through gameEngine
       const engineResult = applyAIResponse(result.event, player, worldState, updatedLogs);
 
@@ -223,6 +231,34 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     if (!state.player) return;
     if (state.isProcessing) return;
+
+    // Combat guard: actions during combat go through CombatPanel
+    if (state.worldState.combatState.active) return;
+
+    // Gender self-correction: local only, no AI, no CHECK
+    if (customText) {
+      const genderMatch = customText.match(/我是(?:个)?(?:一[个名])?(?:女(?:的|性|生)?|男(?:的|性|生)?)/);
+      if (genderMatch) {
+        const isFemale = /女/.test(genderMatch[0]);
+        const player = state.player;
+        const worldState = state.worldState;
+        const newGender = isFemale ? '女' : '男';
+        const logs = [...state.logs, {
+          id: `gender_fix_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: 'system' as const,
+          text: `性别已确认为：${newGender}。`,
+        }];
+        const genderFact = `玩家角色${player.name}的性别是${newGender}，叙事称呼必须保持一致。`;
+        set({
+          player: { ...player, gender: newGender },
+          worldState: { ...worldState, lockedStoryFacts: [...worldState.lockedStoryFacts, genderFact] },
+          logs,
+          isProcessing: false,
+        });
+        return;
+      }
+    }
 
     set({ isProcessing: true, errorMessage: null });
 
@@ -317,15 +353,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       // 2.8 Exp and money changes (only quest completion and rest costs)
       const moneyAward = getMoneyChange(playerAction, judgeResult);
       if (moneyAward.copper !== 0 || moneyAward.silver !== 0 || moneyAward.gold !== 0) {
-        player.money.copper += moneyAward.copper;
-        player.money.silver += moneyAward.silver;
-        player.money.gold += moneyAward.gold;
-        // Normalize (prevent negative or overflow)
-        while (player.money.copper < 0) { player.money.copper += 100; player.money.silver -= 1; }
-        while (player.money.copper >= 100) { player.money.copper -= 100; player.money.silver += 1; }
-        while (player.money.silver < 0) { player.money.silver += 100; player.money.gold -= 1; }
-        while (player.money.silver >= 100) { player.money.silver -= 100; player.money.gold += 1; }
-        if (player.money.gold < 0) player.money.gold = 0;
+        player.money = addMoney(player.money, moneyAward);
         const sign = moneyAward.gold > 0 || moneyAward.silver > 0 || moneyAward.copper > 0 ? '+' : '';
         const parts = [];
         if (moneyAward.gold !== 0) parts.push(`${sign}${moneyAward.gold}金`);
@@ -360,17 +388,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         aiResult.response.actionOptions = filterAIOptions(aiResult.response.actionOptions, player);
       }
 
-      // 3.6 Combat: detect enemy from AI response and start new combat
-      const currentEnemy = aiResult.success && aiResult.response?.enemy ? aiResult.response.enemy : null;
-      if (currentEnemy && !worldState.combatState.active) {
-        // AI returned enemy → start new combat via legacy path
-        const combatResult = startCombatFromLegacyEnemy(player, worldState, currentEnemy);
-        worldState.combatState = combatResult.combatState;
-        // Log combat start
-        logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${currentEnemy.name}出现了！` });
-        // Apply AI response but with combat active → gameEngine will skip playerUpdate
-        if (aiResult.response) {
-          (aiResult.response as any).enemy = undefined; // Don't let gameEngine process old enemy format
+      // 3.6 Combat: detect combatStart (priority) or legacy enemy from AI response
+      if (aiResult.success && aiResult.response && !worldState.combatState.active) {
+        // Priority 1: combatStart proposal
+        if (aiResult.response.combatStart) {
+          const combatResult = startCombatFromAI(player, worldState, aiResult.response.combatStart);
+          worldState.combatState = combatResult.combatState;
+          logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
+          // Clear enemy so gameEngine doesn't double-process
+          (aiResult.response as any).enemy = undefined;
+        }
+        // Priority 2: legacy enemy (backward compat)
+        else if (aiResult.response.enemy) {
+          const combatResult = startCombatFromLegacyEnemy(player, worldState, aiResult.response.enemy);
+          worldState.combatState = combatResult.combatState;
+          logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${aiResult.response.enemy.name}出现了！` });
+          (aiResult.response as any).enemy = undefined;
         }
       }
 
@@ -501,6 +534,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ worldState: { ...worldState, lockedStoryFacts: [] } });
   },
 
+  dismissCombat: () => {
+    const { worldState } = get();
+    set({
+      worldState: {
+        ...worldState,
+        combatState: {
+          active: false,
+          phase: 'fighting',
+          round: 0,
+          turn: 'player' as const,
+          enemies: [],
+          playerBuffs: [],
+          combatLog: [],
+        },
+      },
+    });
+  },
+
   submitCombatAction: async (action) => {
     const state = get();
     if (!state.player || !state.worldState.combatState.active) return;
@@ -571,10 +622,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         updatedCombatState = { ...updatedCombatState, combatLog: logs };
       }
 
-      const finalState = endCombat(updatedPlayer, updatedCombatState);
+      // Keep combat state visible for victory/defeat display
+      // Player can click "继续冒险" to dismiss
       set({
-        player: finalState.player,
-        worldState: { ...state.worldState, combatState: finalState.combatState },
+        player: updatedPlayer,
+        worldState: { ...state.worldState, combatState: updatedCombatState },
         isProcessing: false,
       });
     } else {

@@ -41,6 +41,12 @@ export interface ActionOption {
   relatedEntityNames?: string[];
   continuesScene?: boolean;
   allowsTransition?: boolean;
+  requiresCheck?: boolean;
+  checkReason?: string;
+  checkAttribute?: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
+  checkSkill?: string;
+  difficultyClass?: number;
+  failureConsequence?: string;
 }
 
 /** Structured action context sent to AI alongside the player action */
@@ -169,6 +175,7 @@ export interface AIResponse {
   worldBroadcasts: WorldBroadcast[];
   memoryUpdate: MemoryUpdate;
   enemy?: CombatEnemy;
+  combatStart?: import('./combat').CombatStartProposal;
 }
 
 // ========== AI Result (after processing) ==========
@@ -220,6 +227,12 @@ export interface PlayerAction {
   customText?: string;
   selectedOptionId?: string;
   selectedOptionLabel?: string;
+  requiresCheck?: boolean;
+  checkReason?: string;
+  checkAttribute?: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
+  checkSkill?: string;
+  difficultyClass?: number;
+  failureConsequence?: string;
 }
 
 // ========== Schemas (for Zod) will be in services/aiService.ts ==========

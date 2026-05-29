@@ -27,6 +27,12 @@ const MinimalActionOptionSchema = z.object({
   relatedEntityNames: z.array(z.string()).optional(),
   continuesScene: z.boolean().optional(),
   allowsTransition: z.boolean().optional(),
+  requiresCheck: z.boolean().optional(),
+  checkReason: z.string().optional(),
+  checkAttribute: z.string().optional(),
+  checkSkill: z.string().optional(),
+  difficultyClass: z.number().optional(),
+  failureConsequence: z.string().optional(),
 });
 
 
@@ -107,6 +113,7 @@ const MinimalAIResponseSchema = z.object({
   worldBroadcasts: z.array(MinimalWorldBroadcastSchema).optional().default([]),
   memoryUpdate: MinimalAIMemoryUpdateSchema.optional().default({}),
   enemy: z.any().optional(),
+  combatStart: z.any().optional(),
 });
 
 /** Ultra-lenient fallback: accept ANY object with scene and actionOptions */
@@ -122,6 +129,7 @@ const LenientAIResponseSchema = z.object({
   worldBroadcasts: z.any().optional(),
   memoryUpdate: z.any().optional(),
   enemy: z.any().optional(),
+  combatStart: z.any().optional(),
 });
 
 // ========== Snake→Camel map ==========
@@ -144,6 +152,10 @@ const SNAKE_TO_CAMEL: Record<string, string> = {
   target_entity_id: 'targetEntityId', related_entity_ids: 'relatedEntityIds',
   related_entity_names: 'relatedEntityNames', continues_scene: 'continuesScene',
   allows_transition: 'allowsTransition', locked_facts: 'lockedFacts',
+  combat_start: 'combatStart', requires_check: 'requiresCheck',
+  check_reason: 'checkReason', check_attribute: 'checkAttribute',
+  check_skill: 'checkSkill', difficulty_class: 'difficultyClass',
+  failure_consequence: 'failureConsequence',
 };
 
 /** Recursively convert snake_case keys to camelCase */
@@ -261,6 +273,9 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     relatedEntityNames: opt.relatedEntityNames,
     continuesScene: opt.continuesScene,
     allowsTransition: opt.allowsTransition,
+    requiresCheck: opt.requiresCheck,
+    checkReason: opt.checkReason,
+    checkAttribute: opt.checkAttribute as any,
   })) : [{ id: `opt_${Date.now()}_0`, label: '继续探索', type: 'exploration', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '继续探索', contextNote: '当前场景内行动' },
         { id: `opt_${Date.now()}_1`, label: '观察周围', type: 'check', risk: 'low', relatedAttribute: 'wis', relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '观察周围', contextNote: '当前场景内行动' },
         { id: `opt_${Date.now()}_2`, label: '和附近的人交谈', type: 'dialogue', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '和附近的人交谈', contextNote: '当前场景内行动' }];
@@ -317,6 +332,7 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       lockedFacts: (partial.memoryUpdate as any)?.lockedFacts || undefined,
     },
     enemy: (partial.enemy as any) || undefined,
+    combatStart: (partial.combatStart as any) || undefined,
   };
 
   return completed;

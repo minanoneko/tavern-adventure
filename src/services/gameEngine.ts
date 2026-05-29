@@ -1,5 +1,6 @@
 import type { Player, WorldState, AIResponse, LogEntry } from '../types';
-import { clampResource, addMoney, copperValue } from '../types/common';
+import { clampResource } from '../types/common';
+import { addMoney as addMoneyUtil } from '../utils/moneyUtils';
 import { createLogEntry } from '../types/log';
 import { SKILL_LIBRARY } from '../data/skills';
 import { EQUIPMENT_LIBRARY } from '../data/equipment';
@@ -43,7 +44,7 @@ function clampMoneyChangeByLevel(
   }
 
   // Prevent negative total money
-  const currentTotal = copperValue(player.money);
+  const currentTotal = player.money.gold * 10000 + player.money.silver * 100 + player.money.copper;
   if (currentTotal + capped < 0) {
     capped = -currentTotal;
     if (capped < 0) {
@@ -169,7 +170,7 @@ function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[
   // DEFENSE: Cap money change per event (both positive and negative)
   // clampMoneyChangeByLevel returns a clamped CHANGE, NOT a total — must add, not replace
   const clampedChange = clampMoneyChangeByLevel(p, response.playerUpdate.moneyChange, logs);
-  p.money = addMoneyToPlayer(p.money, clampedChange);
+  p.money = addMoneyUtil(p.money, clampedChange);
 
   // Status effects
   if (response.playerUpdate.statusEffectAdd) {
@@ -232,13 +233,11 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
         const numMatch = coinName.match(/(\d+)/);
         if (numMatch) coinValue = Math.max(coinValue, parseInt(numMatch[1]));
         // Determine coin type
-        if (coinName.includes('金') || coinName.includes('Gold')) p.money.gold += coinValue;
-        else if (coinName.includes('银') || coinName.includes('Silver')) p.money.silver += coinValue;
-        else p.money.copper += coinValue;
-        // Normalize
-        while (p.money.copper >= 100) { p.money.copper -= 100; p.money.silver += 1; }
-        while (p.money.silver >= 100) { p.money.silver -= 100; p.money.gold += 1; }
-        while (p.money.copper < 0) { p.money.copper += 100; p.money.silver -= 1; }
+        let coinChange: { gold?: number; silver?: number; copper?: number };
+        if (coinName.includes('金') || coinName.includes('Gold')) coinChange = { gold: coinValue };
+        else if (coinName.includes('银') || coinName.includes('Silver')) coinChange = { silver: coinValue };
+        else coinChange = { copper: coinValue };
+        p.money = addMoneyUtil(p.money, coinChange);
         logs.push(createLogEntry('item', `获得：${coinName}${coinValue > 1 ? ` x${coinValue}` : ''}（已转入钱包）`));
         continue;
       }
@@ -300,7 +299,7 @@ function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]
         logs.push(createLogEntry('quest', `任务奖励：经验 +${update.rewards.exp}`));
       }
       if (update.rewards.money) {
-        p.money = addMoneyToPlayer(p.money, update.rewards.money);
+        p.money = addMoneyUtil(p.money, update.rewards.money);
         const m = update.rewards.money;
         const parts = [];
         if (m.gold) parts.push(`${m.gold}金`);
@@ -314,114 +313,6 @@ function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]
   return p;
 }
 
-/** Parse money gains/losses from AI narrative text */
-function parseMoneyFromNarrative(player: Player, text: string, logs: LogEntry[]): Player {
-  const p = { ...player, money: { ...player.money } };
-  let totalChange = 0;
-
-  // Match patterns: "给了你X金币", "获得X银币", "递给X枚铜币", "失去X金币", "花了X银币", "报酬X金币"
-  const gainPatterns = [
-    /(?:给|递给|交给|塞给|付给|递给|扔给).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
-    /(?:获得|得到|收到|拿到|捡到|赚了).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
-    /(?:报酬|奖励|赏金|工钱).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
-    /(?:掉落|爆出|遗落).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
-  ];
-  const lossPatterns = [
-    /(?:花了|花费|支付|付出|用了|被拿走|被抢|丢失|损失).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
-    /(?:买|购入|购买).*?(\d+)\s*(?:枚)?\s*(金币|银币|铜币|金|银|铜)/g,
-  ];
-
-  const applyMatch = (match: RegExpExecArray, isGain: boolean) => {
-    const amount = parseInt(match[1]);
-    const unit = match[2];
-    let copper = 0;
-    if (unit.startsWith('金')) copper = amount * 10000;
-    else if (unit.startsWith('银')) copper = amount * 100;
-    else copper = amount;
-    totalChange += isGain ? copper : -copper;
-  };
-
-  for (const pattern of gainPatterns) {
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      applyMatch(m, true);
-    }
-  }
-  for (const pattern of lossPatterns) {
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      applyMatch(m, false);
-    }
-  }
-
-  if (totalChange !== 0) {
-    p.money.copper += totalChange;
-    while (p.money.copper >= 100) { p.money.copper -= 100; p.money.silver += 1; }
-    while (p.money.silver >= 100) { p.money.silver -= 100; p.money.gold += 1; }
-    while (p.money.copper < 0) { p.money.copper += 100; p.money.silver -= 1; }
-    while (p.money.silver < 0) { p.money.silver += 100; p.money.gold -= 1; }
-    if (p.money.gold < 0) p.money.gold = 0;
-
-    const sign = totalChange > 0 ? '+' : '';
-    const absCopper = Math.abs(totalChange);
-    const g = Math.floor(absCopper / 10000);
-    const s = Math.floor((absCopper % 10000) / 100);
-    const c = absCopper % 100;
-    const parts = [];
-    if (g > 0) parts.push(`${sign}${g}金`);
-    if (s > 0) parts.push(`${sign}${s}银`);
-    if (c > 0) parts.push(`${sign}${c}铜`);
-    if (parts.length > 0) logs.push(createLogEntry('system', `金钱 ${parts.join(' ')}（从文本解析）`));
-  }
-
-  return p;
-}
-
-/** Parse HP change from narrative — ONLY explicit HP -X / HP +X / 生命 -X / 生命 +X format */
-function parseHPFromNarrative(player: Player, text: string, logs: LogEntry[]): Player {
-  const p = { ...player, resources: { ...player.resources } };
-  let hpChange = 0;
-
-  // Only explicit numeric format: HP -3, HP +5, 生命 -3, 生命 +5
-  const patterns = [
-    /HP\s*[-−]\s*(\d+)/gi,
-    /HP\s*\+\s*(\d+)/gi,
-    /生命\s*[-−]\s*(\d+)/gi,
-    /生命\s*\+\s*(\d+)/gi,
-  ];
-
-  for (const pattern of patterns) {
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(text)) !== null) {
-      if (pattern.source.includes('[-−]')) {
-        hpChange -= parseInt(m[1]) || 0;
-      } else {
-        hpChange += parseInt(m[1]) || 0;
-      }
-    }
-  }
-
-  if (hpChange !== 0) {
-    p.resources.hp = Math.max(0, Math.min(p.resources.maxHp, p.resources.hp + hpChange));
-    const sign = hpChange > 0 ? '+' : '';
-    logs.push(createLogEntry('system', `HP ${sign}${hpChange}（文本解析）`));
-  }
-
-  return p;
-}
-
-function addMoneyToPlayer(current: { gold: number; silver: number; copper: number }, reward: { gold?: number; silver?: number; copper?: number }): { gold: number; silver: number; copper: number } {
-  const m = { ...current };
-  m.copper += reward.copper || 0;
-  m.silver += reward.silver || 0;
-  m.gold += reward.gold || 0;
-  while (m.copper < 0) { m.copper += 100; m.silver -= 1; }
-  while (m.copper >= 100) { m.copper -= 100; m.silver += 1; }
-  while (m.silver < 0) { m.silver += 100; m.gold -= 1; }
-  while (m.silver >= 100) { m.silver -= 100; m.gold += 1; }
-  if (m.gold < 0) m.gold = 0;
-  return m;
-}
 
 function applySkillUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
   const p = { ...player, skills: { ...player.skills, learned: [...player.skills.learned], discovered: [...player.skills.discovered], locked: [...player.skills.locked] } };

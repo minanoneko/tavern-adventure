@@ -1,8 +1,10 @@
 import type { Money } from '../types/common';
 
+type MoneyChange = { gold?: number; silver?: number; copper?: number };
+
 /** Convert Money to total copper value */
-export function moneyToCopper(m: Money): number {
-  return m.gold * 10000 + m.silver * 100 + m.copper;
+export function moneyToCopper(m: MoneyChange): number {
+  return (m.gold ?? 0) * 10000 + (m.silver ?? 0) * 100 + (m.copper ?? 0);
 }
 
 /** Convert total copper back to Money (guaranteed valid, no negatives) */
@@ -17,20 +19,20 @@ export function copperToMoney(totalCopper: number): Money {
 }
 
 /** Add a change (positive or negative) to existing money, return new money */
-export function addMoney(current: Money, change: { gold?: number; silver?: number; copper?: number }): Money {
-  const total = moneyToCopper(current) + moneyToCopper(change as Money);
+export function addMoney(current: Money, change: MoneyChange): Money {
+  const total = moneyToCopper(current) + moneyToCopper(change);
   return copperToMoney(total);
 }
 
 /** Subtract money, clamping to 0 */
-export function subtractMoney(current: Money, cost: { gold?: number; silver?: number; copper?: number }): Money {
-  const total = moneyToCopper(current) - moneyToCopper(cost as Money);
+export function subtractMoney(current: Money, cost: MoneyChange): Money {
+  const total = moneyToCopper(current) - moneyToCopper(cost);
   return copperToMoney(total);
 }
 
 /** Check if player can afford a cost */
-export function canAfford(current: Money, cost: { gold?: number; silver?: number; copper?: number }): boolean {
-  return moneyToCopper(current) >= moneyToCopper(cost as Money);
+export function canAfford(current: Money, cost: MoneyChange): boolean {
+  return moneyToCopper(current) >= moneyToCopper(cost);
 }
 
 /** Clamp money reward by player level */
@@ -40,7 +42,7 @@ export function clampMoneyRewardByLevel(copperAmount: number, playerLevel: numbe
 }
 
 /** Format money change for display */
-export function formatMoneyChange(change: { gold?: number; silver?: number; copper?: number }): string {
+export function formatMoneyChange(change: MoneyChange): string {
   const g = change.gold ?? 0;
   const s = change.silver ?? 0;
   const c = change.copper ?? 0;

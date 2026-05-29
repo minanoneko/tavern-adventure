@@ -3,6 +3,7 @@ import type { CombatState, CombatStartProposal, CombatAction, CombatResolution, 
 import { createEnemiesFromProposal, migrateOldEnemyToState } from './enemyFactory';
 import { getLegalCombatActions, validateCombatAction, applyCombatResult, enemyAttack, checkVictoryDefeat, tryFlee, observeEnemy, tickBuffs } from './combatRules';
 import { calculateCombatRewards } from './combatRewards';
+import { addMoney } from '../../utils/moneyUtils';
 
 // ========== Start Combat ==========
 
@@ -92,12 +93,37 @@ export function submitCombatAction(
   combatState: CombatState,
   action: CombatAction,
 ): CombatActionResult {
-  const validation = validateCombatAction(action, player, combatState);
   const logs = [...combatState.combatLog];
   let updatedPlayer = { ...player, resources: { ...player.resources } };
   let updatedState = { ...combatState, enemies: combatState.enemies.map(e => ({ ...e })) };
-
   const round = combatState.round;
+
+  const validation = validateCombatAction(action, player, combatState);
+  if (!validation.valid) {
+    logs.push(makeLog('system', validation.reason || '行动无效', round));
+    return {
+      player: updatedPlayer,
+      combatState: { ...updatedState, combatLog: logs },
+      resolution: null, enemyTurnResult: null,
+      victory: false, defeat: false, fled: false,
+    };
+  }
+
+  // Handle healing item before action type switch
+  if (action.type === 'item' && action.itemId === 'healing_potion') {
+    const potionIdx = updatedPlayer.inventory.findIndex(i => i.id === 'healing_potion');
+    if (potionIdx >= 0 && updatedPlayer.inventory[potionIdx].quantity > 0) {
+      updatedPlayer.resources.hp = Math.min(updatedPlayer.resources.maxHp, updatedPlayer.resources.hp + 5);
+      updatedPlayer.inventory = updatedPlayer.inventory.map((item, idx) =>
+        idx === potionIdx ? { ...item, quantity: item.quantity - 1 } : item,
+      ).filter(i => i.quantity > 0);
+      logs.push(makeLog('action', '使用了治疗药水，HP +5', round));
+    }
+    updatedState.turn = 'enemy';
+    updatedState = { ...updatedState, combatLog: logs };
+    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+    return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false };
+  }
 
   // Handle non-targeting actions first
   if (action.type === 'flee') {
@@ -161,17 +187,6 @@ export function submitCombatAction(
       duration: 1,
       source: 'defend',
     }];
-
-    if (action.itemId === 'healing_potion') {
-      const potionIdx = updatedPlayer.inventory.findIndex(i => i.id === 'healing_potion');
-      if (potionIdx >= 0 && updatedPlayer.inventory[potionIdx].quantity > 0) {
-        updatedPlayer.resources.hp = Math.min(updatedPlayer.resources.maxHp, updatedPlayer.resources.hp + 5);
-        updatedPlayer.inventory = updatedPlayer.inventory.map((item, idx) =>
-          idx === potionIdx ? { ...item, quantity: item.quantity - 1 } : item,
-        ).filter(i => i.quantity > 0);
-        logs.push(makeLog('action', '使用了治疗药水，HP +5', round));
-      }
-    }
 
     updatedState.turn = 'enemy';
     updatedState = { ...updatedState, combatLog: logs };
@@ -241,20 +256,7 @@ export function submitCombatAction(
     // Calculate and log rewards
     const rewards = calculateCombatRewards(updatedState.enemies, updatedPlayer);
     updatedPlayer.exp += rewards.exp;
-    updatedPlayer.money = {
-      gold: updatedPlayer.money.gold + rewards.money.gold,
-      silver: updatedPlayer.money.silver + rewards.money.silver,
-      copper: updatedPlayer.money.copper + rewards.money.copper,
-    };
-    // Normalize money
-    while (updatedPlayer.money.copper >= 100) {
-      updatedPlayer.money.copper -= 100;
-      updatedPlayer.money.silver += 1;
-    }
-    while (updatedPlayer.money.silver >= 100) {
-      updatedPlayer.money.silver -= 100;
-      updatedPlayer.money.gold += 1;
-    }
+    updatedPlayer.money = addMoney(updatedPlayer.money, rewards.money);
     for (const item of rewards.items) {
       const existing = updatedPlayer.inventory.find(i => i.id === item.id);
       if (existing) {
