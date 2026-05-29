@@ -226,7 +226,7 @@ function getCombatActions(player: NonNullable<ReturnType<typeof useGameStore.get
     if (item.id === 'fire_bomb') actions.push({ type: 'item', label: `燃烧瓶(x${item.quantity})`, itemId: item.id, targetEnemyId: aliveEnemies[0]?.id });
     if (item.id === 'smoke_bomb') actions.push({ type: 'item', label: `烟雾弹(x${item.quantity})`, itemId: item.id });
   }
-  actions.push({ type: 'defend', label: '防御' }, { type: 'flee', label: '逃跑' }, { type: 'observe', label: '观察', targetEnemyId: aliveEnemies[0]?.id });
+  actions.push({ type: 'defend', label: '防御' }, { type: 'flee', label: '逃跑' });
   return actions;
 }
 

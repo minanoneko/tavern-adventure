@@ -5,6 +5,7 @@ import { getLegalCombatActions, validateCombatAction, applyCombatResult, enemyAt
 import { getAttributeModifier, rollCheck } from './dice';
 import { calculateCombatRewards } from './combatRewards';
 import { addMoney } from '../../utils/moneyUtils';
+import { SKILL_LIBRARY } from '../../data/skills';
 
 // ========== Start Combat ==========
 
@@ -139,6 +140,36 @@ export function submitCombatAction(
     updatedState = { ...updatedState, combatLog: logs };
     const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
     return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false };
+  }
+
+  // Buff skill handler — apply buffs directly, no hit/miss roll
+  if (action.type === 'skill' && action.skillId) {
+    const buff = getSkillBuff(action.skillId);
+    if (buff) {
+      // Check MP and deduct
+      const skill = getSkillByIdFromImport(action.skillId);
+      if (skill) {
+        const mpCost = skill.mpCost || 0;
+        if (updatedPlayer.resources.mp < mpCost) {
+          logs.push(makeLog('system', 'MP不足', round));
+          return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, resolution: null, enemyTurnResult: null, victory: false, defeat: false, fled: false };
+        }
+        // Prevent stacking same buff
+        if (updatedState.playerBuffs.some(b => b.source === action.skillId)) {
+          logs.push(makeLog('system', `${buff.name}效果已存在，不能叠加`, round));
+          return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, resolution: null, enemyTurnResult: null, victory: false, defeat: false, fled: false };
+        }
+        updatedPlayer.resources.mp = Math.max(0, updatedPlayer.resources.mp - mpCost);
+        updatedState.playerBuffs = [...updatedState.playerBuffs, {
+          id: `buff_${Date.now()}`, name: buff.name, type: buff.type, value: buff.value, duration: buff.duration, source: action.skillId,
+        }];
+        logs.push(makeLog('action', `${skill.name}！${buff.desc}（持续${buff.duration}回合，消耗${mpCost}MP）`, round));
+      }
+      updatedState.turn = 'enemy';
+      updatedState = { ...updatedState, combatLog: logs };
+      const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+      return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false };
+    }
   }
 
   // Handle non-targeting actions first
@@ -501,6 +532,25 @@ export function endCombat(player: Player, combatState: CombatState): { player: P
       combatLog: [],
     },
   };
+}
+
+// === Buff skill definitions ===
+interface BuffDef { name: string; type: 'attack' | 'defense' | 'shield'; value: number; duration: number; desc: string; }
+const BUFF_SKILLS: Record<string, BuffDef> = {
+  rage: { name: '狂暴', type: 'attack', value: 3, duration: 2, desc: '攻击力大幅上升，防御降低' },
+  blessing: { name: '祝福', type: 'attack', value: 2, duration: 2, desc: '获得神圣祝福，攻击力提升' },
+  inspire: { name: '鼓舞', type: 'attack', value: 2, duration: 1, desc: '士气高涨，下次攻击+2' },
+  shield_block: { name: '格挡', type: 'shield', value: 2, duration: 1, desc: '举起盾牌，吸收下次伤害' },
+  mana_shield: { name: '魔力护盾', type: 'shield', value: 3, duration: 1, desc: '魔力凝聚成护盾' },
+  holy_shield: { name: '圣盾', type: 'shield', value: 3, duration: 1, desc: '圣光护体' },
+  duel_footwork: { name: '决斗步法', type: 'defense', value: 2, duration: 2, desc: '轻盈步法，闪避提升' },
+  stealth_step: { name: '潜行步', type: 'defense', value: 2, duration: 1, desc: '阴影中移动，下次攻击有利' },
+  counter_strike: { name: '反击姿态', type: 'attack', value: 2, duration: 1, desc: '格挡后反击伤害提升' },
+};
+function getSkillBuff(skillId: string): BuffDef | null { return BUFF_SKILLS[skillId] || null; }
+function getSkillByIdFromImport(skillId: string): { name: string; mpCost: number } | null {
+  const s = SKILL_LIBRARY[skillId];
+  return s ? { name: s.name, mpCost: s.castRequirements.mpCost || 0 } : null;
 }
 
 function makeLog(type: CombatLogEntry['type'], text: string, round: number): CombatLogEntry {

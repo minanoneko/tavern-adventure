@@ -212,7 +212,6 @@ const SKILL_CASTS: Record<string, string[]> = {
   spark: ['指尖凝聚火焰，射出火苗！', '魔力涌动，火花四溅！'],
   fire_arrow: ['凝聚火焰成箭矢射出！', '火焰箭划破空气飞向敌人！'],
   smash: ['用蛮力猛砸过去！', '举起武器狠狠砸下！'],
-  rage: ['一声怒吼，进入狂暴状态！', '双眼通红，力量涌遍全身！'],
   default: ['发动技能攻击！', '凝聚力量释放技能！'],
 };
 const ENEMY_ATTACKS = [
