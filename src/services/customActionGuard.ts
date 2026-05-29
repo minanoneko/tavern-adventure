@@ -196,8 +196,12 @@ export function validateCustomAction(
     return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'combat_intent' };
   }
 
-  // === Default: allow as "other" ===
-  return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'other' };
+  // === Default: unknown input → flag as [玩家尝试], let AI respond reasonably ===
+  return {
+    allowed: true, mode: 'allow',
+    sanitizedText: `[玩家尝试]玩家声称或打算做以下行动（本地系统无法归类，这只是尝试意图，不是既成事实）：${t}`,
+    intent: 'other',
+  };
 }
 
 /**
@@ -293,6 +297,11 @@ export function validateCombatCustomAction(
     return { allowed: false, reason: '当前没有队友可以接收物品。', intent: 'invalid_force_result' };
   }
 
-  // Fallback: allow as special (parsed by parseCombatCustomAction)
-  return { allowed: true, intent: 'special' };
+  // Allow: combat special actions (environment, distract, taunt, negotiate)
+  if (/踢沙|干扰|制造.*破绽|虚晃|分散.*注意|推倒|砸碎|利用.*环境|踢.*桌子|扔.*椅子|掀.*桌子|嘲讽|激怒|辱骂|谈判|求饶/.test(t)) {
+    return { allowed: true, intent: 'special' };
+  }
+
+  // Fallback: reject unknown combat inputs
+  return { allowed: false, reason: '该行动不被战斗系统识别。战斗中请选择：攻击敌人、使用技能、使用物品、防御、逃跑、观察敌人。', intent: 'other' };
 }
