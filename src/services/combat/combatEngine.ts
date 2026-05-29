@@ -115,6 +115,16 @@ export function submitCombatAction(
   let updatedState = { ...combatState, enemies: combatState.enemies.map(e => ({ ...e })) };
   const round = combatState.round;
 
+  // bloodstone_charm: auto-heal at start of player turn (once per combat)
+  const hasBloodstone = [player.equipment.accessory1, player.equipment.accessory2].includes('bloodstone_charm');
+  const bloodstoneUsed = combatState.playerBuffs.some(b => b.source === 'bloodstone_charm');
+  const hpPct = player.resources.hp / player.resources.maxHp;
+  if (hasBloodstone && !bloodstoneUsed && hpPct < 0.3 && hpPct > 0) {
+    updatedPlayer.resources.hp = Math.min(updatedPlayer.resources.maxHp, updatedPlayer.resources.hp + 3);
+    updatedState.playerBuffs = [...updatedState.playerBuffs, { id: `bloodstone_${Date.now()}`, name: '血石回复', type: 'hot' as any, value: 3, duration: 0, source: 'bloodstone_charm' }];
+    logs.push(makeLog('action', '血石护符微微发热，HP +3', round));
+  }
+
   const validation = validateCombatAction(action, player, combatState);
   if (!validation.valid) {
     logs.push(makeLog('system', validation.reason || '行动无效', round));

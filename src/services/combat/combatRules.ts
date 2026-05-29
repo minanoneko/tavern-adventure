@@ -146,11 +146,27 @@ export function calculateHitRoll(attackerDex: number, defenderDex: number): { ro
   return { roll, total, hit: total >= defValue };
 }
 
-export function calculateDamage(str: number, skillMultiplier: number = 1.0, isDefending: boolean = false): number {
-  const base = 2 + getAttributeModifier(str);
+export function calculateDamage(str: number, skillMultiplier: number = 1.0, isDefending: boolean = false, equipment?: { warriorBracer: boolean }): number {
+  const base = 2 + getAttributeModifier(str) + (equipment?.warriorBracer ? 1 : 0);
   let damage = Math.max(1, Math.floor(base * skillMultiplier));
   if (isDefending) damage = Math.max(1, Math.floor(damage / 2));
   return damage;
+}
+
+/** Check if player has specific rare accessories equipped */
+export function getEquipEffects(player: import('../../types').Player) {
+  const acc = [player.equipment.accessory1, player.equipment.accessory2, player.equipment.feet];
+  return {
+    warriorBracer: acc.includes('warrior_bracer'),
+    adventurerRing: acc.includes('adventurer_ring'),
+    bloodstoneCharm: acc.includes('bloodstone_charm'),
+    manaCrystal: acc.includes('mana_crystal'),
+    guardianPendant: acc.includes('guardian_pendant'),
+    sageAmulet: acc.includes('sage_amulet'),
+    windBoots: acc.includes('wind_boots'),
+    charmPendant: acc.includes('charm_pendant'),
+    spiritRing: acc.includes('spirit_ring'),
+  };
 }
 
 // ========== Apply Combat Result ==========
@@ -253,11 +269,14 @@ export function applyCombatResult(
 
   // Skill cost always deducted, even on miss
   let skillUsed: ReturnType<typeof getSkillById> = undefined;
+  const eqFx = getEquipEffects(player);
   if (action.type === 'skill' && action.skillId) {
     skillUsed = getSkillById(action.skillId);
     if (skillUsed) {
       mpCost = skillUsed.castRequirements.mpCost || 0;
       hpCost = skillUsed.castRequirements.hpCost || 0;
+      // mana_crystal: MP cost -1 (min 1)
+      if (eqFx.manaCrystal && mpCost > 0) mpCost = Math.max(1, mpCost - 1);
     }
   }
 
@@ -277,7 +296,8 @@ export function applyCombatResult(
     if (skillUsed) {
       multiplier = skillUsed.rarity === 'uncommon' ? 1.5 : skillUsed.rarity === 'rare' ? 2.0 : 1.0;
     }
-    damage = calculateDamage(player.attributes.str, multiplier);
+    const eqFx = getEquipEffects(player);
+    damage = calculateDamage(player.attributes.str, multiplier, false, eqFx);
 
     if (action.itemId === 'fire_bomb') { damage += 6; results.push('燃烧瓶额外火焰伤害 +6'); }
 
@@ -332,6 +352,9 @@ export function enemyAttack(
 
   if (hit) {
     damage = Math.max(1, 2 + getAttributeModifier(enemy.str));
+    // adventurer_ring: -1 damage taken
+    const eqFx2 = getEquipEffects(player);
+    if (eqFx2.adventurerRing) damage = Math.max(1, damage - 1);
     if (shield) {
       const absorbed = Math.min(damage, shield.value);
       damage -= absorbed;
