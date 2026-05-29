@@ -154,6 +154,57 @@ export function calculateDamage(str: number, skillMultiplier: number = 1.0, isDe
 
 // ========== Apply Combat Result ==========
 
+// ==== Combat narrative templates (local, no AI) ====
+const ATTACK_ACTIONS = [
+  (p: string, e: string) => `${p}挥剑斩向${e}`,
+  (p: string, e: string) => `${p}一记猛击打向${e}`,
+  (p: string, e: string) => `${p}快速刺向${e}的要害`,
+  (p: string, e: string) => `${p}抡起武器砸向${e}`,
+  (p: string, e: string) => `${p}一记横扫攻向${e}`,
+  (p: string, e: string) => `${p}箭步上前劈向${e}`,
+];
+const ATTACK_HITS = [
+  (d: number) => `命中！${e_react()}，造成了 ${d} 点伤害`,
+  (d: number) => `精准命中要害！${d} 点伤害`,
+  (d: number) => `${e_react()}，受到 ${d} 点伤害`,
+  (d: number) => `攻击得手！${d} 点伤害`,
+];
+const ATTACK_MISSES = [
+  () => '攻击落空了！',
+  () => '敌人侧身闪避了攻击',
+  () => '武器擦过敌人身旁，没有命中',
+  () => '敌人堪堪躲过这一击',
+];
+const SKILL_CASTS: Record<string, string[]> = {
+  heavy_strike: ['蓄力后猛然挥出重击！', '双手握剑，一记势大力沉的重击！'],
+  backstab: ['从暗处刺出致命一击！', '绕到背后，匕首刺入！'],
+  spark: ['指尖凝聚火焰，射出火苗！', '魔力涌动，火花四溅！'],
+  fire_arrow: ['凝聚火焰成箭矢射出！', '火焰箭划破空气飞向敌人！'],
+  smash: ['用蛮力猛砸过去！', '举起武器狠狠砸下！'],
+  rage: ['一声怒吼，进入狂暴状态！', '双眼通红，力量涌遍全身！'],
+  default: ['发动技能攻击！', '凝聚力量释放技能！'],
+};
+const ENEMY_ATTACKS = [
+  (e: string) => `${e}猛扑过来！`,
+  (e: string) => `${e}挥爪攻击`,
+  (e: string) => `${e}张开大口咬来`,
+  (e: string) => `${e}冲撞过来`,
+  (e: string) => `${e}发出一声咆哮，攻了过来`,
+];
+const ENEMY_HITS = [
+  (d: number) => `受到 ${d} 点伤害！`,
+  (d: number) => `被打中了！${d} 点伤害`,
+  (d: number) => `${d} 点伤害，你咬紧牙关`,
+];
+const ENEMY_MISSES = [
+  () => '你闪开了攻击！',
+  () => '攻击擦身而过',
+  () => '你堪堪躲过',
+];
+
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function e_react(): string { return pick(['敌人闷哼一声', '敌人吃痛后退', '敌人脚步踉跄', '敌人发出一声惨叫', '鲜血飞溅', '敌人咬牙硬撑']); }
+
 export function applyCombatResult(
   player: Player,
   enemy: CombatEnemyState,
@@ -168,37 +219,41 @@ export function applyCombatResult(
   const results: string[] = [];
 
   const updatedEnemy = { ...enemy };
+  const pName = player.name;
 
   // Skill cost always deducted, even on miss
+  let skillUsed: ReturnType<typeof getSkillById> = undefined;
   if (action.type === 'skill' && action.skillId) {
-    const skill = getSkillById(action.skillId);
-    if (skill) {
-      mpCost = skill.castRequirements.mpCost || 0;
-      hpCost = skill.castRequirements.hpCost || 0;
+    skillUsed = getSkillById(action.skillId);
+    if (skillUsed) {
+      mpCost = skillUsed.castRequirements.mpCost || 0;
+      hpCost = skillUsed.castRequirements.hpCost || 0;
     }
+  }
+
+  // Action narrative
+  if (action.flavorText) {
+    results.push(action.flavorText); // player custom input
+  } else if (action.type === 'skill' && skillUsed) {
+    const casts = SKILL_CASTS[action.skillId!] || SKILL_CASTS.default;
+    results.push(pick(casts));
+  } else {
+    results.push(pick(ATTACK_ACTIONS)(pName, enemy.name));
   }
 
   if (hit) {
     let multiplier = 1.0;
-    if (action.type === 'skill' && action.skillId) {
-      const skill = getSkillById(action.skillId);
-      if (skill) {
-        multiplier = skill.rarity === 'uncommon' ? 1.5 : skill.rarity === 'rare' ? 2.0 : 1.0;
-      }
+    if (skillUsed) {
+      multiplier = skillUsed.rarity === 'uncommon' ? 1.5 : skillUsed.rarity === 'rare' ? 2.0 : 1.0;
     }
-
     damage = calculateDamage(player.attributes.str, multiplier);
 
-    // Item effects
-    if (action.itemId === 'fire_bomb') {
-      damage += 6;
-      results.push('燃烧瓶额外火焰伤害 +6');
-    }
+    if (action.itemId === 'fire_bomb') { damage += 6; results.push('燃烧瓶额外火焰伤害 +6'); }
 
     updatedEnemy.hp = Math.max(0, updatedEnemy.hp - damage);
-    results.push(`d20=${total} → 命中！${damage}伤害`);
+    results.push(`d20=${total} → ${pick(ATTACK_HITS)(damage)}`);
   } else {
-    results.push(`d20=${total} → 未命中`);
+    results.push(`d20=${total} → ${pick(ATTACK_MISSES)()}`);
   }
 
   if (updatedEnemy.hp <= 0) {
@@ -241,17 +296,20 @@ export function enemyAttack(
   const results: string[] = [];
   let damage = 0;
 
+  // Enemy action narrative
+  results.push(pick(ENEMY_ATTACKS)(enemy.name));
+
   if (hit) {
     damage = Math.max(1, 2 + getAttributeModifier(enemy.str));
     if (shield) {
       const absorbed = Math.min(damage, shield.value);
       damage -= absorbed;
-      results.push(`${enemy.name} d20=${total} → 命中！护盾-${absorbed}，实际${damage}伤害`);
+      results.push(`d20=${total} → 命中！护盾吸收${absorbed}，实际${damage}伤害`);
     } else {
-      results.push(`${enemy.name} d20=${total} → 命中！${damage}伤害`);
+      results.push(`d20=${total} → 命中！${pick(ENEMY_HITS)(damage)}`);
     }
   } else {
-    results.push(`${enemy.name} d20=${total} → 未命中`);
+    results.push(`d20=${total} → ${pick(ENEMY_MISSES)()}`);
   }
 
   return { damage, hit, roll: total, results };
