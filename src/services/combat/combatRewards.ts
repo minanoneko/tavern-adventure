@@ -14,39 +14,49 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
   for (const enemy of enemies) {
     if (!enemy.isDefeated) continue;
 
-    // Exp: base 8 + level * mult. Boss ≈ 3x normal, Elite ≈ 1.5x
-    const expMult = enemy.isBoss ? 5 : enemy.level > player.level ? 4 : 3;
-    totalExp += 8 + enemy.level * expMult;
+    // Exp: BOSS = 3x normal, Elite = 1.5x
+    const expMult = enemy.isBoss ? 8 : enemy.level > player.level ? 4 : 3;
+    totalExp += 10 + enemy.level * expMult;
 
-    // Money: level * 3~8 copper for normals, more for boss
-    const moneyBase = enemy.isBoss ? 75 : enemy.level > player.level ? 30 : 15;
-    totalCopper += enemy.level * moneyBase + Math.floor(Math.random() * enemy.level * 5);
+    // Money: BOSS = 5x normal
+    const moneyBase = enemy.isBoss ? 150 : enemy.level > player.level ? 30 : 15;
+    totalCopper += enemy.level * moneyBase + Math.floor(Math.random() * enemy.level * 10);
 
-    // Material drops (50% chance)
-    if (Math.random() > 0.5) {
+    // Material drops (50% chance, boss 100%)
+    if (Math.random() > 0.5 || enemy.isBoss) {
       items.push({
         id: `monster_part_${enemy.type}`,
         name: `${enemy.name}的残骸`,
-        quantity: 1,
+        quantity: enemy.isBoss ? 2 : 1,
         type: 'material',
         rarity: 'common',
       });
     }
 
-    // 15% chance for healing potion drop
-    if (Math.random() < 0.15 && !enemy.isBoss) {
-      items.push({ id: 'healing_potion', name: '治疗药水', quantity: 1, type: 'consumable', rarity: 'common' });
+    // Healing potion drop (15% normal, 50% boss)
+    if (Math.random() < (enemy.isBoss ? 0.5 : 0.15)) {
+      items.push({ id: 'healing_potion', name: '治疗药水', quantity: enemy.isBoss ? 2 : 1, type: 'consumable', rarity: 'common' });
     }
 
-    // Boss drops extra
-    if (enemy.isBoss && Math.random() > 0.3) {
+    // Boss guaranteed rare loot
+    if (enemy.isBoss) {
       items.push({
         id: `boss_loot_${Date.now()}`,
         name: `${enemy.name}的宝物`,
         quantity: 1,
         type: 'valuable',
-        rarity: 'uncommon',
+        rarity: 'rare',
       });
+      // 30% chance for second rare drop
+      if (Math.random() > 0.7) {
+        items.push({
+          id: `boss_loot2_${Date.now()}`,
+          name: `稀有的${enemy.name}掉落物`,
+          quantity: 1,
+          type: 'material',
+          rarity: 'rare',
+        });
+      }
     }
   }
 
