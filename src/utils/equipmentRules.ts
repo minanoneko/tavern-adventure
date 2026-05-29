@@ -1,9 +1,50 @@
 import type { Player, EquipmentItem, Trait, EquipmentPenalty } from '../types';
 import { getEquipmentById } from '../data/equipment';
 
+// ====== Weapon type classification ======
+type WeaponCategory = 'staff' | 'bow' | 'sword' | 'dagger' | 'axe' | 'fist';
+
+export function getWeaponCategory(equipId: string): WeaponCategory {
+  if (equipId.includes('staff') || equipId.includes('wand')) return 'staff';
+  if (equipId.includes('bow') || equipId.includes('arrow')) return 'bow';
+  if (equipId.includes('sword') || equipId.includes('blade')) return 'sword';
+  if (equipId.includes('dagger') || equipId.includes('knife')) return 'dagger';
+  if (equipId.includes('axe') || equipId.includes('greatsword') || equipId.includes('hammer')) return 'axe';
+  return 'fist';
+}
+
+// ====== Class weapon restrictions ======
+const CLASS_WEAPONS: Record<string, WeaponCategory[]> = {
+  '魔法师': ['staff'],
+  '游侠': ['bow', 'dagger'],
+  '剑士': ['sword', 'axe'],
+  '盗贼': ['dagger', 'sword'],
+  '牧师': ['staff'],
+  '野蛮人': ['axe'],
+  '炼金术士': ['dagger', 'staff'],
+  '贵族落魄子弟': ['sword', 'dagger'],
+  '流浪者': ['staff', 'bow', 'sword', 'dagger', 'axe'],
+  '吟游诗人': ['dagger', 'sword'],
+  '学者': ['staff', 'dagger'],
+  '猎魔人': ['sword', 'dagger', 'staff'],
+};
+
+export function canUseWeaponType(className: string, weaponType: WeaponCategory): boolean {
+  return (CLASS_WEAPONS[className] || ['fist']).includes(weaponType);
+}
+
 export function canEquipItem(item: EquipmentItem, player: Player): { canEquip: boolean; warnings: string[] } {
   const warnings: string[] = [];
   const req = item.requirements;
+
+  // Weapon type restriction
+  if (item.slot === 'mainWeapon') {
+    const cat = getWeaponCategory(item.id);
+    const className = player.classOrigin;
+    if (!canUseWeaponType(className, cat)) {
+      return { canEquip: false, warnings: [`你的职业无法使用此类武器（${cat}）`] };
+    }
+  }
 
   if (req.minLevel && player.level < req.minLevel) {
     warnings.push(`等级不足(Lv.${req.minLevel})，装备效果会打折扣`);

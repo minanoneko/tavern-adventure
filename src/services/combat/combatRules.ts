@@ -3,6 +3,7 @@ import type { CombatState, CombatEnemyState, CombatAction, CombatResolution, Com
 import { d20, getAttributeModifier, rollCheck, getPlayerDefense } from './dice';
 import { getSkillById } from '../../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../../utils/skillRules';
+import { getWeaponCategory } from '../../utils/equipmentRules';
 
 // ========== Legal Actions ==========
 
@@ -155,14 +156,44 @@ export function calculateDamage(str: number, skillMultiplier: number = 1.0, isDe
 // ========== Apply Combat Result ==========
 
 // ==== Combat narrative templates (local, no AI) ====
-const ATTACK_ACTIONS = [
-  (p: string, e: string) => `${p}挥剑斩向${e}`,
-  (p: string, e: string) => `${p}一记猛击打向${e}`,
-  (p: string, e: string) => `${p}快速刺向${e}的要害`,
-  (p: string, e: string) => `${p}抡起武器砸向${e}`,
-  (p: string, e: string) => `${p}一记横扫攻向${e}`,
-  (p: string, e: string) => `${p}箭步上前劈向${e}`,
-];
+const ATTACK_ACTIONS: Record<string, ((p: string, e: string) => string)[]> = {
+  staff: [
+    (p, e) => `${p}挥动法杖，魔力激荡着袭向${e}`,
+    (p, e) => `${p}用法杖释放一道能量冲击打向${e}`,
+    (p, e) => `${p}举起法杖，魔法能量射向${e}`,
+    (p, e) => `${p}法杖尖端闪烁光芒，击向${e}`,
+  ],
+  sword: [
+    (p, e) => `${p}挥剑斩向${e}`,
+    (p, e) => `${p}一记横扫攻向${e}`,
+    (p, e) => `${p}箭步上前，利剑直刺${e}`,
+    (p, e) => `${p}双手握剑劈向${e}`,
+  ],
+  bow: [
+    (p, e) => `${p}拉弓搭箭射向${e}`,
+    (p, e) => `${p}瞄准后一箭射向${e}的要害`,
+    (p, e) => `${p}快速射出箭矢，直取${e}`,
+    (p, e) => `${p}弓弦一响，箭矢飞向${e}`,
+  ],
+  dagger: [
+    (p, e) => `${p}匕首快速刺向${e}的要害`,
+    (p, e) => `${p}绕到侧面，匕首扎向${e}`,
+    (p, e) => `${p}反握匕首戳向${e}`,
+    (p, e) => `${p}短刃一闪，攻向${e}`,
+  ],
+  axe: [
+    (p, e) => `${p}抡起沉重的武器砸向${e}`,
+    (p, e) => `${p}猛地砸向${e}`,
+    (p, e) => `${p}大步上前，重武器劈向${e}`,
+    (p, e) => `${p}怒吼着挥动武器砸向${e}`,
+  ],
+  fist: [
+    (p, e) => `${p}一拳打向${e}`,
+    (p, e) => `${p}赤手空拳地攻击${e}`,
+    (p, e) => `${p}猛踢向${e}`,
+    (p, e) => `${p}扑上去用拳头揍向${e}`,
+  ],
+};
 const ATTACK_HITS = [
   (d: number) => `命中！${e_react()}，造成了 ${d} 点伤害`,
   (d: number) => `精准命中要害！${d} 点伤害`,
@@ -238,7 +269,8 @@ export function applyCombatResult(
     const casts = SKILL_CASTS[action.skillId!] || SKILL_CASTS.default;
     results.push(pick(casts));
   } else {
-    results.push(pick(ATTACK_ACTIONS)(pName, enemy.name));
+    const wCat = getWeaponCategory(player.equipment.mainWeapon || '');
+    results.push(pick(ATTACK_ACTIONS[wCat] || ATTACK_ACTIONS.fist)(pName, enemy.name));
   }
 
   if (hit) {
