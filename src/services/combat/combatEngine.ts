@@ -387,6 +387,15 @@ export function submitCombatAction(
     updatedState.phase = 'defeat';
     updatedState.active = false;
     logs.push(makeLog('system', '你被击败了……', round));
+    // Apply defeat penalty
+    const defeatHp = Math.max(1, Math.floor(updatedPlayer.resources.maxHp * 0.2));
+    updatedPlayer.resources.hp = defeatHp;
+    const loseCopper = Math.floor((updatedPlayer.money.gold * 10000 + updatedPlayer.money.silver * 100 + updatedPlayer.money.copper) * 0.2);
+    updatedPlayer.money = addMoney(updatedPlayer.money, { gold: 0, silver: 0, copper: -loseCopper });
+    if (!updatedPlayer.statusEffects.includes('疲劳' as any)) {
+      updatedPlayer.statusEffects = [...updatedPlayer.statusEffects, '疲劳' as any];
+    }
+    logs.push(makeLog('system', `战败惩罚：HP恢复至${defeatHp}，失去${loseCopper}铜币，获得「疲劳」状态。`, round));
     return {
       player: updatedPlayer,
       combatState: { ...updatedState, combatLog: logs },
@@ -453,6 +462,15 @@ function runEnemyTurnInternal(
       combatLog: logs,
     };
     logs.push(makeLog('system', '你被击败了……', round));
+    // Apply defeat penalty
+    const defeatHp = Math.max(1, Math.floor(updatedPlayer.resources.maxHp * 0.2));
+    updatedPlayer.resources.hp = defeatHp;
+    const loseCopper = Math.floor((updatedPlayer.money.gold * 10000 + updatedPlayer.money.silver * 100 + updatedPlayer.money.copper) * 0.2);
+    updatedPlayer.money = addMoney(updatedPlayer.money, { gold: 0, silver: 0, copper: -loseCopper });
+    if (!updatedPlayer.statusEffects.includes('疲劳' as any)) {
+      updatedPlayer.statusEffects = [...updatedPlayer.statusEffects, '疲劳' as any];
+    }
+    logs.push(makeLog('system', `战败惩罚：HP恢复至${defeatHp}，失去${loseCopper}铜币，获得「疲劳」状态。`, round));
     return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, result: enemyTurnResult, defeat: true };
   }
 

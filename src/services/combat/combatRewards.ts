@@ -14,12 +14,12 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
   for (const enemy of enemies) {
     if (!enemy.isDefeated) continue;
 
-    // Exp: base 10 + level * 5 for normal, * 8 for elite, * 12 for boss
-    const expBase = enemy.isBoss ? 12 : enemy.level > player.level ? 8 : 5;
-    totalExp += 10 + enemy.level * expBase;
+    // Exp: base 15 + level * base
+    const expBase = enemy.isBoss ? 15 : enemy.level > player.level ? 10 : 6;
+    totalExp += 15 + enemy.level * expBase;
 
     // Money: level * 3~8 copper for normals, more for boss
-    const moneyBase = enemy.isBoss ? 50 : enemy.level > player.level ? 20 : 10;
+    const moneyBase = enemy.isBoss ? 75 : enemy.level > player.level ? 30 : 15;
     totalCopper += enemy.level * moneyBase + Math.floor(Math.random() * enemy.level * 5);
 
     // Material drops (50% chance)
@@ -31,6 +31,11 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
         type: 'material',
         rarity: 'common',
       });
+    }
+
+    // 15% chance for healing potion drop
+    if (Math.random() < 0.15 && !enemy.isBoss) {
+      items.push({ id: 'healing_potion', name: '治疗药水', quantity: 1, type: 'consumable', rarity: 'common' });
     }
 
     // Boss drops extra

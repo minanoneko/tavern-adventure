@@ -136,6 +136,7 @@ export interface WorldState {
   worldFlags: string[];
   activeRumors: string[];
   combatState: import('./combat').CombatState;
+  combatCooldown: number;
   lockedStoryFacts: string[];
 }
 
@@ -167,6 +168,7 @@ export function createDefaultWorldState(): WorldState {
     worldFlags: [],
     activeRumors: [],
     combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] },
+    combatCooldown: 0,
     lockedStoryFacts: [],
   };
 }

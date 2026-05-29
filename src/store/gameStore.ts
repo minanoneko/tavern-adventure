@@ -18,7 +18,7 @@ import { generateOpeningEvent } from '../services/openingService';
 import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLogs, getLongTermSummary, getGameFlags, loadMemoryFromSave, formatSummaryForAI } from '../services/memoryService';
 import { getEquipmentById } from '../data/equipment';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
-import { addMoney } from '../utils/moneyUtils';
+import { addMoney, canAfford, subtractMoney } from '../utils/moneyUtils';
 import type { CombatEnemy } from '../types/ai';
 import type { CombatAction } from '../types/combat';
 import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy } from '../services/combat/combatEngine';
@@ -236,6 +236,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Combat guard: actions during combat go through CombatPanel
     if (state.worldState.combatState.active) return;
 
+    // Decrement combat cooldown
+    const workingWorldState = { ...state.worldState, combatCooldown: Math.max(0, state.worldState.combatCooldown - 1) };
+
     // Gender self-correction: local only, no AI, no CHECK
     if (customText) {
       const genderMatch = customText.match(/我是(?:个)?(?:一[个名])?(?:女(?:的|性|生)?|男(?:的|性|生)?)/);
@@ -265,7 +268,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // Clone: all mutations go to working copies, not Zustand state
     let player = structuredClone(state.player);
-    let worldState = structuredClone(state.worldState);
+    let worldState = structuredClone(workingWorldState);
     const logs = [...state.logs];
     const eventHistory = state.eventHistory;
     const currentEvent = state.currentEvent;
@@ -314,6 +317,15 @@ export const useGameStore = create<GameState>((set, get) => ({
             selectedOptionId: option.id,
             selectedOptionLabel: option.label,
           };
+          // Handle option.moneyCost (purchase from option)
+          if (option.moneyCost) {
+            if (!canAfford(player.money, option.moneyCost)) {
+              set({ isProcessing: false, errorMessage: `钱币不足，需要${option.moneyCost.gold ? `${option.moneyCost.gold}金` : ''}${option.moneyCost.silver ? `${option.moneyCost.silver}银` : ''}${option.moneyCost.copper || 0}铜。` });
+              return;
+            }
+            player.money = subtractMoney(player.money, option.moneyCost);
+            logs.push({ id: `purchase_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `花费${option.moneyCost.gold ? `${option.moneyCost.gold}金` : ''}${option.moneyCost.silver ? `${option.moneyCost.silver}银` : ''}${option.moneyCost.copper || 0}铜购买：${option.label}` });
+          }
         } else {
           playerAction = {
             id: actionId,
@@ -374,7 +386,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       // 2.8 Exp and money changes (only quest completion and rest costs)
-      const moneyAward = getMoneyChange(playerAction, judgeResult);
+      const moneyAward = getMoneyChange(playerAction, player, judgeResult);
       if (moneyAward.copper !== 0 || moneyAward.silver !== 0 || moneyAward.gold !== 0) {
         player.money = addMoney(player.money, moneyAward);
         const sign = moneyAward.gold > 0 || moneyAward.silver > 0 || moneyAward.copper > 0 ? '+' : '';
@@ -413,6 +425,15 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // 3.6 Combat: detect combatStart (priority) or legacy enemy from AI response
       if (aiResult.success && aiResult.response && !worldState.combatState.active) {
+        // Combat cooldown check
+        if (worldState.combatCooldown > 0) {
+          // On cooldown, ignore combat trigger
+          if (aiResult.response) {
+            (aiResult.response as any).combatStart = undefined;
+            (aiResult.response as any).enemy = undefined;
+          }
+          logs.push({ id: `cooldown_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `战斗冷却中（还需${worldState.combatCooldown}次行动），跳过本次遭遇。` });
+        }
         // Priority 1: combatStart proposal
         if (aiResult.response.combatStart) {
           try {
@@ -577,6 +598,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           playerBuffs: [],
           combatLog: [],
         },
+        combatCooldown: 4,
       },
     });
   },
@@ -655,7 +677,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       // Player can click "继续冒险" to dismiss
       set({
         player: updatedPlayer,
-        worldState: { ...state.worldState, combatState: updatedCombatState },
+        worldState: { ...state.worldState, combatState: updatedCombatState, combatCooldown: 4 },
         isProcessing: false,
       });
     } else {
@@ -740,10 +762,28 @@ function applyLocalHealEffect(player: Player, action: PlayerAction, logs: LogEnt
 
   // Rest recovery
   if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {
-    mpRestored = Math.min(5, player.resources.maxMp - player.resources.mp);
-    hpHealed = Math.min(3, player.resources.maxHp - player.resources.hp);
-    if (hpHealed > 0 || mpRestored > 0) {
-      logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `休息恢复: HP +${hpHealed} MP +${mpRestored}` });
+    // Full restore at safe locations, costing money
+    const safeLocations = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch', 'small_chapel'];
+    const isSafeLocation = safeLocations.includes(action.id) || action.id.includes('inn') || action.id.includes('tavern');
+    if (isSafeLocation) {
+      // Full HP/MP restore
+      const restCost = player.level <= 3 ? { copper: 10 } : player.level <= 5 ? { copper: 50 } : { silver: 2, copper: 0 };
+      if (!canAfford(player.money, restCost)) {
+        logs.push({ id: `rest_poor_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `钱币不足，无法在此休息（需要${restCost.copper || restCost.silver ? `${restCost.silver || 0}银` : ''}${restCost.copper || 0}铜）。` });
+        return { hpHealed: 0, mpRestored: 0, potionUsed: false };
+      }
+      hpHealed = player.resources.maxHp - player.resources.hp;
+      mpRestored = player.resources.maxMp - player.resources.mp;
+      // Money will be deducted in getMoneyChange
+      if (hpHealed > 0 || mpRestored > 0) {
+        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `休息恢复: HP +${hpHealed} MP +${mpRestored}（花费${restCost.copper || 0}铜${restCost.silver ? `${restCost.silver}银` : ''}）` });
+      }
+    } else {
+      mpRestored = Math.min(5, player.resources.maxMp - player.resources.mp);
+      hpHealed = Math.min(3, player.resources.maxHp - player.resources.hp);
+      if (hpHealed > 0 || mpRestored > 0) {
+        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `休息恢复: HP +${hpHealed} MP +${mpRestored}` });
+      }
     }
   }
 
@@ -760,9 +800,15 @@ function filterAIOptions(options: ActionOption[], player: Player): ActionOption[
   });
 }
 
-function getMoneyChange(action: PlayerAction, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
+function getMoneyChange(action: PlayerAction, player: Player, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
   // Resting costs money
-  if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn'))) {
+  if (action.type === 'cautious' && (action.id.includes('rest') || action.id.includes('inn') || action.id.includes('tavern'))) {
+    const isSafe = ['inn', 'tavern', 'gray_deer', 'whitestone'].some(s => action.id.includes(s));
+    if (isSafe) {
+      return player.level <= 3 ? { gold: 0, silver: 0, copper: -10 }
+        : player.level <= 5 ? { gold: 0, silver: 0, copper: -50 }
+        : { gold: 0, silver: -2, copper: 0 };
+    }
     return { gold: 0, silver: 0, copper: -5 };
   }
   // No per-action money — income comes from quest completion rewards
