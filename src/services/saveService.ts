@@ -76,10 +76,38 @@ export function loadGame(): SaveFile | null {
       saved.worldState.currentLocationName = saved.worldState.currentLocation || '未知地点';
     }
     if (!saved.worldState.combatState) {
-      saved.worldState.combatState = { active: false };
+      (saved.worldState.combatState as any) = { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] };
     }
     if (!saved.worldState.lockedStoryFacts) {
       saved.worldState.lockedStoryFacts = [];
+    }
+    // Migrate old combatState { active, enemy? } to new CombatState
+    const cs = saved.worldState.combatState as any;
+    if (cs && !('phase' in cs)) {
+      const migratedEnemies = cs.enemy ? [{
+        id: `enemy_legacy_${Date.now()}`,
+        name: cs.enemy.name,
+        type: 'monster',
+        level: cs.enemy.level || 1,
+        str: cs.enemy.str || 4,
+        dex: cs.enemy.dex || 4,
+        con: cs.enemy.con || 4,
+        hp: cs.enemy.hp || 10,
+        maxHp: cs.enemy.maxHp || 10,
+        statusEffects: [] as string[],
+        isBoss: false,
+        isDefeated: false,
+        description: cs.enemy.description,
+      }] : [];
+      (saved.worldState.combatState as any) = {
+        active: cs.active || false,
+        phase: 'fighting',
+        round: 1,
+        turn: 'player',
+        enemies: migratedEnemies,
+        playerBuffs: [],
+        combatLog: [],
+      };
     }
     // Skills migration
     if (!saved.player.skills.equipped) {

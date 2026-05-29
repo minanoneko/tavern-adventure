@@ -19,6 +19,8 @@ import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLo
 import { getEquipmentById } from '../data/equipment';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 import type { CombatEnemy } from '../types/ai';
+import type { CombatAction } from '../types/combat';
+import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy, endCombat } from '../services/combat/combatEngine';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
@@ -43,6 +45,7 @@ export interface GameState {
   createCharacter: (data: CharacterCreationData) => void;
   continueGame: () => boolean;
   submitAction: (actionId: string, customText?: string) => Promise<void>;
+  submitCombatAction: (action: import('../types/combat').CombatAction) => Promise<void>;
   saveCurrentGame: () => boolean;
   loadSavedGame: () => boolean;
   deleteSavedGame: () => boolean;
@@ -357,36 +360,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         aiResult.response.actionOptions = filterAIOptions(aiResult.response.actionOptions, player);
       }
 
-      // 3.6 Combat: carry over enemy from worldState if AI didn't return one
-      if (worldState.combatState.active && worldState.combatState.enemy) {
-        if (aiResult.success && aiResult.response && !aiResult.response.enemy) {
-          (aiResult.response as any).enemy = worldState.combatState.enemy;
+      // 3.6 Combat: detect enemy from AI response and start new combat
+      const currentEnemy = aiResult.success && aiResult.response?.enemy ? aiResult.response.enemy : null;
+      if (currentEnemy && !worldState.combatState.active) {
+        // AI returned enemy → start new combat via legacy path
+        const combatResult = startCombatFromLegacyEnemy(player, worldState, currentEnemy);
+        worldState.combatState = combatResult.combatState;
+        // Log combat start
+        logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${currentEnemy.name}出现了！` });
+        // Apply AI response but with combat active → gameEngine will skip playerUpdate
+        if (aiResult.response) {
+          (aiResult.response as any).enemy = undefined; // Don't let gameEngine process old enemy format
         }
       }
 
-      // 3.7 Combat resolution with persistent combatState
-      const currentEnemy = aiResult.success && aiResult.response?.enemy ? aiResult.response.enemy : null;
-      if (currentEnemy) {
-        const combatResult = resolveCombatV2(player, currentEnemy);
-        player.resources.hp = Math.max(0, player.resources.hp - combatResult.playerDamage);
-        logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.log });
-        if (combatResult.playerDamage > 0) {
-          logs.push({ id: `hp_dmg_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${combatResult.playerDamage}（战斗伤害）` });
-        }
-        if (combatResult.enemyDefeated) {
-          logs.push({ id: `kill_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `✓ 击败了${currentEnemy.name}！` });
-          worldState.combatState = { active: false };
-        } else {
-          worldState.combatState = { active: true, enemy: combatResult.enemy };
-        }
-        // Update the enemy in AI response for gameEngine
-        if (aiResult.response) {
-          (aiResult.response as any).enemy = combatResult.enemy;
-        }
-      } else if (worldState.combatState.active) {
-        // No enemy in AI response but combat is active → clear stale combat
-        worldState.combatState = { active: false };
-      }
+      // If combat is active after this round, skip normal event processing
+      // The CombatPanel will take over for the next action
 
       // 4. Handle AI result
       if (aiResult.success && aiResult.response) {
@@ -511,6 +500,92 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { worldState } = get();
     set({ worldState: { ...worldState, lockedStoryFacts: [] } });
   },
+
+  submitCombatAction: async (action) => {
+    const state = get();
+    if (!state.player || !state.worldState.combatState.active) return;
+    if (state.isProcessing) return;
+
+    // Run local combat settlement immediately
+    const result = runCombatAction(state.player, state.worldState.combatState, action);
+
+    // Apply local results to player + combatState immediately
+    let updatedPlayer = result.player;
+    let updatedCombatState = result.combatState;
+
+    set({
+      player: updatedPlayer,
+      worldState: { ...state.worldState, combatState: updatedCombatState },
+      isProcessing: true,
+    });
+
+    // If combat ended, optionally fetch AI narrative description
+    if (!updatedCombatState.active) {
+      try {
+        const settings = useSettingsStore.getState();
+        if (settings.aiMode !== 'mock') {
+          // Request AI to describe the combat resolution (don't let AI modify numbers)
+          const resultText = updatedCombatState.phase === 'victory'
+            ? `战斗胜利。玩家击败了敌人。${updatedCombatState.combatLog.slice(-3).map(l => l.text).join(' ')}`
+            : updatedCombatState.phase === 'defeat'
+              ? `玩家被击败了。`
+              : `玩家脱离了战斗。`;
+
+          const aiResult = await sendPlayerAction(
+            updatedPlayer, { ...state.worldState, combatState: updatedCombatState },
+            { id: 'combat_resolve', type: 'combat', risk: 'low', mpCost: 0, isCustom: false },
+            { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
+            state.logs, state.eventHistory,
+            { ...settings, customGMRules: settings.customGMRules },
+          );
+
+          if (aiResult.success && aiResult.response) {
+            // Apply narrative only (combat numbers already settled)
+            const engineResult = applyAIResponse(aiResult.response, updatedPlayer, { ...state.worldState, combatState: updatedCombatState }, state.logs);
+            updatedPlayer = engineResult.player;
+            // Keep our combat state
+            updatedCombatState = engineResult.worldState.combatState.active ? engineResult.worldState.combatState : updatedCombatState;
+          } else {
+            // AI failed — results already applied, just add system log
+            const logs = [...updatedCombatState.combatLog];
+            logs.push({
+              id: `combat_desc_fail_${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              type: 'system',
+              text: '描述生成失败，但战斗结算已完成。',
+              round: updatedCombatState.round,
+            });
+            updatedCombatState = { ...updatedCombatState, combatLog: logs };
+          }
+        }
+      } catch {
+        // AI call failed — combat results stand
+        const logs = [...updatedCombatState.combatLog];
+        logs.push({
+          id: `combat_desc_fail_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          type: 'system',
+          text: '描述生成失败，但战斗结算已完成。',
+          round: updatedCombatState.round,
+        });
+        updatedCombatState = { ...updatedCombatState, combatLog: logs };
+      }
+
+      const finalState = endCombat(updatedPlayer, updatedCombatState);
+      set({
+        player: finalState.player,
+        worldState: { ...state.worldState, combatState: finalState.combatState },
+        isProcessing: false,
+      });
+    } else {
+      // Combat continuing — no AI call needed for mid-combat
+      set({
+        player: updatedPlayer,
+        worldState: { ...state.worldState, combatState: updatedCombatState },
+        isProcessing: false,
+      });
+    }
+  },
 }));
 
 /** Money only changes for rest costs. Income comes from quests and text parsing. */
@@ -529,44 +604,6 @@ const ITEM_EFFECTS: Record<string, (player: Player, _: PlayerAction, logs: LogEn
     log: '烟雾遮蔽，潜行/逃跑判定+4',
   }),
 };
-
-/** Roll a d20 */
-function d20(): number { return Math.floor(Math.random() * 20) + 1; }
-/** Attribute modifier = (value - 10) / 2, rounded down */
-function attrMod(val: number): number { return Math.floor((val - 10) / 2); }
-
-/** Resolve combat — returns updated enemy (immutable) */
-function resolveCombatV2(player: Player, enemy: CombatEnemy): { playerDamage: number; enemyDefeated: boolean; enemy: CombatEnemy; log: string } {
-  const updatedEnemy = { ...enemy };
-
-  // Player attack
-  const playerAtkRoll = d20() + attrMod(player.attributes.str);
-  const enemyDef = 10 + attrMod(enemy.dex);
-  const playerHit = playerAtkRoll >= enemyDef;
-  let playerDmg = 0;
-  if (playerHit) {
-    playerDmg = Math.max(1, 3 + attrMod(player.attributes.str));
-    updatedEnemy.hp = Math.max(0, updatedEnemy.hp - playerDmg);
-  }
-
-  // Enemy attack
-  const enemyAtkRoll = d20() + attrMod(enemy.str);
-  const playerDef = 10 + attrMod(player.attributes.dex);
-  const enemyHit = enemyAtkRoll >= playerDef;
-  let enemyDmg = 0;
-  if (enemyHit) {
-    enemyDmg = Math.max(1, 2 + attrMod(enemy.str));
-  }
-
-  const enemyDefeated = updatedEnemy.hp <= 0;
-  const log = `⚔ vs ${enemy.name} | ` +
-    `玩家掷${playerAtkRoll}${playerHit ? '命中' : '未中'}(${playerDmg}伤) | ` +
-    `敌人掷${enemyAtkRoll}${enemyHit ? `命中(${enemyDmg}伤)` : '未中'} | ` +
-    `敌人HP${updatedEnemy.hp}/${updatedEnemy.maxHp}` +
-    (enemyDefeated ? ' ✓击败!' : '');
-
-  return { playerDamage: enemyDmg, enemyDefeated, enemy: updatedEnemy, log };
-}
 
 /** Validate custom skill intent — block unlearned skills, match learned ones */
 function validateCustomSkillIntent(action: PlayerAction, player: Player): PlayerAction {

@@ -6,6 +6,7 @@ import TabContainer from './TabContainer';
 import LevelUpModal from './LevelUpModal';
 import SettingsPanel from './SettingsPanel';
 import DebugPanel from './DebugPanel';
+import CombatPanel from './CombatPanel';
 import { useGameStore } from '../store/gameStore';
 
 type MobilePanel = 'none' | 'character' | 'tabs';
@@ -58,6 +59,7 @@ export default function GamePage() {
 
         {/* Center: Adventure Window */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <CombatPanel />
           <AdventureWindow />
         </div>
 

@@ -8,3 +8,4 @@ export * from './ai';
 export * from './log';
 export * from './settings';
 export * from './memory';
+export * from './combat';

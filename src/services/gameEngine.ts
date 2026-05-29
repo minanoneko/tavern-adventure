@@ -71,8 +71,16 @@ export function applyAIResponse(
   let didLevelUp = false;
   let newLevel: number | undefined;
 
-  // 0. Scan narrative text for HP changes only (money from explicit sources only)
-  updatedPlayer = parseHPFromNarrative(updatedPlayer, response.scene.text, logs);
+  // 0. DO NOT parse HP/HP/money from narrative text. All numeric changes go through structured fields or local rules.
+  // Scene text is narrative ONLY.
+
+  // 0.5 Combat mode: ignore AI playerUpdate values (HP/MP/money/exp controlled by combatEngine locally)
+  if (updatedWorld.combatState.active) {
+    response.playerUpdate.hpChange = 0;
+    response.playerUpdate.mpChange = 0;
+    response.playerUpdate.expChange = 0;
+    response.playerUpdate.moneyChange = {};
+  }
 
   // 1. Log scene
   logs.push(createLogEntry('narrative', `【${response.scene.title}】${response.scene.text.slice(0, 100)}...`));

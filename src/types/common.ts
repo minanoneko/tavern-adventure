@@ -69,11 +69,6 @@ export const TIME_NAMES: TimeOfDay[] = ['清晨', '上午', '中午', '下午', 
 export const WEATHER_NAMES: Weather[] = ['晴', '雨', '雾', '雪', '暴风雨'];
 
 // ========== World State ==========
-export interface CombatState {
-  active: boolean;
-  enemy?: import('./ai').CombatEnemy;
-}
-
 export interface GeneratedLocation {
   id: string;
   name: string;
@@ -95,7 +90,7 @@ export interface WorldState {
   factionStandings: Record<string, number>;
   worldFlags: string[];
   activeRumors: string[];
-  combatState: CombatState;
+  combatState: import('./combat').CombatState;
   lockedStoryFacts: string[];
 }
 
@@ -126,7 +121,7 @@ export function createDefaultWorldState(): WorldState {
     },
     worldFlags: [],
     activeRumors: [],
-    combatState: { active: false },
+    combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] },
     lockedStoryFacts: [],
   };
 }
