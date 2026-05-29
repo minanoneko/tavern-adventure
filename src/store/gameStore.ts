@@ -654,16 +654,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         : { gold: 0, silver: 2, copper: 0 };
 
       if (!canAfford(player.money, restCost)) {
-        // Free basic recovery to prevent death spiral (restore to at least 20% HP)
-        const minHp = Math.max(1, Math.floor(player.resources.maxHp * 0.2));
-        const minMp = Math.max(1, Math.floor(player.resources.maxMp * 0.2));
-        if (player.resources.hp < minHp || player.resources.mp < minMp) {
-          const p = { ...player, resources: { ...player.resources, hp: Math.max(player.resources.hp, minHp), mp: Math.max(player.resources.mp, minMp) } };
-          logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `钱币不足，酒馆老板同情地给了你一些水和干面包。HP/MP恢复到20%（免费）。` });
-          set({ player: p, logs, errorMessage: null });
-        } else {
-          set({ errorMessage: `钱币不足，无法休息。HP/MP已经高于20%，不需要紧急救助。` });
-        }
+        // Free full recovery when broke — prevent death spiral
+        const p = { ...player, resources: { ...player.resources, hp: player.resources.maxHp, mp: player.resources.maxMp } };
+        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '你囊中羞涩，酒馆老板摇了摇头，但还是让你在角落的草垫上睡了一晚。HP/MP完全恢复（免费）。' });
+        set({ player: p, logs, errorMessage: null });
         return;
       }
       hpHealed = player.resources.maxHp - player.resources.hp;
