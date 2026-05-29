@@ -323,6 +323,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;
+          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '——进入战斗——' });
           logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${enemyLevel})出现了！` });
           set({ player, worldState, logs, isProcessing: false });
           return;
@@ -738,63 +739,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       isProcessing: true,
     });
 
-    // If combat ended, optionally fetch AI narrative description
+    // If combat ended, just show result panel — no AI call here (avoids double-pop)
     if (!updatedCombatState.active) {
-      try {
-        const settings = useSettingsStore.getState();
-        if (settings.aiMode !== 'mock') {
-          // Request AI to describe the combat resolution (don't let AI modify numbers)
-          const resultText = updatedCombatState.phase === 'victory'
-            ? `战斗胜利。玩家击败了敌人。${updatedCombatState.combatLog.slice(-3).map(l => l.text).join(' ')}`
-            : updatedCombatState.phase === 'defeat'
-              ? `玩家被击败了。`
-              : `玩家脱离了战斗。`;
-
-          const aiResult = await sendPlayerAction(
-            updatedPlayer, { ...state.worldState, combatState: updatedCombatState },
-            { id: 'combat_resolve', type: 'combat', risk: 'low', mpCost: 0, isCustom: false },
-            { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
-            state.logs, state.eventHistory,
-            { ...settings, customGMRules: settings.customGMRules },
-          );
-
-          if (aiResult.success && aiResult.response) {
-            // Apply narrative only (combat numbers already settled)
-            const engineResult = applyAIResponse(aiResult.response, updatedPlayer, { ...state.worldState, combatState: updatedCombatState }, state.logs);
-            updatedPlayer = engineResult.player;
-            // Keep our combat state
-            updatedCombatState = engineResult.worldState.combatState.active ? engineResult.worldState.combatState : updatedCombatState;
-          } else {
-            // AI failed — results already applied, just add system log
-            const logs = [...updatedCombatState.combatLog];
-            logs.push({
-              id: `combat_desc_fail_${Date.now()}`,
-              timestamp: new Date().toISOString(),
-              type: 'system',
-              text: '描述生成失败，但战斗结算已完成。',
-              round: updatedCombatState.round,
-            });
-            updatedCombatState = { ...updatedCombatState, combatLog: logs };
-          }
-        }
-      } catch {
-        // AI call failed — combat results stand
-        const logs = [...updatedCombatState.combatLog];
-        logs.push({
-          id: `combat_desc_fail_${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          type: 'system',
-          text: '描述生成失败，但战斗结算已完成。',
-          round: updatedCombatState.round,
-        });
-        updatedCombatState = { ...updatedCombatState, combatLog: logs };
-      }
-
-      // Keep combat state visible for victory/defeat display
-      // Player can click "继续冒险" to dismiss
       set({
         player: updatedPlayer,
-        worldState: { ...state.worldState, combatState: updatedCombatState, combatCooldown: 4 },
+        worldState: { ...state.worldState, combatState: updatedCombatState, combatCooldown: 5 },
         isProcessing: false,
       });
     } else {

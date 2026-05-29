@@ -58,10 +58,14 @@ export default function FixedActions() {
     store.submitAction('custom', text);
   };
 
+  const exploreText = isWild
+    ? '警惕地探索周围，寻找是否有敌人或危险的迹象，随时准备战斗。'
+    : '探索当前所在的区域，看看周围有什么。';
+
   return (
     <>
       <div className="flex flex-wrap gap-1 lg:gap-2 px-2 lg:px-6 py-2 lg:py-3 border-t border-[var(--color-tavern-border)] flex-shrink-0">
-        <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction('探索当前所在的区域，看看周围有什么。')}>
+        <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction(exploreText)}>
           探索
         </button>
         <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction('尝试和附近的人交谈，打听消息。')}>

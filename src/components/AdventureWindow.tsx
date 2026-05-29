@@ -92,7 +92,7 @@ export default function AdventureWindow() {
       {currentEvent && !isProcessing && !combatActive && (
         <div className="border-t border-[var(--color-tavern-border)] px-2 lg:px-6 py-2 lg:py-3 space-y-1.5 lg:space-y-2 flex-shrink-0">
           {/* AI-generated story options (max 2) */}
-          <ActionOptions options={currentEvent.actionOptions.slice(0, 2)} />
+          <ActionOptions options={currentEvent.actionOptions.slice(0, 3)} />
           {/* Player fixed actions */}
           <FixedActions />
           {/* Custom input */}
