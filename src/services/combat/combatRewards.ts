@@ -14,9 +14,9 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
   for (const enemy of enemies) {
     if (!enemy.isDefeated) continue;
 
-    // Exp: base 15 + level * base
-    const expBase = enemy.isBoss ? 15 : enemy.level > player.level ? 10 : 6;
-    totalExp += 15 + enemy.level * expBase;
+    // Exp: base 8 + level * mult. Boss ≈ 3x normal, Elite ≈ 1.5x
+    const expMult = enemy.isBoss ? 5 : enemy.level > player.level ? 4 : 3;
+    totalExp += 8 + enemy.level * expMult;
 
     // Money: level * 3~8 copper for normals, more for boss
     const moneyBase = enemy.isBoss ? 75 : enemy.level > player.level ? 30 : 15;

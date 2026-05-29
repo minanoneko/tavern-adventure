@@ -17,7 +17,6 @@ export default function CombatPanel() {
 
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
-  const [dismissing, setDismissing] = useState(false);
 
   const shouldShow = combatState.active || combatState.phase === 'victory' || combatState.phase === 'defeat' || combatState.phase === 'fled';
   if (!player || !shouldShow) return null;
@@ -46,52 +45,36 @@ export default function CombatPanel() {
   const hitTarget = 10 + defMod;
   const dmgBase = 2 + (player.attributes.str >= 9 ? 4 : player.attributes.str >= 8 ? 3 : player.attributes.str >= 7 ? 2 : player.attributes.str >= 6 ? 1 : player.attributes.str >= 5 ? 0 : player.attributes.str >= 4 ? -1 : -2);
 
-  // Victory/Defeat/Fled: fetch AI narrative, then dismiss
-  const handleDismiss = async () => {
-    setDismissing(true);
-    const store = useGameStore.getState();
-    let newEvent = null;
-
-    if (phase === 'victory' || phase === 'defeat' || phase === 'fled') {
+  // Victory/Defeat/Fled: dismiss immediately, AI narrative in background
+  const handleDismiss = () => {
+    const s = useGameStore.getState();
+    // Dismiss right away
+    s.dismissCombat();
+    // AI narrative in background
+    if (phase !== 'fighting') {
       const summary = phase === 'victory'
-        ? `战斗胜利！${store.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
+        ? `战斗胜利！${s.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
         : phase === 'defeat'
-          ? `玩家被击败了，HP剩余${store.player?.resources.hp}。请生成一段战败后的过渡剧情。`
-          : `玩家成功逃离了战斗（逃跑）。请生成一段逃跑后的过渡剧情，敌人可能还在附近。`;
+          ? `玩家被击败了，HP剩余${s.player?.resources.hp}。请生成一段战败后的过渡剧情。`
+          : `玩家逃离了战斗。请生成一段逃跑后的过渡剧情。`;
       const settings = useSettingsStore.getState();
       if (settings.aiMode !== 'mock') {
-        try {
-          const result = await sendPlayerAction(
-            store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
-            { id: 'combat_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
-            { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
-            store.logs, store.eventHistory, { ...settings, customGMRules: settings.customGMRules },
-          );
-          if (result.success && result.response) {
-            result.response.combatStart = undefined;
-            result.response.enemy = undefined;
-            const engineResult = applyAIResponse(result.response, store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, store.logs);
-            store.player = engineResult.player;
-            store.worldState = { ...engineResult.worldState, combatCooldown: 4 };
-            newEvent = result.response;
-            store.eventHistory = [...store.eventHistory, result.response];
-            store.logs = engineResult.logs;
+        sendPlayerAction(
+          s.player!, { ...s.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player' as const, enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
+          { id: 'cb_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
+          { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
+          s.logs, s.eventHistory, { ...settings, customGMRules: settings.customGMRules },
+        ).then(r => {
+          if (r.success && r.response) {
+            r.response.combatStart = undefined;
+            r.response.enemy = undefined;
+            const st = useGameStore.getState();
+            const eng = applyAIResponse(r.response, st.player!, { ...st.worldState, combatCooldown: 4 }, st.logs);
+            useGameStore.setState({ player: eng.player, worldState: { ...eng.worldState, combatCooldown: 4 }, currentEvent: r.response, eventHistory: [...st.eventHistory, r.response], logs: eng.logs, isProcessing: false });
           }
-        } catch { /* fall through */ }
+        }).catch(() => {});
       }
     }
-
-    // Now dismiss combat and apply new event
-    const finalState = useGameStore.getState();
-    useGameStore.setState({
-      player: store.player || finalState.player,
-      worldState: { ...(store.worldState || finalState.worldState), combatState: { active: false, phase: 'fighting' as const, round: 0, turn: 'player' as const, enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
-      currentEvent: newEvent || finalState.currentEvent,
-      eventHistory: newEvent ? [...finalState.eventHistory, newEvent] : finalState.eventHistory,
-      logs: store.logs || finalState.logs,
-      isProcessing: false,
-    });
-    setDismissing(false);
   };
 
   return (
@@ -129,7 +112,7 @@ export default function CombatPanel() {
       )}
 
       {/* === Combat Log (primary dice display) === */}
-      <div className="max-h-28 overflow-auto p-2 bg-black/60 rounded border border-[#c94040] text-sm space-y-1">
+      <div className="h-32 lg:h-36 overflow-auto p-3 bg-black/60 rounded border border-[#c94040] text-sm lg:text-base space-y-1.5">
         {combatState.combatLog.length === 0 && <div className="text-muted text-center">等待战斗开始...</div>}
         {combatState.combatLog.slice(-6).map(log => (
           <div key={log.id} className={`${log.type === 'action' ? 'text-info' : log.type === 'enemy' ? 'text-danger' : log.type === 'reward' ? 'text-success' : 'text-muted'}`}>
@@ -217,9 +200,7 @@ export default function CombatPanel() {
           {phase === 'victory' && combatState.combatLog.filter(l=>l.type==='reward').map((l,i)=>(
             <div key={i} className="text-sm text-success">{l.text}</div>
           ))}
-          <button className="btn text-sm mt-3" onClick={handleDismiss} disabled={dismissing}>
-            {dismissing ? 'AI 正在生成剧情...' : '继续冒险'}
-          </button>
+          <button className="btn text-sm mt-3" onClick={handleDismiss}>继续冒险</button>
         </div>
       )}
     </div>
