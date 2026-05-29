@@ -340,6 +340,39 @@ function tryParseJson(text: string): { success: true; data: Record<string, unkno
   }
 }
 
+/** Fallback: wrap plain narrative text into minimal AIResponse when JSON parsing fails completely */
+export function fallbackTextToMinimalResponse(text: string): AIResponse {
+  const clean = text.slice(0, 600).trim();
+  return completeAIResponse({
+    scene: { title: '事件继续', text: clean },
+    actionOptions: [
+      { label: '继续追问', type: 'dialogue', risk: 'low' },
+      { label: '观察四周', type: 'check', risk: 'low' },
+      { label: '谨慎行动', type: 'cautious', risk: 'low' },
+    ],
+    customActionEnabled: true,
+  } as any);
+}
+
+/** Unified content extraction from API response data */
+export function extractAssistantContent(data: Record<string, unknown>): { content: string | null; finishReason: string } {
+  const choices = data.choices as any[] | undefined;
+  const first = choices?.[0];
+  const finishReason = first?.finish_reason || data.finish_reason || 'unknown';
+  let content: string | null = null;
+
+  if (first?.message?.content) {
+    if (typeof first.message.content === 'string') content = first.message.content;
+    else if (Array.isArray(first.message.content)) {
+      content = first.message.content.map((c: any) => c.text || '').join('');
+    }
+  }
+  if (!content && (data as any).output_text) content = (data as any).output_text;
+  if (!content && first?.message?.reasoning_content) content = first.message.reasoning_content;
+
+  return { content, finishReason };
+}
+
 // ========== Main normalize + validate + complete pipeline ==========
 export function normalizeAndComplete(raw: unknown): { success: true; response: AIResponse } | { success: false; errors: string[]; rawText?: string } {
   try {

@@ -6,7 +6,7 @@ import { getMockResponse } from '../data/mockEventPool';
 import {
   buildAIContext, buildEventPromptFull, buildSystemMessages,
 } from './promptService';
-import { normalizeAndComplete } from './responseAdapter';
+import { normalizeAndComplete, extractAssistantContent, fallbackTextToMinimalResponse } from './responseAdapter';
 
 // ========== Request dedup & logging ==========
 let requestCount = 0;
@@ -139,41 +139,44 @@ async function sendAIRequest(
     }
 
     const data = await response.json();
-    // DeepSeek reasoning models put output in reasoning_content, not content
-    let content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      content = data.choices?.[0]?.message?.reasoning_content;
-    }
+    const { content, finishReason } = extractAssistantContent(data);
 
     logResponse(content || '', elapsed);
 
     if (!content) {
-      // Log raw response for debugging
-      console.error('[AI] Empty content. Full response:', JSON.stringify(data).slice(0, 500));
-      const finishReason = data.choices?.[0]?.finish_reason || 'unknown';
+      console.error('[AI] Empty content:', JSON.stringify(data).slice(0, 500));
       let hint = '';
-      if (finishReason === 'length') hint = '（AI输出被截断，请重试）';
-      else if (finishReason === 'content_filter') hint = '（内容被安全审查拦截，请换种表述方式）';
-      else if (finishReason === 'stop') hint = '（模型提前停止，请重试）';
-      else hint = `（状态: ${finishReason}，请重试）`;
-      return { success: false, error: { type: 'parse_error', message: `AI 返回内容为空。${hint}`, details: JSON.stringify(data).slice(0, 300) } };
+      if (finishReason === 'length') hint = '（截断，max_tokens可能太小）';
+      else if (finishReason === 'content_filter') hint = '（内容被安全审查拦截）';
+      else if (finishReason === 'stop') hint = '（模型提前停止）';
+      else hint = `（finish_reason: ${finishReason}）`;
+      return { success: false, error: { type: 'parse_error', message: `AI 返回为空。${hint}`, details: JSON.stringify(data).slice(0, 300) } };
     }
 
-    // Single-pass: normalizeAndComplete handles JSON extraction internally
+    // Try JSON parse via normalizeAndComplete
     const result = normalizeAndComplete(content);
     if (result.success) {
       return { success: true, response: result.response };
     }
 
-    // Do NOT auto-retry — show error immediately
+    // JSON parsing failed — try fallback: wrap as plain text narrative
+    if (content.length > 20 && !content.startsWith('{')) {
+      const fallback = fallbackTextToMinimalResponse(content);
+      return {
+        success: true,
+        response: fallback,
+      };
+    }
+
+    // Genuine JSON parse error
     return {
       success: false,
-      rawText: content.slice(0, 500),
+      rawText: content.slice(0, 800),
       validationErrors: result.errors,
       error: {
         type: 'validation_error',
-        message: `AI 返回格式异常（${result.errors.length} 个错误）。请重试。`,
-        details: result.errors.slice(0, 5).join('; '),
+        message: `AI 返回格式异常（${result.errors.length} 个错误）。`,
+        details: result.errors.slice(0, 3).join('; '),
       },
     };
   } catch (e: unknown) {

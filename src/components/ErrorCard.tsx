@@ -44,10 +44,13 @@ export default function ErrorCard({ error, validationErrors }: { error?: AIError
       )}
       {lastAIResult?.rawText && (error?.type === 'parse_error' || error?.type === 'validation_error') && (
         <details className="mb-2">
-          <summary className="text-xs text-muted cursor-pointer">AI 原始返回（前1000字）</summary>
+          <summary className="text-xs text-muted cursor-pointer">AI 原始返回（前800字）</summary>
           <pre className="text-xs mt-1 p-2 rounded overflow-auto max-h-40" style={{ background: 'rgba(0,0,0,0.4)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-            {lastAIResult.rawText.slice(0, 1000)}
+            {lastAIResult.rawText.slice(0, 800)}
           </pre>
+          {!lastAIResult.rawText.trim().startsWith('{') && (
+            <div className="text-xs text-muted mt-1">模型未遵守JSON输出格式，返回了纯文本剧情。已使用兜底包装，游戏可继续。</div>
+          )}
         </details>
       )}
       {suggestion && <div className="text-xs text-muted mb-3">{suggestion}</div>}

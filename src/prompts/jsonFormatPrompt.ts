@@ -1,21 +1,24 @@
-export const JSON_FORMAT_PROMPT = `你必须只输出合法 JSON 对象。不要输出 Markdown、代码块、解释。只输出 JSON 对象。
+export const JSON_FORMAT_PROMPT = `=== 输出规则（极其重要）===
+你只能输出一个JSON对象。第一个字符必须是{，最后一个字符必须是}。
+禁止输出JSON外的任何内容：Markdown、解释、代码块标记、自然语言段落、中文前言（如"好的""以下是"之类）一概禁止。
 
-=== 关键规则 ===
-1. 所有字符串必须单行。scene.text 不允许真实换行。如需换行用 \\n。
-2. scene.text 推荐写成单段文本。
-3. 字符串内双引号必须用反斜杠转义：\\"
-4. 输出必须是纯 JSON，不加前后标记。
+剧情文本必须放在 scene.text 字段里。不要把剧情写在JSON外面。
 
-必填字段：
-- scene.title
-- scene.text（120-220中文字，单行，换行用\\n）
-- actionOptions（通常3个，label不超过20字）
-- customActionEnabled（始终为true）
+你必须返回的JSON结构：
+{
+  "scene": {
+    "title": "",
+    "text": "(80-160中文字，单行，换行用\\\\n)",
+    "location": "",
+    "locationId": ""
+  },
+  "actionOptions": [
+    {"label":"选项(≤15字)","type":"dialogue","risk":"low"},
+    {"label":"选项","type":"check","risk":"low"},
+    {"label":"选项","type":"dialogue","risk":"low"}
+  ],
+  "customActionEnabled": true
+}
 
-可选字段（有变化才返回，无变化不返回）：
-- systemEvents, questUpdate, inventoryUpdate, relationshipUpdate, mapUpdate, worldBroadcasts, memoryUpdate
-- enemy（战斗中必填）: {"name":"敌人名","str":6,"dex":5,"con":4,"hp":12,"maxHp":12,"level":2}
-
-actionOptions格式：
-[{"label":"选项","type":"dialogue","risk":"low","relatedSkill":null}]`;
-
+无变化的可选字段不要返回。
+scene.text中所有的字符串单行，真实换行用\\\\n。`;
