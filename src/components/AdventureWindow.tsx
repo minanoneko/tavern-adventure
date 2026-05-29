@@ -17,7 +17,7 @@ export default function AdventureWindow() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Scrollable event area */}
-      <div className="flex-1 overflow-auto px-6 py-5 space-y-4">
+      <div className="flex-1 overflow-auto px-3 lg:px-6 py-3 lg:py-5 space-y-3 lg:space-y-4">
         {/* Past events breadcrumb */}
         {eventHistory.length > 1 && (
           <div className="text-sm text-muted border-b border-[var(--color-tavern-border)] pb-3 mb-3">
@@ -83,7 +83,7 @@ export default function AdventureWindow() {
 
       {/* Action area (fixed at bottom) — hidden during combat */}
       {currentEvent && !isProcessing && !combatActive && (
-        <div className="border-t border-[var(--color-tavern-border)] px-6 py-3 space-y-2 flex-shrink-0">
+        <div className="border-t border-[var(--color-tavern-border)] px-2 lg:px-6 py-2 lg:py-3 space-y-1.5 lg:space-y-2 flex-shrink-0">
           {/* AI-generated story options (max 2) */}
           <ActionOptions options={currentEvent.actionOptions.slice(0, 2)} />
           {/* Player fixed actions */}

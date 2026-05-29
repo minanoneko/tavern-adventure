@@ -56,14 +56,14 @@ export default function DebugPanel() {
   };
 
   return (
-    <div className="fixed bottom-8 right-4 z-40">
+    <div className="fixed bottom-16 lg:bottom-8 right-2 lg:right-4 z-40">
       {!isOpen && (
-        <button className="btn text-xs" onClick={() => setIsOpen(true)}>
+        <button className="btn text-xs opacity-60 hover:opacity-100" onClick={() => setIsOpen(true)}>
           Debug
         </button>
       )}
       {isOpen && (
-        <div className="panel p-3 w-96 max-h-96 overflow-auto text-xs">
+        <div className="panel p-3 w-80 lg:w-96 max-h-64 lg:max-h-96 overflow-auto text-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-muted">Debug Panel</span>
             <button className="btn text-xs" onClick={() => setIsOpen(false)}>关闭</button>
