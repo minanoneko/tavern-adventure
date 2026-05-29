@@ -4,6 +4,8 @@ import type { CombatAction, CombatState } from '../types/combat';
 import CombatActionBar from './CombatActionBar';
 import { parseCombatCustomAction } from '../services/combat/combatRules';
 import { validateCombatCustomAction } from '../services/customActionGuard';
+import { getSkillById } from '../data/skills';
+import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 
 export default function CombatPanel() {
   const player = useGameStore(s => s.player);
@@ -223,14 +225,14 @@ function getCombatActions(player: NonNullable<ReturnType<typeof useGameStore.get
 
     actions.push({ type: 'attack', label: '普通攻击', targetEnemyId: targetId });
 
-    // Combat skills
-    for (const sid of player.skills.learned) {
+    // Combat skills — read from skill library, check canCastSkill + equipped
+    for (const sid of player.skills.equipped) {
       const skill = getSkillCombatInfo(sid, player);
-      if (skill) {
-        const mpOk = (skill.mpCost || 0) <= player.resources.mp;
-        const label = mpOk ? skill.name : `${skill.name}(MP不足)`;
-        actions.push({ type: 'skill', label, skillId: sid, targetEnemyId: targetId });
-      }
+      if (!skill) continue;
+      const name = skill.usable
+        ? skill.name
+        : `${skill.name}(${skill.lockReason || '不可用'})`;
+      actions.push({ type: 'skill', label: name, skillId: sid, targetEnemyId: targetId });
     }
   }
 
@@ -255,33 +257,29 @@ function getCombatActions(player: NonNullable<ReturnType<typeof useGameStore.get
   return actions;
 }
 
-function getSkillCombatInfo(sid: string, player: NonNullable<ReturnType<typeof useGameStore.getState>['player']>): { name: string; mpCost: number } | null {
-  // Simple version — check if skill is combat-type and learned
-  const combatSkills = ['heavy_strike', 'backstab', 'silver_blade', 'smash', 'throw_bottle', 'duel_footwork', 'fire_arrow', 'frost_bind', 'armor_break', 'poison_blade', 'precise_shot'];
-  const magicSkills = ['spark', 'fire_arrow', 'frost_bind', 'mana_blast', 'dispel_weak_evil', 'blessing'];
-  const allCombat = [...combatSkills, ...magicSkills, 'inspire', 'rage'];
-
+/** Get combat skill info from actual skill library */
+function getSkillCombatInfo(sid: string, player: NonNullable<ReturnType<typeof useGameStore.getState>['player']>): { name: string; mpCost: number; hpCost: number; usable: boolean; lockReason?: string } | null {
+  const skill = getSkillById(sid);
+  if (!skill) return null;
   if (!player.skills.learned.includes(sid)) return null;
-  if (!allCombat.includes(sid)) return null;
 
-  // Simple MP costs
-  const mpCosts: Record<string, number> = {
-    heavy_strike: 3, backstab: 0, silver_blade: 0, smash: 0, throw_bottle: 0,
-    duel_footwork: 0, spark: 2, fire_arrow: 4, frost_bind: 5, mana_blast: 15,
-    dispel_weak_evil: 5, blessing: 3, inspire: 3, rage: 0, armor_break: 3,
-    poison_blade: 3, precise_shot: 0,
+  // Only show combat-relevant skill types
+  const combatTypes = ['combat', 'magic', 'active', 'reaction'];
+  if (!combatTypes.includes(skill.type)) return null;
+
+  // Check slot: must be equipped
+  if (!player.skills.equipped.includes(sid)) {
+    return { name: skill.name, mpCost: 0, hpCost: 0, usable: false, lockReason: '未装备到技能栏' };
+  }
+
+  const usable = canCastSkill(skill, player);
+  const reasons = usable ? [] : getSkillLockReasons(skill, player);
+
+  return {
+    name: skill.name,
+    mpCost: skill.castRequirements.mpCost || 0,
+    hpCost: skill.castRequirements.hpCost || 0,
+    usable,
+    lockReason: reasons.length > 0 ? reasons.join('、') : undefined,
   };
-
-  return { name: getSkillName(sid), mpCost: mpCosts[sid] || 0 };
-}
-
-function getSkillName(sid: string): string {
-  const names: Record<string, string> = {
-    heavy_strike: '重击', backstab: '背刺', silver_blade: '银刃技巧', smash: '猛砸',
-    throw_bottle: '投掷瓶', duel_footwork: '决斗步法', spark: '火苗术', fire_arrow: '火焰箭',
-    frost_bind: '寒霜束缚', mana_blast: '魔力爆破', dispel_weak_evil: '驱散微弱邪祟',
-    blessing: '祝福', inspire: '鼓舞', rage: '狂暴', armor_break: '破甲斩',
-    poison_blade: '毒刃', precise_shot: '精准射击',
-  };
-  return names[sid] || sid;
 }
