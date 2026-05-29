@@ -41,21 +41,21 @@ export default function FixedActions() {
   };
 
   return (
-    <div className="flex flex-wrap gap-2 px-6 py-3 border-t border-[var(--color-tavern-border)] flex-shrink-0">
-      <button className="btn text-sm px-3" onClick={() => useGameStore.getState().submitAction('explore_location')}>
+    <div className="flex flex-wrap gap-1 lg:gap-2 px-2 lg:px-6 py-2 lg:py-3 border-t border-[var(--color-tavern-border)] flex-shrink-0">
+      <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => useGameStore.getState().submitAction('explore_location')}>
         探索
       </button>
-      <button className="btn text-sm px-3" onClick={() => useGameStore.getState().submitAction('talk_npc')}>
+      <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => useGameStore.getState().submitAction('talk_npc')}>
         交谈
       </button>
-      <button className="btn text-sm px-3" onClick={() => useGameStore.getState().submitAction('investigate_area')}>
+      <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => useGameStore.getState().submitAction('investigate_area')}>
         调查
       </button>
-      <button className="btn text-sm px-3" onClick={handleRest} title={isSafe ? '全额恢复HP/MP（需花费钱币）' : isWild ? `野外休息(剩余${wildRestRemaining}次)` : '少量恢复'}>
+      <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={handleRest} title={isSafe ? '全额恢复HP/MP（需花费钱币）' : isWild ? `野外休息(剩余${wildRestRemaining}次)` : '少量恢复'}>
         休息{isSafe ? '(安全)' : isWild ? `(${wildRestRemaining})` : ''}
       </button>
       {(locType === 'shop' || locType === 'tavern' || worldState.currentLocation.includes('market')) && (
-        <button className="btn text-sm px-3" onClick={() => useGameStore.getState().submitAction('open_shop')}>
+        <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => useGameStore.getState().submitAction('open_shop')}>
           商店
         </button>
       )}

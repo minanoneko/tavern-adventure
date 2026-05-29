@@ -190,8 +190,17 @@ export default function SettingsPanel({ inGame, onBack }: { inGame?: boolean; on
 
       {/* Back button — sticky at bottom */}
       {onBack && (
-        <div className="sticky bottom-0 pt-4 pb-2" style={{ background: 'var(--color-tavern-bg)' }}>
-          <button className="btn w-full py-3 text-base" onClick={onBack}>{inGame ? '返回游戏' : '返回主菜单'}</button>
+        <div className="sticky bottom-0 pt-4 pb-2 space-y-2" style={{ background: 'var(--color-tavern-bg)' }}>
+          <button className="btn w-full py-3 text-base" onClick={onBack}>返回游戏</button>
+          <button className="btn w-full py-3 text-base" style={{ borderColor: 'var(--color-tavern-danger)' }}
+            onClick={() => {
+              if (confirm('返回主菜单将丢失未保存的进度。确定要返回吗？')) {
+                game.setPhase('start');
+              }
+            }}
+          >
+            返回主菜单
+          </button>
         </div>
       )}
     </div>
