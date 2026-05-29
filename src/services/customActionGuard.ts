@@ -35,14 +35,51 @@ function detectSkillAttempt(text: string): { skill: Skill; matched: string } | n
  * Rejects: claiming rewards, generating NPCs/items, instant kills, stat changes, unlearned skills
  * Rewrites: "I found gold" → "try searching", "instant kill" → "attack with full force"
  */
+/** Sanitize raw input: truncate, strip HTML/scripts, detect injection */
+function sanitizeInput(text: string): string {
+  let t = text.trim().slice(0, 500);
+  // Strip HTML tags
+  t = t.replace(/<[^>]*>/g, '');
+  // Strip JavaScript event handlers
+  t = t.replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '');
+  t = t.replace(/\bon\w+\s*=\s*[^\s>]*/gi, '');
+  // Strip script/CSS blocks
+  t = t.replace(/<script[\s\S]*?<\/script>/gi, '');
+  t = t.replace(/<style[\s\S]*?<\/style>/gi, '');
+  return t;
+}
+
+/** Detect prompt injection attempts */
+function detectInjection(text: string): string | null {
+  const t = text.toLowerCase();
+  // System override patterns
+  if (/(?:ignore|无视|忽略|覆盖).*(?:规则|指令|指令|prompt|设定|系统)/.test(t)) return '不能尝试覆盖系统规则或指令。';
+  if (/(?:你是|你现在是|你变成|假装|扮演).*(?:gm|管理员|系统|开发者|神|上帝|管理员)/.test(t)) return '不能尝试改变AI的角色定位。';
+  if (/(?:系统指令|system\s*:|开发者指令|后台指令|调试模式|debug\s*mode)/.test(t)) return '不能尝试注入系统指令。';
+  if (/(?:输出.*JSON|不要.*JSON|跳过.*JSON|忽略.*JSON|别.*JSON)/.test(t) && /格式|规则|检查/.test(t)) return '不能尝试修改输出格式规则。';
+  if (/(?:delete|drop|truncate|insert\s+into|update\s+set|exec\s*\(|eval\s*\(|<script|javascript\s*:)/.test(t)) return '输入包含非法字符或代码。';
+  // Mass reward injection
+  if (/(?:100000|99999|无限|unlimited).*(?:金币|金|银|铜|经验|exp|等级|级)/.test(t)) return '不能请求异常数量的奖励。';
+  return null;
+}
+
 export function validateCustomAction(
   text: string,
   _player: Player,
   _worldState: WorldState,
   _currentEvent: AIResponse | null,
 ): CustomActionGuardResult {
-  const t = text.trim();
-  if (!t) return { allowed: false, mode: 'reject', reason: '输入为空。', sanitizedText: t, intent: 'other' };
+  // Sanitize first
+  const raw = sanitizeInput(text);
+  if (!raw) return { allowed: false, mode: 'reject', reason: '输入为空。', sanitizedText: '', intent: 'other' };
+
+  // Check injection
+  const injectionReason = detectInjection(raw);
+  if (injectionReason) {
+    return { allowed: false, mode: 'reject', reason: injectionReason, sanitizedText: raw, intent: 'other' };
+  }
+
+  const t = raw;
 
   // === Skill attempt detection (before general patterns) ===
   const skillAttempt = detectSkillAttempt(t);
@@ -224,8 +261,12 @@ export function validateCombatCustomAction(
   player: Player,
   _combatState: CombatState,
 ): { allowed: boolean; reason?: string; intent: string } {
-  const t = text.trim();
-  if (!t) return { allowed: false, reason: '输入为空。', intent: 'other' };
+  const raw = sanitizeInput(text);
+  if (!raw) return { allowed: false, reason: '输入为空。', intent: 'other' };
+  const inj = detectInjection(raw);
+  if (inj) return { allowed: false, reason: inj, intent: 'other' };
+
+  const t = raw;
 
   // === Skill attempt detection (before general patterns) ===
   const skillAttempt = detectSkillAttempt(t);
