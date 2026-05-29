@@ -152,7 +152,7 @@ export default function CombatPanel() {
             }`} onClick={() => !enemy.isDefeated && setSelectedTarget(enemy.id)}>
               <div className="flex justify-between font-bold">
                 <span>{enemy.name}{enemy.isBoss ? <span className="text-danger ml-1">BOSS</span> : ''}</span>
-                <span className="text-muted">Lv.{enemy.level}</span>
+                <span className="text-muted">Lv.{enemy.level} AC{10 + (enemy.dex>=9?4:enemy.dex>=8?3:enemy.dex>=7?2:enemy.dex>=6?1:enemy.dex>=5?0:enemy.dex>=4?-1:-2)}</span>
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-danger text-xs">HP</span>
@@ -171,13 +171,21 @@ export default function CombatPanel() {
       {phase === 'fighting' ? (
         <>
           <div className="flex flex-wrap gap-1.5">
-            {actions.map((a, i) => (
-              <button key={i} className={`btn text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' ? 'opacity-50' : ''}`}
-                style={{ borderColor: a.type==='attack'?'#c97a30':a.type==='skill'?'#6b8cce':a.type==='item'?'#5a9e6f':a.type==='defend'?'#8a8a8a':a.type==='flee'?'#c94040':'var(--color-tavern-muted)' }}
-                onClick={() => handleAction(a)} disabled={isProcessing || combatState.turn !== 'player'}>
-                {a.label}
-              </button>
-            ))}
+            {actions.map((a, i) => {
+              let tip = '';
+              if (a.type === 'attack') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs AC${hitTarget} · ${dmgBase}~${dmgBase+4}伤害`;
+              else if (a.type === 'skill') tip = '技能攻击（消耗MP）';
+              else if (a.type === 'defend') tip = '本回合伤害减半';
+              else if (a.type === 'flee') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs DC14 逃跑`;
+              return (
+                <button key={i} className={`btn text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' ? 'opacity-50' : ''}`}
+                  style={{ borderColor: a.type==='attack'?'#c97a30':a.type==='skill'?'#6b8cce':a.type==='item'?'#5a9e6f':a.type==='defend'?'#8a8a8a':a.type==='flee'?'#c94040':'var(--color-tavern-muted)' }}
+                  onClick={() => handleAction(a)} disabled={isProcessing || combatState.turn !== 'player'}
+                  title={tip}>
+                  {a.label}
+                </button>
+              );
+            })}
           </div>
           {combatState.turn === 'player' && (
             <form className="flex gap-2" onSubmit={e => {

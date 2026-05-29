@@ -903,14 +903,15 @@ function filterAIOptions(options: ActionOption[], player: Player): ActionOption[
   });
 }
 
-/** Generate appropriate wild enemy name based on location */
+/** Generate appropriate wild enemy name and type based on location */
 function getWildEnemyName(locId: string): string {
-  if (locId.includes('forest') || locId.includes('林')) return pickStr(['野狼', '毒蛇', '哥布林', '巨蛛', '山贼']);
-  if (locId.includes('mine') || locId.includes('矿')) return pickStr(['洞穴蝙蝠', '巨蛛', '哥布林矿工', '岩蛇', '亡灵矿工']);
-  if (locId.includes('road') || locId.includes('道')) return pickStr(['拦路强盗', '野狗', '饿狼', '可疑旅人']);
-  if (locId.includes('ruin') || locId.includes('遗迹') || locId.includes('废')) return pickStr(['亡灵守卫', '石像鬼', '遗迹守护者', '暗影']);
-  if (locId.includes('cave') || locId.includes('洞')) return pickStr(['洞穴巨蛛', '暗影生物', '蝙蝠群', '穴居人']);
-  return pickStr(['野狼', '哥布林', '强盗', '巨鼠', '毒蛇']);
+  if (locId.includes('forest') || locId.includes('林')) return pickStr(['野狼', '毒蛇', '哥布林', '巨蛛', '山贼', '流浪佣兵', '暗精灵斥候']);
+  if (locId.includes('mine') || locId.includes('矿')) return pickStr(['洞穴蝙蝠', '巨蛛', '哥布林矿工', '岩蛇', '亡灵矿工', '矿洞强盗']);
+  if (locId.includes('road') || locId.includes('道')) return pickStr(['拦路强盗', '野狗', '饿狼', '可疑旅人', '流浪剑客', '逃兵']);
+  if (locId.includes('ruin') || locId.includes('遗迹') || locId.includes('废')) return pickStr(['亡灵守卫', '石像鬼', '遗迹守护者', '暗影', '邪教徒', '盗墓者']);
+  if (locId.includes('cave') || locId.includes('洞')) return pickStr(['洞穴巨蛛', '暗影生物', '蝙蝠群', '穴居人', '地底流放者']);
+  if (locId.includes('town') || locId.includes('镇') || locId.includes('market')) return pickStr(['地痞', '醉汉', '扒手', '闹事佣兵']);
+  return pickStr(['野狼', '哥布林', '强盗', '巨鼠', '毒蛇', '流浪者']);
 }
 function pickStr(arr: string[]): string { return arr[Math.floor(Math.random() * arr.length)]; }
 
