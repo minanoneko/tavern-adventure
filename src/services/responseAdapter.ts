@@ -57,6 +57,12 @@ const MinimalQuestUpdateSchema = z.object({
   status: z.enum(['available', 'active', 'completable', 'completed', 'failed', 'hidden', 'expired', 'branching']).default('active'),
   description: z.string().optional(),
   giver: z.string().optional(),
+  rewards: z.object({
+    exp: z.number().optional(),
+    money: z.object({ gold: z.number().optional(), silver: z.number().optional(), copper: z.number().optional() }).optional(),
+    items: z.array(z.string()).optional(),
+    skills: z.array(z.string()).optional(),
+  }).optional(),
 });
 
 const MinimalRelationshipUpdateSchema = z.object({
@@ -213,7 +219,7 @@ function normalizeEnumValue(key: string, value: string): string {
 }
 
 /** Recursively normalize enum values in minimal AI response */
-export function normalizeEnumValues(raw: Record<string, unknown>): Record<string, unknown> {
+function normalizeEnumValues(raw: Record<string, unknown>): Record<string, unknown> {
   const result = { ...raw };
   if (Array.isArray(result.actionOptions)) {
     result.actionOptions = result.actionOptions.map((opt: Record<string, unknown>) => {
@@ -224,6 +230,17 @@ export function normalizeEnumValues(raw: Record<string, unknown>): Record<string
     });
   }
   return result;
+}
+
+/** Normalize /N, \n, \\n in scene text */
+function normalizeSceneText(text: string): string {
+  return text
+    .replace(/\/N/gi, '\n')
+    .replace(/\/n/gi, '\n')
+    .replace(/\\N/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // ========== Extract JSON from LLM output ==========
@@ -248,6 +265,38 @@ export function extractJsonObject(text: string): string {
     clean = clean.slice(firstBrace);
   }
   return clean;
+}
+
+/** Normalize AI combatStart proposal from various formats */
+function normalizeCombatStart(raw: any): import('../types/combat').CombatStartProposal | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const enemies =
+    Array.isArray(raw.enemies) ? raw.enemies :
+    Array.isArray(raw.enemyProposals) ? raw.enemyProposals :
+    Array.isArray(raw.monsters) ? raw.monsters :
+    raw.enemy ? [raw.enemy] :
+    [];
+
+  if (!enemies.length) return null;
+
+  return {
+    reason: raw.reason || raw.description || '遭遇敌对目标',
+    location: raw.location || raw.terrain || raw.environment || '当前场景',
+    enemies: enemies.map((e: any) => ({
+      name: e.name || '敌对者',
+      type: e.type || 'monster',
+      description: e.description,
+      suggestedLevel: e.suggestedLevel ?? e.level,
+      suggestedStr: e.suggestedStr ?? e.str,
+      suggestedDex: e.suggestedDex ?? e.dex,
+      suggestedCon: e.suggestedCon ?? e.con,
+      suggestedHp: e.suggestedHp ?? e.hp,
+    })),
+    isBoss: raw.isBoss,
+    questFlag: raw.questFlag,
+    bossFlag: raw.bossFlag,
+  };
 }
 
 // ========== Complete minimal response to full AIResponse ==========
@@ -282,12 +331,11 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
   const systemEvents = (partial.systemEvents || []) as Array<{ type: string; text: string }>;
 
   // Detect and fix truncated text (ends without proper sentence closure)
-  let sceneText = scene.text || '你环顾四周。';
+  let sceneText = normalizeSceneText(scene.text || '你环顾四周。');
   const lastChar = sceneText.trim().slice(-1);
   if (!'。！？…~.?!'.includes(lastChar)) {
     sceneText = sceneText.trim() + '…';
   }
-  // Cap scene text length
   if (sceneText.length > 600) sceneText = sceneText.slice(0, 600) + '…';
 
   const completed: AIResponse = {
@@ -317,7 +365,10 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       expChange: (partial.playerUpdate as any)?.expChange ?? 0,
       moneyChange: (partial.playerUpdate as any)?.moneyChange ? { ...EMPTY_MONEY, ...(partial.playerUpdate as any).moneyChange } : { ...EMPTY_MONEY },
     },
-    inventoryUpdate: (partial.inventoryUpdate || []) as any,
+    inventoryUpdate: Array.isArray(partial.inventoryUpdate) ? partial.inventoryUpdate.map((u: any) => ({
+      ...u,
+      type: u.type || undefined,
+    })) : [],
     questUpdate: (partial.questUpdate || []) as any,
     skillStateUpdate: [],
     equipmentUpdate: [],
@@ -332,14 +383,14 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       lockedFacts: (partial.memoryUpdate as any)?.lockedFacts || undefined,
     },
     enemy: (partial.enemy as any) || undefined,
-    combatStart: (partial.combatStart as any) || undefined,
+    combatStart: normalizeCombatStart(partial.combatStart) || undefined,
   };
 
   return completed;
 }
 
 // ========== Validate minimal response ==========
-export function validateMinimalAIResponse(raw: unknown): { success: true; data: Record<string, unknown> } | { success: false; errors: string[] } {
+function validateMinimalAIResponse(raw: unknown): { success: true; data: Record<string, unknown> } | { success: false; errors: string[] } {
   const result = MinimalAIResponseSchema.safeParse(raw);
   if (result.success) {
     return { success: true, data: result.data as unknown as Record<string, unknown> };

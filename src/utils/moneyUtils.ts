@@ -4,6 +4,7 @@ type MoneyChange = { gold?: number; silver?: number; copper?: number };
 
 /** Convert Money to total copper value */
 export function moneyToCopper(m: MoneyChange): number {
+  if (!m) return 0;
   return (m.gold ?? 0) * 10000 + (m.silver ?? 0) * 100 + (m.copper ?? 0);
 }
 

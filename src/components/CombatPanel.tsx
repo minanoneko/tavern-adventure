@@ -3,6 +3,7 @@ import { useGameStore } from '../store/gameStore';
 import type { CombatAction, CombatState } from '../types/combat';
 import CombatActionBar from './CombatActionBar';
 import { parseCombatCustomAction } from '../services/combat/combatRules';
+import { validateCombatCustomAction } from '../services/customActionGuard';
 
 export default function CombatPanel() {
   const player = useGameStore(s => s.player);
@@ -13,7 +14,8 @@ export default function CombatPanel() {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
 
-  if (!player || !combatState.active) return null;
+  const shouldShow = combatState.active || combatState.phase === 'victory' || combatState.phase === 'defeat' || combatState.phase === 'fled';
+  if (!player || !shouldShow) return null;
 
   const aliveEnemies = combatState.enemies.filter(e => !e.isDefeated);
   const phase = combatState.phase;
@@ -163,6 +165,12 @@ export default function CombatPanel() {
                 e.preventDefault();
                 const text = customText.trim();
                 if (!text || !player) return;
+                const guard = validateCombatCustomAction(text, player, combatState);
+                if (!guard.allowed) {
+                  alert(guard.reason || '该行动在当前战斗中不被允许。');
+                  setCustomText('');
+                  return;
+                }
                 const customAction = parseCombatCustomAction(text, player);
                 submitCombatAction(customAction);
                 setCustomText('');

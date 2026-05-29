@@ -64,11 +64,10 @@ function buildPlayerBrief(player: Player): string {
   // Status effects
   const status = player.statusEffects.filter(s => s !== '正常');
 
-  const genderLabel = player.gender === '女' ? '她' : '他';
+  const genderLabel = player.gender === '女' ? '女性(必须用她/少女/女士/女冒险者称呼)' : player.gender === '男' ? '男性(必须用他/少年/先生/男冒险者称呼)' : '未指定';
 
   return trunc(
     `[${player.name}] ${genderLabel} Lv.${player.level} ${player.race} ${player.classOrigin} | ` +
-    `性别: ${player.gender} | ` +
     `HP ${player.resources.hp}/${player.resources.maxHp} MP ${player.resources.mp}/${player.resources.maxMp} | ` +
     `${attrs} | ` +
     `装备: ${gear || '无'} | ` +

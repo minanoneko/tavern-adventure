@@ -200,6 +200,31 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
     'shadow_cloak', 'scholar_monocle'];
 
   for (const update of response.inventoryUpdate) {
+    // Money type: change wallet directly, not inventory
+    if ((update as any).type === 'money') {
+      if (update.action === 'add') {
+        const coinAmount = { gold: 0, silver: 0, copper: update.quantity || 0 };
+        const coinName = update.name || '';
+        if (coinName.includes('金')) { coinAmount.gold = update.quantity; coinAmount.copper = 0; }
+        else if (coinName.includes('银')) { coinAmount.silver = update.quantity; coinAmount.copper = 0; }
+        p.money = addMoneyUtil(p.money, coinAmount);
+        logs.push(createLogEntry('item', `获得：${coinName}（已转入钱包）`));
+      } else if (update.action === 'remove') {
+        const coinAmount = { gold: 0, silver: 0, copper: update.quantity || 0 };
+        const coinName = update.name || '';
+        if (coinName.includes('金')) { coinAmount.gold = update.quantity; coinAmount.copper = 0; }
+        else if (coinName.includes('银')) { coinAmount.silver = update.quantity; coinAmount.copper = 0; }
+        const currentCopper = (p.money.gold * 10000 + p.money.silver * 100 + p.money.copper);
+        const costCopper = (coinAmount.gold || 0) * 10000 + (coinAmount.silver || 0) * 100 + (coinAmount.copper || 0);
+        if (currentCopper < costCopper) {
+          logs.push(createLogEntry('system', '钱币不足，无法支付。'));
+        } else {
+          p.money = addMoneyUtil(p.money, { gold: -(coinAmount.gold || 0), silver: -(coinAmount.silver || 0), copper: -(coinAmount.copper || 0) });
+          logs.push(createLogEntry('item', `支付：${coinName}`));
+        }
+      }
+      continue;
+    }
     if (update.action === 'add') {
       let itemType = (update.type as any) || 'material';
       let itemRarity = (update.rarity as any) || 'common';
@@ -224,26 +249,6 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
       // DEFENSE: Epic/legendary/relic → always quest_item unless known
       if (['epic', 'legendary', 'relic'].includes(itemRarity)) {
         itemType = 'quest_item';
-      }
-
-      // Convert coin items to actual money
-      const coinName = update.name || '';
-      const isCoin = coinName.includes('金币') || coinName.includes('银币') || coinName.includes('铜币')
-        || coinName.includes('Gold') || coinName.includes('Silver') || coinName.includes('Copper')
-        || itemType === 'money';
-      if (isCoin) {
-        // Extract numeric amount from name (e.g. "5铜币" → 5, "铜币 x3" → 3)
-        let coinValue = update.quantity || 1;
-        const numMatch = coinName.match(/(\d+)/);
-        if (numMatch) coinValue = Math.max(coinValue, parseInt(numMatch[1]));
-        // Determine coin type
-        let coinChange: { gold?: number; silver?: number; copper?: number };
-        if (coinName.includes('金') || coinName.includes('Gold')) coinChange = { gold: coinValue };
-        else if (coinName.includes('银') || coinName.includes('Silver')) coinChange = { silver: coinValue };
-        else coinChange = { copper: coinValue };
-        p.money = addMoneyUtil(p.money, coinChange);
-        logs.push(createLogEntry('item', `获得：${coinName}${coinValue > 1 ? ` x${coinValue}` : ''}（已转入钱包）`));
-        continue;
       }
 
       const existing = p.inventory.find(i => i.id === update.itemId);

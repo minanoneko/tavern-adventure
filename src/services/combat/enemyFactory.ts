@@ -1,5 +1,5 @@
 import type { Player, WorldState } from '../../types';
-import type { CombatStartProposal, CombatEnemyState } from '../../types/combat';
+import type { CombatStartProposal, CombatEnemyState, EnemyProposal } from '../../types/combat';
 import { getAttributeModifier } from './dice';
 
 /**
@@ -16,7 +16,10 @@ export function createEnemiesFromProposal(
   player: Player,
   worldState: WorldState,
 ): CombatEnemyState[] {
-  return proposal.enemies.map((ep, i) => {
+  const proposals: EnemyProposal[] = Array.isArray(proposal.enemies) && proposal.enemies.length > 0
+    ? proposal.enemies
+    : [{ name: '敌对者', type: 'monster', suggestedLevel: player.level }];
+  return proposals.map((ep, i) => {
     // Determine enemy rank
     const isBoss = !!(proposal.isBoss && (proposal.bossFlag || proposal.questFlag));
     const isElite = !isBoss && ep.suggestedLevel && ep.suggestedLevel > player.level + 1;

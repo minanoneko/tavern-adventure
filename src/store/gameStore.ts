@@ -22,6 +22,7 @@ import { addMoney } from '../utils/moneyUtils';
 import type { CombatEnemy } from '../types/ai';
 import type { CombatAction } from '../types/combat';
 import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy } from '../services/combat/combatEngine';
+import { validateCustomAction } from '../services/customActionGuard';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
@@ -273,7 +274,28 @@ export const useGameStore = create<GameState>((set, get) => ({
       // 1. Build player action
       let playerAction: PlayerAction;
       if (customText) {
-        playerAction = parseCustomAction(customText, player);
+        // Apply custom input guard — validate before sending to AI
+        const guard = validateCustomAction(customText, player, worldState, currentEvent);
+        if (guard.mode === 'reject') {
+          set({
+            isProcessing: false,
+            errorMessage: guard.reason || '这个行动超出了当前规则。',
+          });
+          return;
+        }
+        playerAction = {
+          id: `custom_${Date.now()}`,
+          label: guard.sanitizedText.slice(0, 30),
+          type: guard.intent,
+          risk: 'medium',
+          relatedAttribute: guard.checkAttribute || undefined,
+          mpCost: 0,
+          isCustom: true,
+          customText: guard.sanitizedText,
+          requiresCheck: guard.requiresCheck,
+          checkAttribute: guard.checkAttribute,
+          difficultyClass: guard.difficultyClass,
+        };
       } else {
         // Find from current event's action options
         const option = currentEvent?.actionOptions.find(o => o.id === actionId);
@@ -392,11 +414,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (aiResult.success && aiResult.response && !worldState.combatState.active) {
         // Priority 1: combatStart proposal
         if (aiResult.response.combatStart) {
-          const combatResult = startCombatFromAI(player, worldState, aiResult.response.combatStart);
-          worldState.combatState = combatResult.combatState;
-          logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
-          // Clear enemy so gameEngine doesn't double-process
-          (aiResult.response as any).enemy = undefined;
+          try {
+            const combatResult = startCombatFromAI(player, worldState, aiResult.response.combatStart);
+            worldState.combatState = combatResult.combatState;
+            if (combatResult.logs.length > 0) {
+              logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
+            }
+            // Clear enemy so gameEngine doesn't double-process
+            (aiResult.response as any).enemy = undefined;
+          } catch (err) {
+            logs.push({ id: `combat_err_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '战斗启动失败，已转为普通剧情。' });
+          }
         }
         // Priority 2: legacy enemy (backward compat)
         else if (aiResult.response.enemy) {

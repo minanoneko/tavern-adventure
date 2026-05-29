@@ -1,0 +1,194 @@
+import type { Player, WorldState, AIResponse } from '../types';
+import type { CombatState } from '../types/combat';
+import type { AttributeKey } from '../types/common';
+
+export interface CustomActionGuardResult {
+  allowed: boolean;
+  mode: 'allow' | 'check' | 'rewrite' | 'reject';
+  reason?: string;
+  sanitizedText: string;
+  intent: string;
+  requiresCheck?: boolean;
+  checkAttribute?: AttributeKey;
+  difficultyClass?: number;
+}
+
+/**
+ * Validate player custom input for non-combat scenarios.
+ * Rejects: claiming rewards, generating NPCs/items, instant kills, stat changes
+ * Rewrites: "I found gold" → "try searching", "instant kill" → "attack with full force"
+ */
+export function validateCustomAction(
+  text: string,
+  _player: Player,
+  _worldState: WorldState,
+  _currentEvent: AIResponse | null,
+): CustomActionGuardResult {
+  const t = text.trim();
+  if (!t) return { allowed: false, mode: 'reject', reason: '输入为空。', sanitizedText: t, intent: 'other' };
+
+  // === REJECT: instant rewards / loot / stat changes ===
+  if (/捡到\d+|捡了\d+|获得.*金币|获得.*神器|获得.*装备|捡到.*物品|得到.*武器|捡到.*剑|捡到.*盾/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能直接获得金钱或物品，请描述你想做什么（如：尝试搜索、检查周围）。', sanitizedText: t, intent: 'invalid_create_reward' };
+  }
+  if (/恢复满血|回满血|满血复活|回复全部.*HP|加满血|完全恢复/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能直接恢复满血，请使用休息或治疗物品。', sanitizedText: t, intent: 'invalid_modify_stats' };
+  }
+  if (/学会|习得|领悟.*技能|掌握.*魔法|突然.*会了/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '技能只能通过升级或训练获得，不能直接声称学会。', sanitizedText: t, intent: 'invalid_modify_stats' };
+  }
+  if (/升到.*级|升级到|等级变成/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '经验只能通过任务和战斗获得。', sanitizedText: t, intent: 'invalid_modify_stats' };
+  }
+
+  // === REJECT: generating NPCs / allies / enemies ===
+  if (/生成.*队友|召唤.*强者|召唤.*帮手|生成.*NPC|生成.*一条龙|生成.*怪物|召唤.*龙|召唤.*恶魔|召唤.*天使/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能凭空生成NPC或队友。如果你需要帮助，可以尝试寻找附近的居民或冒险者。', sanitizedText: t, intent: 'invalid_create_npc' };
+  }
+  if (/生成.*敌人|生成.*Boss|制造.*怪物|召唤.*boss/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能凭空生成敌人。', sanitizedText: t, intent: 'invalid_create_enemy' };
+  }
+
+  // === REJECT: instant kills / forced results ===
+  if (/一刀秒杀|一招秒|秒杀.*敌人|直接.*秒|瞬杀/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能直接秒杀敌人。请使用攻击行动，由战斗系统判定结果。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+  if (/让.*投降|强制.*投降|命令.*投降/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能强制敌人投降。你可以尝试威吓或交涉。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+  if (/我赢了|战斗结束|直接胜利/.test(t) && t.length < 10) {
+    return { allowed: false, mode: 'reject', reason: '战斗结果由战斗系统决定。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+
+  // === REJECT: claiming ownership / authority ===
+  if (/这里.*是我.*城堡|这里.*是我.*家|这里.*是我.*领地|其实.*是我.*手下|我是.*国王|我是.*领主|我是.*城主/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '你的身份和背景已在角色创建时确定，不能随意更改。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+  if (/老板.*是.*我.*手下|NPC.*听.*我.*命令|所有.*NPC.*服从/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: 'NPC有自己的意志，不能随意命令。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+
+  // === REWRITE: loot → search intent ===
+  if (/捡到|捡了|找到.*金币|找到.*宝物|发现.*宝箱|发现.*金币|找到.*钱/.test(t)) {
+    return { allowed: true, mode: 'rewrite', reason: '已改写为搜索意图。', sanitizedText: '尝试在周围仔细搜索，看看有没有值钱的东西或线索。', intent: 'investigate', requiresCheck: true, checkAttribute: 'wis', difficultyClass: 12 };
+  }
+
+  // === REWRITE: summon/call help → call for help (social check) ===
+  if (/召唤.*帮手|叫.*帮手|喊.*帮手|叫.*支援|喊.*支援|找.*帮手|找.*人.*帮|叫人.*帮/.test(t)) {
+    return { allowed: true, mode: 'rewrite', reason: '已改写为呼救尝试。', sanitizedText: '大声呼救，尝试引起附近可能存在的友善人物的注意。', intent: 'social', requiresCheck: true, checkAttribute: 'cha', difficultyClass: 14 };
+  }
+
+  // === REWRITE: instant kill → attack intent ===
+  if (/秒杀|瞬杀|一击.*杀|一下.*打死/.test(t)) {
+    return { allowed: true, mode: 'rewrite', reason: '已改写为全力攻击意图。', sanitizedText: '用尽全力攻击敌人。', intent: 'combat_intent', requiresCheck: false };
+  }
+
+  // === REWRITE: full heal → rest intent ===
+  if (/恢复.*血|回血|治疗.*自己|补.*血/.test(t)) {
+    return { allowed: true, mode: 'rewrite', reason: '已改写为休息恢复意图。', sanitizedText: '尝试找个安全的地方坐下休息，恢复体力。', intent: 'rest', requiresCheck: false };
+  }
+
+  // === ALLOW: movement ===
+  if (/前往|去|进入|离开|来到|回到|返回|绕到|走向|走到/.test(t)) {
+    return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'move' };
+  }
+
+  // === ALLOW: observe / investigate ===
+  if (/观察|查看|检查|调查|搜索|寻找|仔细.*看|看看/.test(t)) {
+    return { allowed: true, mode: 'check', sanitizedText: t, intent: 'investigate', requiresCheck: true, checkAttribute: 'wis' };
+  }
+
+  // === ALLOW: talk ===
+  if (/询问|打听|对话|聊天|交谈|问|聊聊|跟.*说/.test(t)) {
+    return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'talk' };
+  }
+
+  // === ALLOW: stealth ===
+  if (/潜行|悄悄|躲|隐藏|跟踪|尾随|隐匿/.test(t)) {
+    return { allowed: true, mode: 'check', sanitizedText: t, intent: 'stealth', requiresCheck: true, checkAttribute: 'dex', difficultyClass: 12 };
+  }
+
+  // === ALLOW: social / persuade ===
+  if (/说服|交涉|威吓|恐吓|欺骗|伪装|冒充/.test(t)) {
+    return { allowed: true, mode: 'check', sanitizedText: t, intent: 'social', requiresCheck: true, checkAttribute: 'cha' };
+  }
+
+  // === ALLOW: use item / rest ===
+  if (/使用|喝|投掷|休息|睡觉|坐下/.test(t)) {
+    return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'use_item' };
+  }
+
+  // === ALLOW: trade ===
+  if (/购买|买|卖|出售|交易/.test(t)) {
+    return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'trade' };
+  }
+
+  // === ALLOW: combat intent (will be routed to combat system) ===
+  if (/攻击|砍|打|射击|刺|杀/.test(t)) {
+    return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'combat_intent' };
+  }
+
+  // === Default: allow as "other" ===
+  return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'other' };
+}
+
+/**
+ * Validate custom input specifically during combat.
+ * Only allows actions that map to legal CombatActions.
+ */
+export function validateCombatCustomAction(
+  text: string,
+  player: Player,
+  _combatState: CombatState,
+): { allowed: boolean; reason?: string; intent: string } {
+  const t = text.trim();
+  if (!t) return { allowed: false, reason: '输入为空。', intent: 'other' };
+
+  // Reject: summon / generate NPCs / allies / instant results
+  if (/召唤|生成.*队友|生成.*帮手|生成.*NPC|帮手.*帮我|叫.*人.*帮/.test(t)) {
+    return { allowed: false, reason: '战斗中不能凭空召唤帮手。你可以尝试呼救（可能获得短暂buff），或使用已学会的召唤技能。', intent: 'invalid_create_npc' };
+  }
+  if (/秒杀|瞬杀|一刀.*死|一招.*死|直接.*死/.test(t)) {
+    return { allowed: false, reason: '不能秒杀敌人。请正常攻击。', intent: 'invalid_force_result' };
+  }
+  if (/投降|求饶|命令.*投降/.test(t)) {
+    return { allowed: false, reason: '不能强制敌人投降。你可以尝试交涉。', intent: 'invalid_force_result' };
+  }
+  if (/生成.*敌人|生成.*boss|制造.*怪物/.test(t)) {
+    return { allowed: false, reason: '不能凭空生成敌人。', intent: 'invalid_create_enemy' };
+  }
+  if (/获得.*金币|捡到|获得.*武器|获得.*装备|获得.*神器|恢复满血/.test(t)) {
+    return { allowed: false, reason: '战斗中不能直接获得物品或恢复状态。', intent: 'invalid_create_reward' };
+  }
+  if (/学会|习得|突然.*技能/.test(t)) {
+    return { allowed: false, reason: '战斗中不能学习新技能。', intent: 'invalid_modify_stats' };
+  }
+
+  // Allow: attack-related → normal attack
+  if (/攻击|砍|刺|射击|打|杀/.test(t)) {
+    return { allowed: true, intent: 'attack' };
+  }
+  // Allow: defend
+  if (/防御|格挡|挡/.test(t)) {
+    return { allowed: true, intent: 'defend' };
+  }
+  // Allow: flee
+  if (/逃跑|撤退|跑/.test(t)) {
+    return { allowed: true, intent: 'flee' };
+  }
+  // Allow: observe
+  if (/观察|弱点|查看/.test(t)) {
+    return { allowed: true, intent: 'observe' };
+  }
+  // Allow: use healing potion (if in inventory)
+  if (/喝.*药水|治疗.*药水|使用.*药水/.test(t)) {
+    const hasPotion = player.inventory.some(i => i.id === 'healing_potion' && i.quantity > 0);
+    if (!hasPotion) {
+      return { allowed: false, reason: '背包中没有治疗药水。', intent: 'item' };
+    }
+    return { allowed: true, intent: 'item' };
+  }
+
+  // Fallback: allow as special (parsed by parseCombatCustomAction)
+  return { allowed: true, intent: 'special' };
+}

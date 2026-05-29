@@ -22,6 +22,21 @@ export function startCombatFromAI(
   combatStart: CombatStartProposal,
 ): StartCombatResult {
   const enemies = createEnemiesFromProposal(combatStart, player, worldState);
+  if (!enemies || enemies.length === 0) {
+    return {
+      combatState: {
+        active: false, phase: 'fighting', round: 0, turn: 'player',
+        enemies: [], playerBuffs: [], combatLog: [{
+          id: `combat_fail_${Date.now()}`, timestamp: new Date().toISOString(),
+          type: 'system', text: '战斗启动失败，已转为普通剧情。', round: 0,
+        }],
+      },
+      logs: [{
+        id: `combat_fail_${Date.now()}`, timestamp: new Date().toISOString(),
+        type: 'system', text: '战斗启动失败，已转为普通剧情。', round: 0,
+      }],
+    };
+  }
   const logs: CombatLogEntry[] = [{
     id: `combat_start_${Date.now()}`,
     timestamp: new Date().toISOString(),

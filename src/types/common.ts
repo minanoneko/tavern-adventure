@@ -5,25 +5,12 @@ export interface Money {
   copper: number;
 }
 
-export function copperValue(m: Money): number {
-  return m.gold * 10000 + m.silver * 100 + m.copper;
-}
-
 export function formatMoney(m: Money): string {
   const parts: string[] = [];
   if (m.gold > 0) parts.push(`${m.gold} 金`);
   if (m.silver > 0) parts.push(`${m.silver} 银`);
   if (m.copper > 0 || parts.length === 0) parts.push(`${m.copper} 铜`);
   return parts.join(' ');
-}
-
-export function addMoney(a: Money, b: { gold?: number; silver?: number; copper?: number }): Money {
-  let total = copperValue(a) + (b.gold ?? 0) * 10000 + (b.silver ?? 0) * 100 + (b.copper ?? 0);
-  const gold = Math.floor(total / 10000);
-  total -= gold * 10000;
-  const silver = Math.floor(total / 100);
-  total -= silver * 100;
-  return { gold, silver, copper: total };
 }
 
 export const EMPTY_MONEY: Money = { gold: 0, silver: 0, copper: 0 };

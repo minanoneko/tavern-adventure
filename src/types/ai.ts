@@ -47,6 +47,8 @@ export interface ActionOption {
   checkSkill?: string;
   difficultyClass?: number;
   failureConsequence?: string;
+  moneyCost?: { gold?: number; silver?: number; copper?: number };
+  moneyReward?: { gold?: number; silver?: number; copper?: number };
 }
 
 /** Structured action context sent to AI alongside the player action */
