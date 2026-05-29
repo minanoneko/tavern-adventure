@@ -96,6 +96,7 @@ export interface WorldState {
   worldFlags: string[];
   activeRumors: string[];
   combatState: CombatState;
+  lockedStoryFacts: string[];
 }
 
 export function createDefaultWorldState(): WorldState {
@@ -126,6 +127,7 @@ export function createDefaultWorldState(): WorldState {
     worldFlags: [],
     activeRumors: [],
     combatState: { active: false },
+    lockedStoryFacts: [],
   };
 }
 

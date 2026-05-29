@@ -1,4 +1,4 @@
-import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry } from '../types';
+import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry, ActionOption } from '../types';
 import { SYSTEM_PROMPT } from '../prompts/systemPrompt';
 import { STYLE_PROMPT } from '../prompts/stylePrompt';
 import { JSON_FORMAT_PROMPT } from '../prompts/jsonFormatPrompt';
@@ -6,6 +6,7 @@ import { EVENT_INSTRUCTION } from '../prompts/eventPrompt';
 import { buildActionParsePrompt } from '../prompts/actionParsePrompt';
 import { buildContextSummaryPrompt } from '../prompts/contextSummaryPrompt';
 import { getLocationById } from '../data/regions';
+import { buildAIContext as buildDetailedContext, formatAIContext } from './contextBuilder';
 
 /**
  * Build system messages array.
@@ -38,74 +39,16 @@ export function buildAIContext(
   player: Player,
   worldState: WorldState,
   recentLogs: LogEntry[],
-  eventHistory: AIResponse[] = []
+  eventHistory: AIResponse[] = [],
+  selectedOption?: ActionOption,
 ): Record<string, unknown> {
-  // Ultra-lean context — every char counts
-  const attrs = `力${player.attributes.str}敏${player.attributes.dex}体${player.attributes.con}智${player.attributes.int}感${player.attributes.wis}魅${player.attributes.cha}`;
-
-  // Only equipped skills (max 7 entries, each ~10 chars)
-  const equippedSkills = (player.skills.equipped || []).join(', ') || '无';
-
-  // Current gear
-  const gear = Object.entries(player.equipment)
-    .filter(([, id]) => id !== null)
-    .map(([, id]) => id)
-    .join(', ');
-
-  // Important items only: quest items + rare+ + recently acquired, max 8
-  const importantItems = player.inventory
-    .filter(i => i.type === 'quest_item' || i.type === 'skill_book' || (i as any).importance === 'high' || (i as any).importance === 'critical' || ['rare', 'epic', 'legendary'].includes(i.rarity))
-    .slice(0, 8)
-    .map(i => i.name)
-    .join(', ') || '无';
-
-  // Active quests, max 3
-  const activeQuests = player.quests
-    .filter(q => q.status === 'active')
-    .slice(0, 3)
-    .map(q => `▶${q.name}`)
-    .join(', ') || '无';
-
-  // Recent logs, max 5, very short
-  const recentLogsText = recentLogs.slice(-5)
-    .map(l => `[${l.type.slice(0,2)}]${l.text.slice(0, 40)}`)
-    .join('\n');
-
-  // === Story continuity — what just happened ===
   const lastEvent = eventHistory.length > 0 ? eventHistory[eventHistory.length - 1] : null;
-  const sceneContinuity = lastEvent
-    ? `【${lastEvent.scene.title}】${lastEvent.scene.text.slice(0, 80)}`
-    : '';
 
-  // Story so far (last 3 titles)
-  const storySoFar = eventHistory.length > 1
-    ? eventHistory.slice(-3).map(e => e.scene.title).join(' → ')
-    : '';
-
-  // Active quest objectives
-  const questGoals = player.quests
-    .filter(q => q.status === 'active')
-    .slice(0, 2)
-    .flatMap(q => (q.objectives || []).filter(o => !o.completed).slice(0, 1).map(o => o.description))
-    .join('; ');
-
-  // Location
-  const locName = worldState.currentLocationName
-    || getLocationById(worldState.currentLocation)?.name
-    || worldState.currentLocation;
-
-  const contextText = [
-    `${player.name} Lv.${player.level} ${player.race}${player.classOrigin} HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} ${attrs}`,
-    `📍${locName} ${worldState.timeOfDay} ${worldState.weather}`,
-    `技能:${equippedSkills}`,
-    gear ? `装备:${gear}` : '',
-    importantItems !== '无' ? `物品:${importantItems}` : '',
-    activeQuests !== '无' ? `任务:${activeQuests}` : '',
-    questGoals ? `目标:${questGoals}` : '',
-    sceneContinuity ? `刚才:${sceneContinuity}` : '',
-    storySoFar ? `剧情:${storySoFar}` : '',
-    recentLogsText ? `日志:\n${recentLogsText}` : '',
-  ].filter(Boolean).join(' | ');
+  // Delegate to contextBuilder for detailed, budget-capped context
+  const dummyAction: PlayerAction = { id: 'context_only', type: 'other', risk: 'low', mpCost: 0, isCustom: false };
+  const dummyJudge: JudgeResult = { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' };
+  const ctx = buildDetailedContext(player, worldState, dummyAction, dummyJudge, recentLogs, lastEvent, selectedOption);
+  const contextText = formatAIContext(ctx);
 
   return {
     contextText,
@@ -118,7 +61,8 @@ export function buildAIContext(
 export function buildEventPromptFull(
   context: Record<string, unknown>,
   playerAction: PlayerAction,
-  judgeResult: JudgeResult
+  judgeResult: JudgeResult,
+  selectedOption?: ActionOption,
 ): string {
   const contextText = (context as any).contextText || '';
 
@@ -130,6 +74,16 @@ export function buildEventPromptFull(
     actionText = `玩家选择了："${playerAction.label}"`;
   } else {
     actionText = `玩家行动类型：${playerAction.type}`;
+  }
+
+  // Selected action context (structured intent + entities)
+  if (selectedOption?.intent || selectedOption?.contextNote) {
+    actionText += '\n[玩家意图]';
+    if (selectedOption.intent) actionText += `\n目的: ${selectedOption.intent}`;
+    if (selectedOption.contextNote) actionText += `\n关联: ${selectedOption.contextNote}`;
+    if (selectedOption.targetEntityId) actionText += `\n目标实体: ${selectedOption.targetEntityId}`;
+    if (selectedOption.relatedEntityIds?.length) actionText += `\n关联实体: ${selectedOption.relatedEntityIds.join(', ')}`;
+    if (selectedOption.relatedEntityNames?.length) actionText += `\n关联名称: ${selectedOption.relatedEntityNames.join(', ')}`;
   }
 
   const judgeText = judgeResult.dc > 0

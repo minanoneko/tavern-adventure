@@ -190,3 +190,91 @@ export function addGameFlag(flag: string): void {
     gameFlags.push(flag);
   }
 }
+
+// ========== Locked facts validation ==========
+
+/** Relationship words that are mutually exclusive as role assignments */
+const RELATION_WORDS = new Set([
+  '妹妹', '姐姐', '哥哥', '弟弟', '妻子', '丈夫', '老公', '女儿', '儿子',
+  '朋友', '同伴', '恋人', '母亲', '父亲', '爸爸', '妈妈', '未婚妻', '未婚夫',
+  '女友', '男友', '前妻', '前夫', '养女', '养子', '继母', '继父',
+]);
+
+/** Extract potential entity names from a fact string (2-4 Chinese chars, likely proper nouns) */
+function extractEntityNames(fact: string): string[] {
+  // Match quoted names or known patterns
+  const quoted = fact.match(/[「「]([^」」]+)[」」]/g) || [];
+  const names = quoted.map(q => q.replace(/[「「」」]/g, ''));
+  // Also try to find unquoted multi-char Chinese names (heuristic)
+  const unquoted = fact.match(/(?:[一-鿿]{2,4})(?:是|的|为|和|与|跟|被|把|向|对|给|从)/g) || [];
+  for (const m of unquoted) {
+    const name = m.replace(/[的是为和与跟被把向对给从]/g, '');
+    if (name.length >= 2 && !names.includes(name)) names.push(name);
+  }
+  return names;
+}
+
+/** Extract relationship word from a fact, if any */
+function extractRelationWord(fact: string): string | null {
+  for (const word of RELATION_WORDS) {
+    if (fact.includes(word)) return word;
+  }
+  return null;
+}
+
+/**
+ * Validate new facts against locked story facts.
+ * A new fact is rejected only when:
+ * 1. It shares at least one entity name with a locked fact
+ * 2. Both contain relationship words from RELATION_WORDS
+ * 3. The relationship words are different (mutually exclusive)
+ *
+ * Returns: { accepted: string[], rejected: string[] }
+ */
+export function validateAgainstLockedFacts(
+  lockedFacts: string[],
+  newFacts: string[],
+): { accepted: string[]; rejected: string[] } {
+  if (!lockedFacts.length) return { accepted: newFacts, rejected: [] };
+
+  const accepted: string[] = [];
+  const rejected: string[] = [];
+
+  for (const newFact of newFacts) {
+    const newEntities = extractEntityNames(newFact);
+    const newRel = extractRelationWord(newFact);
+
+    if (!newRel || newEntities.length === 0) {
+      accepted.push(newFact);
+      continue;
+    }
+
+    let conflict = false;
+    for (const locked of lockedFacts) {
+      const lockedEntities = extractEntityNames(locked);
+      const lockedRel = extractRelationWord(locked);
+
+      if (!lockedRel) continue;
+
+      // Check if they share at least one entity name
+      const sharedEntity = newEntities.some(ne =>
+        lockedEntities.some(le => le === ne),
+      );
+      if (!sharedEntity) continue;
+
+      // Both have relationship words → check if they conflict
+      if (newRel !== lockedRel) {
+        conflict = true;
+        break;
+      }
+    }
+
+    if (conflict) {
+      rejected.push(newFact);
+    } else {
+      accepted.push(newFact);
+    }
+  }
+
+  return { accepted, rejected };
+}

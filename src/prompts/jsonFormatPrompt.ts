@@ -13,9 +13,9 @@ export const JSON_FORMAT_PROMPT = `=== 输出规则（极其重要）===
     "locationId": ""
   },
   "actionOptions": [
-    {"label":"选项(≤15字)","type":"dialogue","risk":"low"},
-    {"label":"选项","type":"check","risk":"low"},
-    {"label":"选项","type":"dialogue","risk":"low"}
+    {"label":"选项(≤15字)","type":"dialogue","risk":"low","intent":"动作目的","contextNote":"关联NPC/目标/事件","targetEntityId":"npc_xxx"},
+    {"label":"选项","type":"check","risk":"low","intent":"动作目的","contextNote":"关联NPC/目标/事件"},
+    {"label":"选项","type":"dialogue","risk":"low","intent":"动作目的","contextNote":"关联NPC/目标/事件"}
   ],
   "customActionEnabled": true
 }

@@ -13,6 +13,9 @@ export default function DebugPanel() {
   const logs = useGameStore(s => s.logs);
   const lastJudgeResult = useGameStore(s => s.lastJudgeResult);
   const eventHistory = useGameStore(s => s.eventHistory);
+  const addLockedStoryFact = useGameStore(s => s.addLockedStoryFact);
+  const removeLockedStoryFact = useGameStore(s => s.removeLockedStoryFact);
+  const clearLockedStoryFacts = useGameStore(s => s.clearLockedStoryFacts);
   const settings = useSettingsStore();
 
   if (!debugMode) return null;
@@ -76,6 +79,38 @@ export default function DebugPanel() {
             )}
             <div>
               <span className="text-muted">Flags：</span>{worldState.worldFlags.join(', ') || '无'}
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-muted">锁定事实：</span>
+                <button className="btn text-xs" onClick={clearLockedStoryFacts}>清空</button>
+              </div>
+              {worldState.lockedStoryFacts.length === 0 ? (
+                <div className="text-muted">无</div>
+              ) : (
+                <ul className="space-y-1 max-h-24 overflow-auto">
+                  {worldState.lockedStoryFacts.map((fact, i) => (
+                    <li key={i} className="flex items-center justify-between text-xs">
+                      <span>{fact}</span>
+                      <button className="btn text-xs" onClick={() => removeLockedStoryFact(i)}>×</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form
+                className="flex gap-1 mt-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const input = (e.target as HTMLFormElement).elements.namedItem('newFact') as HTMLInputElement;
+                  if (input.value.trim()) {
+                    addLockedStoryFact(input.value.trim());
+                    input.value = '';
+                  }
+                }}
+              >
+                <input name="newFact" className="input text-xs flex-1" placeholder="添加锁定事实..." />
+                <button type="submit" className="btn text-xs">+</button>
+              </form>
             </div>
             <div>
               <span className="text-muted">当前地点：</span>{worldState.currentLocation}

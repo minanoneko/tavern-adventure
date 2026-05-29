@@ -3,6 +3,7 @@ import { clampResource, addMoney, copperValue } from '../types/common';
 import { createLogEntry } from '../types/log';
 import { SKILL_LIBRARY } from '../data/skills';
 import { EQUIPMENT_LIBRARY } from '../data/equipment';
+import { validateAgainstLockedFacts } from './memoryService';
 
 export interface GameEngineResult {
   player: Player;
@@ -108,7 +109,21 @@ export function applyAIResponse(
   // 11. Apply memory updates
   updatedWorld = applyMemoryUpdate(updatedWorld, response);
 
-  // 11. Broadcasts
+  // 11.5 Validate and merge lockedFacts from AI
+  if (response.memoryUpdate.lockedFacts?.length) {
+    const validation = validateAgainstLockedFacts(updatedWorld.lockedStoryFacts, response.memoryUpdate.lockedFacts);
+    if (validation.accepted.length) {
+      updatedWorld = {
+        ...updatedWorld,
+        lockedStoryFacts: [...updatedWorld.lockedStoryFacts, ...validation.accepted],
+      };
+    }
+    for (const rejected of validation.rejected) {
+      logs.push(createLogEntry('system', `AI试图改写锁定事实，已忽略："${rejected}"`));
+    }
+  }
+
+  // 12. Broadcasts
   for (const b of response.worldBroadcasts) {
     updatedWorld.activeRumors.push(b.text);
     logs.push(createLogEntry('world', `【${b.type}】${b.text}`));

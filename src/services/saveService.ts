@@ -78,6 +78,9 @@ export function loadGame(): SaveFile | null {
     if (!saved.worldState.combatState) {
       saved.worldState.combatState = { active: false };
     }
+    if (!saved.worldState.lockedStoryFacts) {
+      saved.worldState.lockedStoryFacts = [];
+    }
     // Skills migration
     if (!saved.player.skills.equipped) {
       (saved.player.skills as any).equipped = [...(saved.player.skills.learned || [])];

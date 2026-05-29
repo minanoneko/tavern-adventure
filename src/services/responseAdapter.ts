@@ -20,6 +20,13 @@ const MinimalActionOptionSchema = z.object({
   type: z.string().default('dialogue'),
   risk: z.enum(['low', 'medium', 'high', 'extreme']).default('low'),
   relatedSkill: z.string().nullable().default(null),
+  intent: z.string().optional(),
+  contextNote: z.string().optional(),
+  targetEntityId: z.string().optional(),
+  relatedEntityIds: z.array(z.string()).optional(),
+  relatedEntityNames: z.array(z.string()).optional(),
+  continuesScene: z.boolean().optional(),
+  allowsTransition: z.boolean().optional(),
 });
 
 
@@ -72,6 +79,7 @@ const MinimalAIMemoryUpdateSchema = z.object({
   currentLocation: z.string().optional(),
   currentLocationId: z.string().optional(),
   knownLocations: z.array(z.string()).optional(),
+  lockedFacts: z.array(z.string()).optional(),
 });
 
 const OptionalPlayerUpdateSchema = z.object({
@@ -132,7 +140,10 @@ const SNAKE_TO_CAMEL: Record<string, string> = {
   unlock_condition: 'unlockCondition', world_broadcasts: 'worldBroadcasts',
   memory_update: 'memoryUpdate', current_location: 'currentLocation',
   current_location_id: 'currentLocationId', known_locations: 'knownLocations',
-  location_id: 'targetId',
+  location_id: 'targetId', context_note: 'contextNote',
+  target_entity_id: 'targetEntityId', related_entity_ids: 'relatedEntityIds',
+  related_entity_names: 'relatedEntityNames', continues_scene: 'continuesScene',
+  allows_transition: 'allowsTransition', locked_facts: 'lockedFacts',
 };
 
 /** Recursively convert snake_case keys to camelCase */
@@ -243,9 +254,16 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     relatedSkill: opt.relatedSkill || null,
     mpCost: opt.mpCost || 0,
     difficultyPreview: opt.difficultyPreview || '简单',
-  })) : [{ id: `opt_${Date.now()}_0`, label: '继续探索', type: 'exploration', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单' },
-        { id: `opt_${Date.now()}_1`, label: '观察周围', type: 'check', risk: 'low', relatedAttribute: 'wis', relatedSkill: null, mpCost: 0, difficultyPreview: '简单' },
-        { id: `opt_${Date.now()}_2`, label: '和附近的人交谈', type: 'dialogue', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单' }];
+    intent: opt.intent || opt.label || '行动',
+    contextNote: opt.contextNote || '当前场景内行动',
+    targetEntityId: opt.targetEntityId,
+    relatedEntityIds: opt.relatedEntityIds,
+    relatedEntityNames: opt.relatedEntityNames,
+    continuesScene: opt.continuesScene,
+    allowsTransition: opt.allowsTransition,
+  })) : [{ id: `opt_${Date.now()}_0`, label: '继续探索', type: 'exploration', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '继续探索', contextNote: '当前场景内行动' },
+        { id: `opt_${Date.now()}_1`, label: '观察周围', type: 'check', risk: 'low', relatedAttribute: 'wis', relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '观察周围', contextNote: '当前场景内行动' },
+        { id: `opt_${Date.now()}_2`, label: '和附近的人交谈', type: 'dialogue', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '和附近的人交谈', contextNote: '当前场景内行动' }];
   const systemEvents = (partial.systemEvents || []) as Array<{ type: string; text: string }>;
 
   // Detect and fix truncated text (ends without proper sentence closure)
@@ -296,6 +314,7 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       currentLocation: (partial.memoryUpdate as any)?.currentLocation || undefined,
       currentLocationId: (partial.memoryUpdate as any)?.currentLocationId || undefined,
       knownLocations: (partial.memoryUpdate as any)?.knownLocations || undefined,
+      lockedFacts: (partial.memoryUpdate as any)?.lockedFacts || undefined,
     },
     enemy: (partial.enemy as any) || undefined,
   };

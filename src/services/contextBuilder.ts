@@ -1,4 +1,4 @@
-import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry } from '../types';
+import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry, ActionOption, SelectedActionContext } from '../types';
 import { getLocationById, getSubregionById, getRegionById } from '../data/regions';
 import { getSkillById } from '../data/skills';
 import { getEquipmentById } from '../data/equipment';
@@ -18,6 +18,8 @@ const BUDGET = {
   recentLogs: 500,
   longTermSummary: 800,
   hardRules: 500,
+  selectedAction: 400,
+  lockedStoryFacts: 600,
 };
 
 // ========== AIContext type ==========
@@ -32,6 +34,8 @@ export interface AIContext {
   recentLogs: string;
   longTermSummary: string;
   hardRules: string;
+  selectedAction?: SelectedActionContext;
+  lockedStoryFacts: string;
 }
 
 function trunc(text: string, max: number): string {
@@ -243,6 +247,54 @@ function buildLongTermSummary(_player: Player, _worldState: WorldState): string 
 // ========== 10. hardRules ==========
 const HARD_RULES = `[规则] 玩家数据以本地系统为准。AI不可直接改属性/发神器/给大量金币。奖励需合理且符合等级。遵守判定结果。输出camelCase JSON。`;
 
+// ========== 11. selectedAction ==========
+function buildSelectedAction(option?: ActionOption): SelectedActionContext | undefined {
+  if (!option) return undefined;
+  return {
+    id: option.id,
+    label: option.label,
+    intent: option.intent || option.label,
+    contextNote: option.contextNote || '当前场景内行动',
+    type: option.type,
+    targetEntityId: option.targetEntityId,
+    relatedEntityIds: option.relatedEntityIds,
+    relatedEntityNames: option.relatedEntityNames,
+    continuesScene: option.continuesScene,
+    allowsTransition: option.allowsTransition,
+  };
+}
+
+// ========== 12. lockedStoryFacts (relevance-sorted, max 8) ==========
+function buildLockedStoryFacts(lockedFacts: string[], worldState: WorldState, selectedOption?: ActionOption): string {
+  if (!lockedFacts.length) return '无';
+
+  // Score each fact by relevance: matching entity names in selectedOption or current location
+  const entityNames = new Set<string>();
+  if (selectedOption?.relatedEntityNames) {
+    selectedOption.relatedEntityNames.forEach(n => entityNames.add(n));
+  }
+  if (selectedOption?.targetEntityId) {
+    entityNames.add(selectedOption.targetEntityId);
+  }
+  if (worldState.currentLocationName) {
+    entityNames.add(worldState.currentLocationName);
+  }
+
+  const scored = lockedFacts.map(fact => {
+    let score = 0;
+    for (const name of entityNames) {
+      if (fact.includes(name)) score += 10;
+    }
+    // Also boost facts mentioning current event keywords
+    return { fact, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, 8).map(s => `- ${s.fact}`).join('\n');
+
+  return trunc(top, BUDGET.lockedStoryFacts);
+}
+
 // ========== Main builder ==========
 export function buildAIContext(
   player: Player,
@@ -250,7 +302,8 @@ export function buildAIContext(
   playerAction: PlayerAction,
   judgeResult: JudgeResult,
   recentLogs: LogEntry[],
-  currentEvent: AIResponse | null
+  currentEvent: AIResponse | null,
+  selectedOption?: ActionOption,
 ): AIContext {
   return {
     playerBrief: buildPlayerBrief(player),
@@ -263,12 +316,14 @@ export function buildAIContext(
     recentLogs: buildRecentLogs(recentLogs),
     longTermSummary: buildLongTermSummary(player, worldState),
     hardRules: HARD_RULES,
+    selectedAction: buildSelectedAction(selectedOption),
+    lockedStoryFacts: buildLockedStoryFacts(worldState.lockedStoryFacts, worldState, selectedOption),
   };
 }
 
 /** Format AIContext as a compact string for the AI prompt */
 export function formatAIContext(ctx: AIContext): string {
-  return [
+  const lines: string[] = [
     `[角色] ${ctx.playerBrief}`,
     `[场景] ${ctx.currentSceneBrief}`,
     `[物品] ${ctx.relevantInventory}`,
@@ -278,6 +333,19 @@ export function formatAIContext(ctx: AIContext): string {
     `[世界] ${ctx.worldBrief}`,
     `[长期] ${ctx.longTermSummary}`,
     `[日志] ${ctx.recentLogs}`,
-    ctx.hardRules,
-  ].join('\n');
+  ];
+
+  if (ctx.selectedAction) {
+    const sa = ctx.selectedAction;
+    const saLines = [`[玩家意图] 目的: ${sa.intent} | 关联: ${sa.contextNote}`];
+    if (sa.targetEntityId) saLines.push(`目标: ${sa.targetEntityId}`);
+    if (sa.relatedEntityIds?.length) saLines.push(`关联实体: ${sa.relatedEntityIds.join(', ')}`);
+    if (sa.relatedEntityNames?.length) saLines.push(`关联名称: ${sa.relatedEntityNames.join(', ')}`);
+    lines.push(saLines.join(' | '));
+  }
+
+  lines.push(`[锁定事实]\n${ctx.lockedStoryFacts}`);
+  lines.push(ctx.hardRules);
+
+  return lines.join('\n');
 }

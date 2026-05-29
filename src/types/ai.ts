@@ -34,6 +34,27 @@ export interface ActionOption {
   relatedSkill?: string | null;
   mpCost?: number;
   difficultyPreview?: string;
+  intent?: string;
+  contextNote?: string;
+  targetEntityId?: string;
+  relatedEntityIds?: string[];
+  relatedEntityNames?: string[];
+  continuesScene?: boolean;
+  allowsTransition?: boolean;
+}
+
+/** Structured action context sent to AI alongside the player action */
+export interface SelectedActionContext {
+  id: string;
+  label: string;
+  intent: string;
+  contextNote: string;
+  type: string;
+  targetEntityId?: string;
+  relatedEntityIds?: string[];
+  relatedEntityNames?: string[];
+  continuesScene?: boolean;
+  allowsTransition?: boolean;
 }
 
 // ========== Updates ==========
@@ -116,6 +137,7 @@ export interface MemoryUpdate {
   currentLocation?: string;
   currentLocationId?: string;
   knownLocations?: string[];
+  lockedFacts?: string[];
 }
 
 // ========== Combat Enemy ==========
@@ -196,6 +218,8 @@ export interface PlayerAction {
   difficultyPreview?: string;
   isCustom: boolean;
   customText?: string;
+  selectedOptionId?: string;
+  selectedOptionLabel?: string;
 }
 
 // ========== Schemas (for Zod) will be in services/aiService.ts ==========

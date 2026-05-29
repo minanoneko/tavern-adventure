@@ -52,6 +52,9 @@ export interface GameState {
   dismissLevelUp: () => void;
   allocateAttribute: (attr: string) => void;
   clearError: () => void;
+  addLockedStoryFact: (fact: string) => void;
+  removeLockedStoryFact: (index: number) => void;
+  clearLockedStoryFacts: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -246,6 +249,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             mpCost: option.mpCost || 0,
             difficultyPreview: option.difficultyPreview,
             isCustom: false,
+            selectedOptionId: option.id,
+            selectedOptionLabel: option.label,
           };
         } else {
           playerAction = {
@@ -336,11 +341,15 @@ export const useGameStore = create<GameState>((set, get) => ({
         if (totalHpCost > 0) logs.push({ id: `hp_cost_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP -${totalHpCost}` });
       }
 
-      // 3. Get AI response
+      // 3. Get AI response — pass selectedOption for full intent/entity context
       const settings = useSettingsStore.getState();
+      const selectedOption = !customText
+        ? currentEvent?.actionOptions.find(o => o.id === actionId)
+        : undefined;
       const aiResult = await sendPlayerAction(
         player, worldState, playerAction, judgeResult,
-        logs, eventHistory, { ...settings, customGMRules: settings.customGMRules }
+        logs, eventHistory, { ...settings, customGMRules: settings.customGMRules },
+        selectedOption,
       );
 
       // 3.5 Filter AI options: remove unlearned skills
@@ -478,6 +487,30 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   clearError: () => set({ errorMessage: null, lastAIResult: null }),
+
+  addLockedStoryFact: (fact) => {
+    const { worldState } = get();
+    if (!worldState.lockedStoryFacts.includes(fact)) {
+      set({
+        worldState: {
+          ...worldState,
+          lockedStoryFacts: [...worldState.lockedStoryFacts, fact],
+        },
+      });
+    }
+  },
+
+  removeLockedStoryFact: (index) => {
+    const { worldState } = get();
+    const facts = [...worldState.lockedStoryFacts];
+    facts.splice(index, 1);
+    set({ worldState: { ...worldState, lockedStoryFacts: facts } });
+  },
+
+  clearLockedStoryFacts: () => {
+    const { worldState } = get();
+    set({ worldState: { ...worldState, lockedStoryFacts: [] } });
+  },
 }));
 
 /** Money only changes for rest costs. Income comes from quests and text parsing. */
