@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import type { CombatAction, CombatState } from '../types/combat';
 import CombatActionBar from './CombatActionBar';
+import { parseCombatCustomAction } from '../services/combat/combatRules';
 
 export default function CombatPanel() {
   const player = useGameStore(s => s.player);
@@ -10,6 +11,7 @@ export default function CombatPanel() {
   const isProcessing = useGameStore(s => s.isProcessing);
 
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [customText, setCustomText] = useState('');
 
   if (!player || !combatState.active) return null;
 
@@ -144,14 +146,41 @@ export default function CombatPanel() {
 
       {/* Action Bar or Victory/Defeat screen */}
       {phase === 'fighting' ? (
-        <CombatActionBar
-          actions={actions}
-          disabled={isProcessing || combatState.turn !== 'player'}
-          selectedTarget={selectedTarget}
-          onAction={handleAction}
-          onTargetSelect={setSelectedTarget}
-          enemyIds={aliveEnemies.map(e => e.id)}
-        />
+        <>
+          <CombatActionBar
+            actions={actions}
+            disabled={isProcessing || combatState.turn !== 'player'}
+            selectedTarget={selectedTarget}
+            onAction={handleAction}
+            onTargetSelect={setSelectedTarget}
+            enemyIds={aliveEnemies.map(e => e.id)}
+          />
+          {/* Custom combat input */}
+          {combatState.turn === 'player' && (
+            <form
+              className="flex gap-2 mt-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const text = customText.trim();
+                if (!text || !player) return;
+                const customAction = parseCombatCustomAction(text, player);
+                submitCombatAction(customAction);
+                setCustomText('');
+              }}
+            >
+              <input
+                className="input text-sm flex-1"
+                placeholder="自定义行动（如：召唤帮手、推倒书架...）"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                disabled={isProcessing}
+              />
+              <button type="submit" className="btn text-sm" disabled={isProcessing || !customText.trim()}>
+                执行
+              </button>
+            </form>
+          )}
+        </>
       ) : phase === 'victory' ? (
         <div>
           <div className="text-success font-bold text-lg mb-2">战斗胜利！</div>

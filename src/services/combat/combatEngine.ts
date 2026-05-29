@@ -2,6 +2,7 @@ import type { Player, WorldState } from '../../types';
 import type { CombatState, CombatStartProposal, CombatAction, CombatResolution, CombatLogEntry } from '../../types/combat';
 import { createEnemiesFromProposal, migrateOldEnemyToState } from './enemyFactory';
 import { getLegalCombatActions, validateCombatAction, applyCombatResult, enemyAttack, checkVictoryDefeat, tryFlee, observeEnemy, tickBuffs } from './combatRules';
+import { getAttributeModifier, rollCheck } from './dice';
 import { calculateCombatRewards } from './combatRewards';
 import { addMoney } from '../../utils/moneyUtils';
 
@@ -200,6 +201,87 @@ export function submitCombatAction(
       enemyTurnResult: enemyResult.result,
       victory: false, defeat: enemyResult.defeat, fled: false,
     };
+  }
+
+  // Special actions: custom combat input (call_help, taunt, distract, negotiate, use_environment)
+  if (action.type === 'special') {
+    const dc = action.difficultyClass || 14;
+    const attrKey = action.checkAttribute || 'cha';
+    const attrValue = (player.attributes as any)[attrKey] ?? 5;
+    const mod = getAttributeModifier(attrValue);
+    const { roll, total } = rollCheck(mod);
+    const success = total >= dc;
+
+    logs.push(makeLog('action', `${success ? '成功' : '失败'}！${action.label}（掷骰 ${total} vs DC ${dc}）`, round));
+
+    if (success) {
+      switch (action.specialType) {
+        case 'call_help':
+        case 'summon':
+          updatedState.playerBuffs = [...updatedState.playerBuffs, {
+            id: `help_${Date.now()}`, name: '援护', type: 'defense', value: 2, duration: 1, source: 'call_help',
+          }];
+          logs.push(makeLog('system', '你大声呼救，虽然没有实质帮手到来，但你的决心让你更加警觉。获得「援护」buff。', round));
+          break;
+        case 'taunt': {
+          const tauntTarget = updatedState.enemies.find(e => !e.isDefeated);
+          if (tauntTarget) {
+            tauntTarget.statusEffects = [...tauntTarget.statusEffects, '激怒'];
+            logs.push(makeLog('system', `${tauntTarget.name}被激怒了！下次攻击伤害-2。`, round));
+          }
+          break;
+        }
+        case 'distract':
+          updatedState.playerBuffs = [...updatedState.playerBuffs, {
+            id: `distract_${Date.now()}`, name: '破绽', type: 'attack', value: 2, duration: 1, source: 'distract',
+          }];
+          logs.push(makeLog('system', '你制造了一个破绽！下次攻击获得+2加成。', round));
+          break;
+        case 'negotiate': {
+          const negoTarget = updatedState.enemies.find(e => !e.isDefeated && !e.isBoss);
+          if (negoTarget && Math.random() > 0.5) {
+            updatedState.phase = 'fled';
+            updatedState.active = false;
+            logs.push(makeLog('system', `${negoTarget.name}接受了你的交涉，停止了战斗。`, round));
+            return {
+              player: updatedPlayer, combatState: { ...updatedState, combatLog: logs },
+              resolution: null, enemyTurnResult: null, victory: true, defeat: false, fled: false,
+            };
+          } else {
+            logs.push(makeLog('system', '交涉失败，敌人没有理会你。', round));
+          }
+          break;
+        }
+        case 'use_environment': {
+          const envTarget = updatedState.enemies.find(e => !e.isDefeated);
+          if (envTarget) {
+            const extraDmg = Math.floor(Math.random() * 4) + Math.floor(Math.random() * 4) + 2;
+            envTarget.hp = Math.max(0, envTarget.hp - extraDmg);
+            logs.push(makeLog('action', `利用环境造成 ${extraDmg} 点额外伤害！`, round));
+            if (envTarget.hp <= 0) { envTarget.isDefeated = true; envTarget.hp = 0; logs.push(makeLog('system', `${envTarget.name} 被击败！`, round)); }
+          }
+          break;
+        }
+      }
+    } else {
+      switch (action.specialType) {
+        case 'call_help': case 'summon': logs.push(makeLog('system', '你大声呼救，但没有回应。', round)); break;
+        case 'taunt': logs.push(makeLog('system', '你的嘲讽没有效果，敌人不为所动。', round)); break;
+        case 'negotiate': logs.push(makeLog('system', '敌人拒绝了你的交涉。', round)); break;
+      }
+    }
+
+    // Always consume turn → enemy turn
+    updatedState.turn = 'enemy';
+    updatedState = { ...updatedState, combatLog: logs };
+    const vicCheck = checkVictoryDefeat(updatedPlayer, updatedState);
+    if (vicCheck === 'victory') {
+      updatedState.phase = 'victory'; updatedState.active = false;
+      logs.push(makeLog('system', '战斗胜利！', round));
+      return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, resolution: null, enemyTurnResult: null, victory: true, defeat: false, fled: false };
+    }
+    const specEnemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+    return { player: specEnemyResult.player, combatState: specEnemyResult.combatState, resolution: null, enemyTurnResult: specEnemyResult.result, victory: false, defeat: specEnemyResult.defeat, fled: false };
   }
 
   // Targeting actions: attack, skill, item (offensive)

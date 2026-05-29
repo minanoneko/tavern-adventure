@@ -292,3 +292,112 @@ export function tickBuffs(buffs: CombatBuff[]): CombatBuff[] {
     .map(b => ({ ...b, duration: b.duration - 1 }))
     .filter(b => b.duration > 0);
 }
+
+// ========== Combat Custom Action Parser ==========
+
+const SPECIAL_DEFAULTS: Record<string, { specialType: import('../../types/combat').CombatSpecialType; checkAttribute: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'; defaultDC: number }> = {
+  'call_help': { specialType: 'call_help', checkAttribute: 'cha', defaultDC: 14 },
+  'summon': { specialType: 'summon', checkAttribute: 'cha', defaultDC: 14 },
+  'taunt': { specialType: 'taunt', checkAttribute: 'cha', defaultDC: 14 },
+  'distract': { specialType: 'distract', checkAttribute: 'dex', defaultDC: 12 },
+  'negotiate': { specialType: 'negotiate', checkAttribute: 'cha', defaultDC: 16 },
+  'use_environment': { specialType: 'use_environment', checkAttribute: 'str', defaultDC: 14 },
+};
+
+/**
+ * Parse player's freeform combat text into a special CombatAction.
+ * "召唤帮手" → call_help (CHA check, buff only, no actual NPC)
+ * "推倒书架" → use_environment (STR check, extra damage)
+ */
+export function parseCombatCustomAction(
+  text: string,
+  _player: import('../../types').Player,
+): import('../../types/combat').CombatAction {
+  const t = text.trim();
+
+  // Summon / call help
+  if (/召唤|叫人|喊人|帮手|支援|求援|援军|呼救/.test(t)) {
+    return {
+      type: 'special',
+      label: `呼救：${t.slice(0, 15)}`,
+      specialType: 'call_help',
+      checkAttribute: 'cha',
+      difficultyClass: 14,
+      checkReason: '尝试呼救或召唤帮手',
+      flavorText: t,
+    };
+  }
+
+  // Taunt / provoke
+  if (/嘲讽|激怒|挑衅|辱骂|叫骂/.test(t)) {
+    return {
+      type: 'special',
+      label: `嘲讽：${t.slice(0, 15)}`,
+      specialType: 'taunt',
+      checkAttribute: 'cha',
+      difficultyClass: 14,
+      checkReason: '尝试嘲讽或激怒敌人',
+      flavorText: t,
+    };
+  }
+
+  // Distract / kick sand / create opening
+  if (/踢沙|干扰|制造.*破绽|分散.*注意|虚晃/.test(t)) {
+    return {
+      type: 'special',
+      label: `干扰：${t.slice(0, 15)}`,
+      specialType: 'distract',
+      checkAttribute: 'dex',
+      difficultyClass: 12,
+      checkReason: '尝试制造破绽',
+      flavorText: t,
+    };
+  }
+
+  // Negotiate / parley
+  if (/谈判|交涉|求饶|讲和|停战/.test(t)) {
+    return {
+      type: 'special',
+      label: `交涉：${t.slice(0, 15)}`,
+      specialType: 'negotiate',
+      checkAttribute: 'cha',
+      difficultyClass: 16,
+      checkReason: '尝试与敌人交涉',
+      flavorText: t,
+    };
+  }
+
+  // Use environment (push pillar, smash lamp, etc.)
+  if (/推倒|砸碎|利用.*环境|推.*柱子|砸.*灯|踢.*桌子|扔.*椅子|掀.*桌子/.test(t)) {
+    return {
+      type: 'special',
+      label: `环境：${t.slice(0, 15)}`,
+      specialType: 'use_environment',
+      checkAttribute: 'str',
+      difficultyClass: 14,
+      checkReason: '利用环境进行攻击',
+      flavorText: t,
+    };
+  }
+
+  // Fallback: treat as general environment use
+  return {
+    type: 'special',
+    label: `尝试：${t.slice(0, 15)}`,
+    specialType: 'use_environment',
+    checkAttribute: 'dex',
+    difficultyClass: 14,
+    checkReason: t,
+    flavorText: t,
+  };
+}
+
+/** Get default DC for a special action type */
+export function getSpecialDefaultDC(specialType: string): number {
+  return SPECIAL_DEFAULTS[specialType]?.defaultDC ?? 14;
+}
+
+/** Get default attribute for a special action type */
+export function getSpecialDefaultAttr(specialType: string): 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha' {
+  return SPECIAL_DEFAULTS[specialType]?.checkAttribute ?? 'dex';
+}

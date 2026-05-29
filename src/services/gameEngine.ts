@@ -1,5 +1,6 @@
 import type { Player, WorldState, AIResponse, LogEntry } from '../types';
-import { clampResource } from '../types/common';
+import type { Weather } from '../types/common';
+import { clampResource, normalizeWeather, normalizeTimeOfDay, advanceTime, nextWeatherInCycle } from '../types/common';
 import { addMoney as addMoneyUtil } from '../utils/moneyUtils';
 import { createLogEntry } from '../types/log';
 import { SKILL_LIBRARY } from '../data/skills';
@@ -114,6 +115,9 @@ export function applyAIResponse(
 
   // 10. Apply scene location (before memory update)
   updatedWorld = applySceneLocation(updatedWorld, response, logs);
+
+  // 10.5 Sync scene time/weather back to worldState
+  updatedWorld = applySceneMeta(updatedWorld, response);
 
   // 11. Apply memory updates
   updatedWorld = applyMemoryUpdate(updatedWorld, response);
@@ -473,6 +477,53 @@ function applySceneLocation(world: WorldState, response: AIResponse, logs: LogEn
   }
 
   return world;
+}
+
+/** Sync scene.time and scene.weather from AI response back to worldState */
+function applySceneMeta(world: WorldState, response: AIResponse): WorldState {
+  const w = { ...world };
+
+  // Parse time from scene.time string (e.g. "雾月3日 上午")
+  if (response.scene.time) {
+    const newTime = normalizeTimeOfDay(response.scene.time, w.timeOfDay);
+    if (newTime === w.timeOfDay && /稍后|一会|片刻|不久/.test(response.scene.time)) {
+      // Vague time → advance by one step
+      w.timeOfDay = advanceTime(w.timeOfDay);
+    } else {
+      w.timeOfDay = newTime;
+    }
+  }
+
+  // Parse weather from scene.weather
+  if (response.scene.weather) {
+    w.weather = normalizeWeather(response.scene.weather, w.weather);
+  }
+
+  // Avoid repeated weather (兜底)
+  w.weather = avoidRepeatedWeather(w.weather, w.worldFlags);
+
+  // Track last 3 weather values in flags for repetition detection
+  const weatherFlags = w.worldFlags.filter(f => f.startsWith('weather_'));
+  weatherFlags.push(`weather_${w.weather}`);
+  const trimmed = weatherFlags.slice(-3);
+  w.worldFlags = [...w.worldFlags.filter(f => !f.startsWith('weather_')), ...trimmed];
+
+  return w;
+}
+
+/** If same weather for 3+ rounds and not a story-forced weather, rotate */
+function avoidRepeatedWeather(current: Weather, flags: string[]): Weather {
+  const storyForced: Weather[] = ['暴风雨', '雪'];
+  if (storyForced.includes(current)) return current;
+
+  const weatherFlags = flags.filter(f => f.startsWith('weather_')).map(f => f.replace('weather_', ''));
+  if (weatherFlags.length >= 2) {
+    const last2 = weatherFlags.slice(-2);
+    if (last2.every(w => w === current) && last2[0] === current) {
+      return nextWeatherInCycle(current);
+    }
+  }
+  return current;
 }
 
 function applyMemoryUpdate(world: WorldState, response: AIResponse): WorldState {

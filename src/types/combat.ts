@@ -66,9 +66,18 @@ export interface CombatAction {
   targetEnemyId?: string;
   /** Player flavor text (custom input in combat) */
   flavorText?: string;
+  /** Special action subtype */
+  specialType?: CombatSpecialType;
+  /** Attribute for CHECK roll */
+  checkAttribute?: 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
+  /** DC for CHECK roll */
+  difficultyClass?: number;
+  /** Reason shown in combat log */
+  checkReason?: string;
 }
 
-export type CombatActionType = 'attack' | 'skill' | 'item' | 'defend' | 'flee' | 'observe';
+export type CombatActionType = 'attack' | 'skill' | 'item' | 'defend' | 'flee' | 'observe' | 'special';
+export type CombatSpecialType = 'call_help' | 'summon' | 'taunt' | 'distract' | 'negotiate' | 'use_environment';
 
 // ========== Combat Resolution ==========
 export interface CombatResolution {

@@ -97,7 +97,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'warrior',
     responses: [
       {
-        scene: { title: '灰鹿酒馆', text: '你的铁剑靠在桌腿上，剑刃还沾着前几日的旅尘。佣兵团解散了——队长说接不到足够的活，大家各奔东西。\n\n这是你第一次独自走进灰鹿酒馆。以前都是跟团友们一起，点上几杯最便宜的麦酒，聊着下一个委托。现在只剩你一个人了。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你的铁剑靠在桌腿上，剑刃还沾着前几日的旅尘。佣兵团解散了——队长说接不到足够的活，大家各奔东西。\n\n这是你第一次独自走进灰鹿酒馆。以前都是跟团友们一起，点上几杯最便宜的麦酒，聊着下一个委托。现在只剩你一个人了。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '多云' },
         event: { id: 'opening_warrior_1', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '吧台后面贴了几张新的委托单。公会最近似乎缺人手。' }],
         actionOptions: [
@@ -198,7 +198,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'small_chapel', currentLocationId: 'small_chapel', knownLocations: ['small_chapel', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你推门走进灰鹿酒馆。老板娘看了你一眼——准确说，看了你胸前的圣徽一眼。"教会的人？好久没见过了。"\n\n你要了一杯热水——酒馆里没有——然后在角落坐下。边境的生活比圣都简陋得多。但这也是你申请调来这里的原因：离那些政治斗争远一点。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你推门走进灰鹿酒馆。老板娘看了你一眼——准确说，看了你胸前的圣徽一眼。"教会的人？好久没见过了。"\n\n你要了一杯热水——酒馆里没有——然后在角落坐下。边境的生活比圣都简陋得多。但这也是你申请调来这里的原因：离那些政治斗争远一点。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '阴' },
         event: { id: 'opening_priest_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '酒馆里有几个人注意到了你的圣徽。大部分只是好奇，但角落一个男人似乎刻意避开了目光。' }],
         actionOptions: [

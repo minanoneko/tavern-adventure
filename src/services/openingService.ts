@@ -1,4 +1,5 @@
 import type { Player, WorldState, AIResponse } from '../types';
+import type { Weather } from '../types/common';
 import type { OpeningMode } from '../types/settings';
 import type { AISettings } from '../store/settingsStore';
 import { sanitizeOrigin } from './backgroundGuard';
@@ -154,6 +155,8 @@ function buildOpeningContext(player: Player, worldState: WorldState, sanitizedOr
 }
 
 function getGenericOpening(player: Player, sanitizedOrigin: string): AIResponse {
+  const openWeathers: Weather[] = ['晴', '多云', '阴', '小雨', '雨'];
+  const weather = openWeathers[Math.floor(Math.random() * openWeathers.length)];
   let text = `你推开了灰鹿酒馆的门。火光、麦酒的气味和低沉的谈话声扑面而来。`;
   if (sanitizedOrigin.trim()) {
     text += `\n\n${sanitizedOrigin}`;
@@ -161,7 +164,7 @@ function getGenericOpening(player: Player, sanitizedOrigin: string): AIResponse 
   text += `\n\n酒馆里有几个常客在喝酒，委托板上贴了几张纸。接下来做什么，取决于你。`;
 
   return {
-    scene: { title: '灰鹿酒馆', text, location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+    scene: { title: '灰鹿酒馆', text, location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather },
     event: { id: 'generic_opening', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [],
     actionOptions: [
