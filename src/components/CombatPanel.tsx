@@ -40,13 +40,15 @@ export default function CombatPanel() {
   // Latest 3 combat log entries for dice narrative
   const latestLogs = combatState.combatLog.slice(-3);
 
-  // Victory/Defeat: call AI for narrative on dismiss
+  // Victory/Defeat/Fled: call AI for narrative on dismiss
   const handleDismiss = async () => {
     const store = useGameStore.getState();
-    if (phase === 'victory' || phase === 'defeat') {
+    if (phase === 'victory' || phase === 'defeat' || phase === 'fled') {
       const summary = phase === 'victory'
         ? `战斗胜利！${store.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
-        : `玩家被击败了，请生成一段战败后的过渡剧情。HP剩余${store.player?.resources.hp}。`;
+        : phase === 'defeat'
+          ? `玩家被击败了，HP剩余${store.player?.resources.hp}。请生成一段战败后的过渡剧情。`
+          : `玩家成功逃离了战斗（逃跑）。请生成一段逃跑后的过渡剧情，敌人可能还在附近。`;
 
       const settings = useSettingsStore.getState();
       if (settings.aiMode !== 'mock') {
