@@ -1,6 +1,7 @@
 import type { Player } from '../../types';
 import type { CombatEnemyState, CombatRewards, CombatDropItem } from '../../types/combat';
 import { clampMoneyRewardByLevel } from '../../utils/moneyUtils';
+import { EQUIPMENT_LIBRARY } from '../../data/equipment';
 
 /**
  * Calculate combat rewards based on enemies defeated.
@@ -14,9 +15,9 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
   for (const enemy of enemies) {
     if (!enemy.isDefeated) continue;
 
-    // Exp: BOSS = 3x normal, Elite = 1.5x
-    const expMult = enemy.isBoss ? 8 : enemy.level > player.level ? 4 : 3;
-    totalExp += 10 + enemy.level * expMult;
+    // Exp: BOSS = 2.5x normal
+    const expMult = enemy.isBoss ? 6 : enemy.level > player.level ? 4 : 3;
+    totalExp += 8 + enemy.level * expMult;
 
     // Money: BOSS = 5x normal
     const moneyBase = enemy.isBoss ? 150 : enemy.level > player.level ? 30 : 15;
@@ -38,24 +39,19 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
       items.push({ id: 'healing_potion', name: '治疗药水', quantity: enemy.isBoss ? 2 : 1, type: 'consumable', rarity: 'common' });
     }
 
-    // Boss guaranteed rare loot
+    // Boss: drop actual equipment (30%) or valuable consumables
     if (enemy.isBoss) {
-      items.push({
-        id: `boss_loot_${Date.now()}`,
-        name: `${enemy.name}的宝物`,
-        quantity: 1,
-        type: 'valuable',
-        rarity: 'rare',
-      });
-      // 30% chance for second rare drop
-      if (Math.random() > 0.7) {
-        items.push({
-          id: `boss_loot2_${Date.now()}`,
-          name: `稀有的${enemy.name}掉落物`,
-          quantity: 1,
-          type: 'material',
-          rarity: 'rare',
-        });
+      if (Math.random() < 0.3) {
+        // Random equipment drop
+        const equipList = Object.values(EQUIPMENT_LIBRARY).filter(e => e.price && (e.slot === 'mainWeapon' || e.slot === 'armor'));
+        if (equipList.length > 0) {
+          const eq = equipList[Math.floor(Math.random() * equipList.length)];
+          items.push({ id: eq.id, name: eq.name, quantity: 1, type: eq.slot === 'mainWeapon' ? 'weapon' : 'armor', rarity: eq.quality as string });
+        }
+      } else {
+        // Consumable bundle
+        items.push({ id: 'healing_potion', name: '治疗药水', quantity: 2, type: 'consumable', rarity: 'common' });
+        if (Math.random() > 0.5) items.push({ id: 'fire_bomb', name: '燃烧瓶', quantity: 1, type: 'consumable', rarity: 'common' });
       }
     }
   }
