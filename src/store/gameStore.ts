@@ -508,18 +508,25 @@ export const useGameStore = create<GameState>((set, get) => ({
         // Wild: 30% chance. Or forced after 6+ actions without combat (anywhere)
         const forced = actionsSinceCombat >= 6;
         if ((isWild && Math.random() < 0.3) || forced) {
-          const elv = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
-          const enemyName = forced && !isWild ? pickStr(['地痞', '闹事醉汉', '扒手', '可疑陌生人']) : getWildEnemyName(locId);
+          const isBoss = forced && Math.random() < 0.15;
+          const elv = Math.max(1, player.level + (isBoss ? 1 : -1) + Math.floor(Math.random() * 2));
+          const baseName = forced && !isWild ? pickStr(['地痞', '闹事醉汉', '扒手', '可疑陌生人']) : getWildEnemyName(locId);
+          const bossTitles = ['愤怒的', '精英', '首领', '暗影', '巨型'];
+          const enemyName = isBoss ? `${pickStr(bossTitles)}${baseName}` : baseName;
+          const hpMult = isBoss ? 2.5 : 1;
           const enemy: CombatEnemy = {
             name: enemyName, str: 4 + elv, dex: 3 + Math.floor(elv / 2), con: 3 + Math.floor(elv / 2),
-            hp: 6 + elv * 2, maxHp: 6 + elv * 2, level: elv,
+            hp: Math.floor((6 + elv * 2) * hpMult), maxHp: Math.floor((6 + elv * 2) * hpMult), level: elv,
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;
+          if (isBoss) {
+            logs.push({ id: `boss_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '⚡ 一个强大的敌人出现了！' });
+          }
           if (forced) {
             logs.push({ id: `forced_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '冒险怎能没有战斗？你察觉到周围的气氛变得紧张起来...' });
           }
-          logs.push({ id: `enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${elv})出现了！` });
+          logs.push({ id: `enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${elv})${isBoss ? ' [BOSS]' : ''}出现了！` });
           worldState.actionsSinceLastCombat = 0;
         }
       }
