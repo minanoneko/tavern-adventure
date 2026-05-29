@@ -3,6 +3,7 @@ import JudgeCard from './JudgeCard';
 import ErrorCard from './ErrorCard';
 import ActionOptions from './ActionOptions';
 import CustomInput from './CustomInput';
+import FixedActions from './FixedActions';
 
 export default function AdventureWindow() {
   const currentEvent = useGameStore(s => s.currentEvent);
@@ -82,8 +83,12 @@ export default function AdventureWindow() {
 
       {/* Action area (fixed at bottom) — hidden during combat */}
       {currentEvent && !isProcessing && !combatActive && (
-        <div className="border-t border-[var(--color-tavern-border)] px-6 py-4 space-y-3 flex-shrink-0">
-          <ActionOptions options={currentEvent.actionOptions} />
+        <div className="border-t border-[var(--color-tavern-border)] px-6 py-3 space-y-2 flex-shrink-0">
+          {/* AI-generated story options (max 2) */}
+          <ActionOptions options={currentEvent.actionOptions.slice(0, 2)} />
+          {/* Player fixed actions */}
+          <FixedActions />
+          {/* Custom input */}
           <CustomInput />
         </div>
       )}

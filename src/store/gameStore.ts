@@ -61,6 +61,7 @@ export interface GameState {
   removeLockedStoryFact: (index: number) => void;
   clearLockedStoryFacts: () => void;
   dismissCombat: () => void;
+  restAtLocation: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -237,7 +238,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.worldState.combatState.active) return;
 
     // Decrement combat cooldown
-    const workingWorldState = { ...state.worldState, combatCooldown: Math.max(0, state.worldState.combatCooldown - 1) };
+    const workingWorldState = {
+      ...state.worldState,
+      combatCooldown: Math.max(0, state.worldState.combatCooldown - 1),
+      wildernessRestUsed: state.worldState.timeOfDay === '清晨' ? 0 : (state.worldState.wildernessRestUsed || 0),
+    };
 
     // Gender self-correction: local only, no AI, no CHECK
     if (customText) {
@@ -601,6 +606,60 @@ export const useGameStore = create<GameState>((set, get) => ({
         combatCooldown: 4,
       },
     });
+  },
+
+  restAtLocation: () => {
+    const { player, worldState } = get();
+    if (!player) return;
+
+    const locId = worldState.currentLocation;
+    const isSafe = locId.includes('tavern') || locId.includes('inn') || locId.includes('chapel') || locId.includes('guild');
+
+    let hpHealed = 0;
+    let mpRestored = 0;
+    const logs = [...get().logs];
+
+    if (isSafe) {
+      // Full restore at safe locations (cost money)
+      const restCost = player.level <= 3 ? { gold: 0, silver: 0, copper: 10 }
+        : player.level <= 5 ? { gold: 0, silver: 0, copper: 50 }
+        : { gold: 0, silver: 2, copper: 0 };
+
+      if (!canAfford(player.money, restCost)) {
+        set({ errorMessage: `钱币不足，需要${restCost.silver ? `${restCost.silver}银` : `${restCost.copper}铜`}。` });
+        return;
+      }
+      hpHealed = player.resources.maxHp - player.resources.hp;
+      mpRestored = player.resources.maxMp - player.resources.mp;
+      const p = { ...player, resources: { ...player.resources, hp: player.resources.maxHp, mp: player.resources.maxMp }, money: subtractMoney(player.money, restCost) };
+      logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `在安全地点休息：HP/MP完全恢复（花费${restCost.copper}铜${restCost.silver ? `${restCost.silver}银` : ''}）。` });
+      set({ player: p, logs, errorMessage: null });
+    } else {
+      // Non-safe location: partial rest
+      const hpDeficit = player.resources.maxHp - player.resources.hp;
+      const mpDeficit = player.resources.maxMp - player.resources.mp;
+      const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('wild');
+
+      if (isWild) {
+        if ((worldState.wildernessRestUsed || 0) >= 2) {
+          set({ errorMessage: '今天已在野外休息了2次，需要等到明天清晨。' });
+          return;
+        }
+        hpHealed = Math.min(hpDeficit, 5);
+        mpRestored = Math.min(mpDeficit, 3);
+        const p = { ...player, resources: { ...player.resources, hp: player.resources.hp + hpHealed, mp: player.resources.mp + mpRestored } };
+        const newWorldState = { ...worldState, wildernessRestUsed: (worldState.wildernessRestUsed || 0) + 1 };
+        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `野外休息：HP +${hpHealed}，MP +${mpRestored}（今日剩余${2 - (worldState.wildernessRestUsed || 0) - 1}次）。` });
+        set({ player: p, worldState: newWorldState, logs, errorMessage: null });
+      } else {
+        // Town/other: small free rest
+        hpHealed = Math.min(hpDeficit, 3);
+        mpRestored = Math.min(mpDeficit, 2);
+        const p = { ...player, resources: { ...player.resources, hp: player.resources.hp + hpHealed, mp: player.resources.mp + mpRestored } };
+        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `短暂休息：HP +${hpHealed}，MP +${mpRestored}。` });
+        set({ player: p, logs, errorMessage: null });
+      }
+    }
   },
 
   submitCombatAction: async (action) => {
