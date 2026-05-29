@@ -65,8 +65,15 @@ export default function AdventureWindow() {
           <JudgeCard judgeResult={lastJudgeResult} />
         )}
 
-        {/* Error card */}
-        {(errorMessage || (lastAIResult && !lastAIResult.success)) && (
+        {/* System notification (rest errors, money warnings etc) */}
+        {errorMessage && !lastAIResult && (
+          <div className="p-3 border border-[var(--color-tavern-accent)] rounded bg-black/30 text-sm text-center cursor-pointer" onClick={() => useGameStore.getState().clearError()}>
+            {errorMessage}
+            <div className="text-xs text-muted mt-1">点击关闭</div>
+          </div>
+        )}
+        {/* AI error card */}
+        {(lastAIResult && !lastAIResult.success) && (
           <ErrorCard
             error={lastAIResult?.error}
             validationErrors={lastAIResult?.validationErrors}
