@@ -2,7 +2,6 @@ import type { Player, WorldState, AIResponse } from '../types';
 import type { CombatState } from '../types/combat';
 import type { Skill } from '../types/skill';
 import type { AttributeKey } from '../types/common';
-import { getSkillById } from '../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 import { SKILL_LIBRARY } from '../data/skills';
 
@@ -65,6 +64,17 @@ export function validateCustomAction(
       intent: 'use_item', requiresCheck: true, checkAttribute: attr,
       difficultyClass: 12, detectedSkillId: skill.id,
     };
+  }
+
+  // === REJECT: creating enemies / events / scenarios ===
+  if (/[来了出现]了.*(?:并|然后|而且|，|,).*(?:攻击|杀|打|砍|闹事|破坏|抢|偷|袭击)/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能自己设定敌人和事件的发生。观察周围是否危险由AI决定，事件是否发生也由AI决定。', sanitizedText: t, intent: 'invalid_create_enemy' };
+  }
+  if (/(?:突然|忽然|猛然).*(?:冲出|窜出|出现|来袭|袭击)/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能自己设定突发事件。保持警惕观察四周，事件由AI生成。', sanitizedText: t, intent: 'invalid_create_enemy' };
+  }
+  if (/(?:哥布林|兽人|骷髅|巨龙|巨魔|狼人|吸血鬼|僵尸|幽灵|恶魔|怪物|强盗|土匪|刺客|杀手|野兽|魔物).*(?:正在|在|冲).*(?:攻击|杀|砍|闹|破坏|抢)/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能自己设定敌人正在做什么。敌人行为和剧情由AI决定。', sanitizedText: t, intent: 'invalid_create_enemy' };
   }
 
   // === REJECT: instant rewards / loot / stat changes ===

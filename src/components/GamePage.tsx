@@ -13,6 +13,7 @@ type MobilePanel = 'none' | 'character' | 'tabs';
 
 export default function GamePage() {
   const didLevelUp = useGameStore(s => s.didLevelUp);
+  const combatActive = useGameStore(s => s.worldState.combatState.active);
   const [showSettings, setShowSettings] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('none');
   const [mobileTab, setMobileTab] = useState<string>('quest');
@@ -38,10 +39,10 @@ export default function GamePage() {
 
       {/* Middle: Main Layout */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left: Character Panel — desktop always visible, mobile overlay */}
-        <div className="hidden lg:block w-64 flex-shrink-0 overflow-auto border-r border-[var(--color-tavern-border)]">
+        {/* Left: Character Panel — hidden during combat */}
+        {!combatActive && <div className="hidden lg:block w-64 flex-shrink-0 overflow-auto border-r border-[var(--color-tavern-border)]">
           <CharacterPanel />
-        </div>
+        </div>}
 
         {/* Mobile left overlay */}
         {mobilePanel === 'character' && (
@@ -63,10 +64,10 @@ export default function GamePage() {
           <AdventureWindow />
         </div>
 
-        {/* Right: Tab Container — desktop always visible, mobile overlay */}
-        <div className="hidden lg:block w-80 flex-shrink-0 overflow-hidden border-l border-[var(--color-tavern-border)]">
+        {/* Right: Tab Container — hidden during combat */}
+        {!combatActive && <div className="hidden lg:block w-80 flex-shrink-0 overflow-hidden border-l border-[var(--color-tavern-border)]">
           <TabContainer />
-        </div>
+        </div>}
 
         {/* Mobile right overlay */}
         {mobilePanel === 'tabs' && (
