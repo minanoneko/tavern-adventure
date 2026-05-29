@@ -106,7 +106,7 @@ export default function CombatPanel() {
           <span className="text-danger">HP {player.resources.hp}/{player.resources.maxHp}</span>
           <span className="text-info">MP {player.resources.mp}/{player.resources.maxMp}</span>
           {statusText.length > 0 && (
-            <span className="text-warning cursor-help" title={statusText.map(s => s === '疲劳' ? '疲劳：所有判定-1，酒馆/旅店休息可解除' : s).join('；')}>{statusText.join(',')}</span>
+            <span className="text-warning">{statusText.map(s => s === '疲劳' ? '疲劳(判定-1,酒馆休息解除)' : s).join(' ')}</span>
           )}
         </div>
       </div>

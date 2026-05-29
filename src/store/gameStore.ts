@@ -293,11 +293,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
         // combat_intent → require valid context, then start combat locally
         if (guard.intent === 'combat_intent') {
-          // Only allow if current narrative mentions danger/enemies
+          // Only block combat in safe locations without danger context
+          const locId = worldState.currentLocation || '';
+          const isSafeLoc = locId.includes('tavern') || locId.includes('inn') || locId.includes('town') || locId.includes('shop') || locId.includes('market') || locId.includes('guild');
           const sceneText = currentEvent?.scene.text || '';
-          const hasDanger = /危险|威胁|敌人|怪物|攻击|战斗|可疑|敌意|挑衅|威胁|匪|盗|贼|兽|蛇|狼|虫/.test(sceneText);
-          if (!hasDanger) {
-            set({ isProcessing: false, errorMessage: '当前周围没有可以攻击的目标。先探索一下确认是否有危险吧。' });
+          const hasDanger = /危险|威胁|敌人|怪物|攻击|战斗|可疑|敌意|匪|盗|贼|兽|蛇|狼|虫|哥布林|骷髅|强盗/.test(sceneText);
+          if (isSafeLoc && !hasDanger) {
+            set({ isProcessing: false, errorMessage: '在安全的城镇里没有可以攻击的目标。先去野外或危险的地方探索吧。' });
             return;
           }
 
