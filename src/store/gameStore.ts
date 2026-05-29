@@ -307,10 +307,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           const enemyLevel = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
-          // Extract enemy name from player input
-          const nameMatch = customText.match(/(?:攻击|砍|打|刺|杀|射击|揍|劈|捅|和|跟)(?:了|向|死|的是|那个|一个|一只)?\s*(.+)/);
-          const rawName = nameMatch?.[1] || '';
-          const enemyName = rawName.replace(/一个|一只|一头|一位|那条|这只|那个/g, '').trim().slice(0, 6) || '敌对者';
+          // Enemy name from location context, NOT from player input
+          const enemyName = getWildEnemyName(worldState.currentLocation);
           const enemy: CombatEnemy = {
             name: enemyName,
             str: 4 + enemyLevel,
@@ -901,6 +899,17 @@ function filterAIOptions(options: ActionOption[], player: Player): ActionOption[
     return opt;
   });
 }
+
+/** Generate appropriate wild enemy name based on location */
+function getWildEnemyName(locId: string): string {
+  if (locId.includes('forest') || locId.includes('林')) return pickStr(['野狼', '毒蛇', '哥布林', '巨蛛', '山贼']);
+  if (locId.includes('mine') || locId.includes('矿')) return pickStr(['洞穴蝙蝠', '巨蛛', '哥布林矿工', '岩蛇', '亡灵矿工']);
+  if (locId.includes('road') || locId.includes('道')) return pickStr(['拦路强盗', '野狗', '饿狼', '可疑旅人']);
+  if (locId.includes('ruin') || locId.includes('遗迹') || locId.includes('废')) return pickStr(['亡灵守卫', '石像鬼', '遗迹守护者', '暗影']);
+  if (locId.includes('cave') || locId.includes('洞')) return pickStr(['洞穴巨蛛', '暗影生物', '蝙蝠群', '穴居人']);
+  return pickStr(['野狼', '哥布林', '强盗', '巨鼠', '毒蛇']);
+}
+function pickStr(arr: string[]): string { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function getMoneyChange(action: PlayerAction, player: Player, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
   // Resting costs money
