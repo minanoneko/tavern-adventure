@@ -108,6 +108,34 @@ export function validateCustomAction(
     return { allowed: false, mode: 'reject', reason: 'NPC有自己的意志，不能随意命令。', sanitizedText: t, intent: 'invalid_force_result' };
   }
 
+  // === REJECT: identity claims ===
+  if (/我是(?!谁|个)[一-鿿]{2,8}$/.test(t) || /我其实是|我本来就是|我真实身份|我的真正身份/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能随意更改角色身份。你的背景已在创建角色时确定。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+
+  // === REJECT: teleportation / impossible movement ===
+  if (/瞬移|传送|飞过去|飞越|凭空消失|闪现到|一下.*就到了/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能瞬移或飞行，请描述正常的移动方式。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+
+  // === REJECT: declaring world facts / meta-knowledge ===
+  if (/发现.*暗门|发现.*密道|发现.*密门|这里.*有.*暗格|墙.*上.*有.*机关|地板.*下.*有/.test(t)) {
+    return { allowed: false, mode: 'rewrite', reason: '已改写为搜索意图。你不能直接声明隐藏事物的存在。', sanitizedText: '仔细观察四周的墙壁和地面，寻找可能的隐藏通道或机关。', intent: 'investigate', requiresCheck: true, checkAttribute: 'wis', difficultyClass: 14 };
+  }
+  if (/就是凶手|就是.*犯人|就是.*卧底|在说谎|是假的/.test(t)) {
+    return { allowed: false, mode: 'rewrite', reason: '已改写为观察意图。你不能直接断定他人的身份或动机。', sanitizedText: '仔细观察这个人的言行举止，尝试判断他的真实意图。', intent: 'investigate', requiresCheck: true, checkAttribute: 'wis', difficultyClass: 12 };
+  }
+
+  // === REJECT: controlling NPCs ===
+  if (/帮.*我.*打|帮.*我.*杀|帮.*我.*攻击|命令.*NPC|命令.*守卫|命令.*老板|叫.*老板.*过来|给我.*叫.*过来/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能直接命令NPC。你可以尝试说服或请求他们帮忙。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+
+  // === REJECT: claiming items not in inventory ===
+  if (/我.*拿出|我.*掏出|我.*拔出|我.*戴上|我.*穿上|从.*背包.*拿出|从.*口袋.*拿出/.test(t)) {
+    return { allowed: false, mode: 'rewrite', reason: '已改写为检查背包意图。使用物品前先确认你是否真的拥有它。', sanitizedText: '先检查自己的背包和装备栏，确认是否有需要的物品。', intent: 'use_item', requiresCheck: false };
+  }
+
   // === REWRITE: loot → search intent ===
   if (/捡到|捡了|找到.*金币|找到.*宝物|发现.*宝箱|发现.*金币|找到.*钱/.test(t)) {
     return { allowed: true, mode: 'rewrite', reason: '已改写为搜索意图。', sanitizedText: '尝试在周围仔细搜索，看看有没有值钱的东西或线索。', intent: 'investigate', requiresCheck: true, checkAttribute: 'wis', difficultyClass: 12 };
@@ -245,6 +273,24 @@ export function validateCombatCustomAction(
       return { allowed: false, reason: '背包中没有治疗药水。', intent: 'item' };
     }
     return { allowed: true, intent: 'item' };
+  }
+
+  // === Combat: additional rejections ===
+  // Searching/looting during combat
+  if (/搜刮|搜.*尸体|捡.*尸体|翻.*口袋|搜.*身/.test(t)) {
+    return { allowed: false, reason: '战斗中不能搜刮。战斗奖励会在战斗结束后自动结算。', intent: 'invalid_create_reward' };
+  }
+  // Switching weapons mid-combat
+  if (/换.*武器|换.*剑|换.*弓|切换.*武器|拿出.*武器|掏出.*武器/.test(t)) {
+    return { allowed: false, reason: '战斗中不能切换武器。请使用当前装备的武器。', intent: 'invalid_force_result' };
+  }
+  // Teleport / impossible actions in combat
+  if (/瞬移|传送|飞过去|凭空消失|闪现/.test(t)) {
+    return { allowed: false, reason: '战斗中不能进行瞬移或飞行。', intent: 'invalid_force_result' };
+  }
+  // Giving items to non-existent allies
+  if (/给.*队友|递给.*同伴|分给/.test(t)) {
+    return { allowed: false, reason: '当前没有队友可以接收物品。', intent: 'invalid_force_result' };
   }
 
   // Fallback: allow as special (parsed by parseCombatCustomAction)
