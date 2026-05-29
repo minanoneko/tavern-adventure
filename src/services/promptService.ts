@@ -71,31 +71,39 @@ export function buildAIContext(
     .map(l => `[${l.type.slice(0,2)}]${l.text.slice(0, 40)}`)
     .join('\n');
 
-  // Recent option labels only
-  const recentOptions = eventHistory.slice(-2)
-    .flatMap(e => e.actionOptions)
-    .map(o => o.label.slice(0, 10))
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .join(', ');
+  // === Story continuity — what just happened ===
+  const lastEvent = eventHistory.length > 0 ? eventHistory[eventHistory.length - 1] : null;
+  const sceneContinuity = lastEvent
+    ? `【${lastEvent.scene.title}】${lastEvent.scene.text.slice(0, 80)}`
+    : '';
+
+  // Story so far (last 3 titles)
+  const storySoFar = eventHistory.length > 1
+    ? eventHistory.slice(-3).map(e => e.scene.title).join(' → ')
+    : '';
+
+  // Active quest objectives
+  const questGoals = player.quests
+    .filter(q => q.status === 'active')
+    .slice(0, 2)
+    .flatMap(q => (q.objectives || []).filter(o => !o.completed).slice(0, 1).map(o => o.description))
+    .join('; ');
 
   // Location
   const locName = worldState.currentLocationName
     || getLocationById(worldState.currentLocation)?.name
     || worldState.currentLocation;
 
-  // Status effects (only if not normal)
-  const status = player.statusEffects.filter(s => s !== '正常').join(', ');
-
   const contextText = [
-    `${player.name} Lv.${player.level} ${player.race}${player.classOrigin} HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp}`,
-    `${attrs}`,
+    `${player.name} Lv.${player.level} ${player.race}${player.classOrigin} HP${player.resources.hp}/${player.resources.maxHp} MP${player.resources.mp}/${player.resources.maxMp} ${attrs}`,
     `📍${locName} ${worldState.timeOfDay} ${worldState.weather}`,
     `技能:${equippedSkills}`,
     gear ? `装备:${gear}` : '',
     importantItems !== '无' ? `物品:${importantItems}` : '',
     activeQuests !== '无' ? `任务:${activeQuests}` : '',
-    status ? `状态:${status}` : '',
-    recentOptions ? `已选:${recentOptions}` : '',
+    questGoals ? `目标:${questGoals}` : '',
+    sceneContinuity ? `刚才:${sceneContinuity}` : '',
+    storySoFar ? `剧情:${storySoFar}` : '',
     recentLogsText ? `日志:\n${recentLogsText}` : '',
   ].filter(Boolean).join(' | ');
 
@@ -125,10 +133,10 @@ export function buildEventPromptFull(
   }
 
   const judgeText = judgeResult.dc > 0
-    ? `判定结果：${judgeResult.outcome}（掷骰${judgeResult.roll} vs DC${judgeResult.dc}）`
-    : '无需判定';
+    ? `判定：${judgeResult.outcome}`
+    : '';
 
-  return `${actionText}\n${judgeText}\n\n${contextText}`;
+  return `${actionText}\n${judgeText}\n---\n${contextText}`.trim();
 }
 
 export function buildActionParsePromptFull(playerInput: string, context: Record<string, unknown>): string {
