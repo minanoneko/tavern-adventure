@@ -17,6 +17,7 @@ export default function CombatPanel() {
 
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [customText, setCustomText] = useState('');
+  const [dismissing, setDismissing] = useState(false);
 
   const shouldShow = combatState.active || combatState.phase === 'victory' || combatState.phase === 'defeat' || combatState.phase === 'fled';
   if (!player || !shouldShow) return null;
@@ -44,8 +45,6 @@ export default function CombatPanel() {
   const defMod = enemyDex >= 9 ? 4 : enemyDex >= 8 ? 3 : enemyDex >= 7 ? 2 : enemyDex >= 6 ? 1 : enemyDex >= 5 ? 0 : enemyDex >= 4 ? -1 : -2;
   const hitTarget = 10 + defMod;
   const dmgBase = 2 + (player.attributes.str >= 9 ? 4 : player.attributes.str >= 8 ? 3 : player.attributes.str >= 7 ? 2 : player.attributes.str >= 6 ? 1 : player.attributes.str >= 5 ? 0 : player.attributes.str >= 4 ? -1 : -2);
-
-  const [dismissing, setDismissing] = useState(false);
 
   // Victory/Defeat/Fled: fetch AI narrative, then dismiss
   const handleDismiss = async () => {
