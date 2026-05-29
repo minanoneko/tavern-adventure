@@ -21,20 +21,22 @@ export function createEnemiesFromProposal(
     : [{ name: '敌对者', type: 'monster', suggestedLevel: player.level }];
   return proposals.map((ep, i) => {
     // Determine enemy rank
-    const isBoss = !!(proposal.isBoss && (proposal.bossFlag || proposal.questFlag));
+    const isBoss = !!(proposal.isBoss);
     const isElite = !isBoss && ep.suggestedLevel && ep.suggestedLevel > player.level + 1;
 
-    // Level cap
+    // Level cap: boss can be up to +3, elite +2, normal +1
     const maxLevel = isBoss ? player.level + 3 : isElite ? player.level + 2 : player.level + 1;
     const level = Math.max(1, Math.min(ep.suggestedLevel ?? 1, maxLevel));
 
-    // Base stats derived from level
-    const str = capStat(ep.suggestedStr ?? (3 + level), level);
-    const dex = capStat(ep.suggestedDex ?? (3 + Math.floor(level / 2)), level);
-    const con = capStat(ep.suggestedCon ?? (3 + Math.floor(level / 2)), level);
+    // Base stats: boss gets +2 to all stats
+    const bossBonus = isBoss ? 2 : 0;
+    const str = capStat(ep.suggestedStr ?? (3 + level + bossBonus), level + bossBonus);
+    const dex = capStat(ep.suggestedDex ?? (3 + Math.floor(level / 2) + bossBonus), level + bossBonus);
+    const con = capStat(ep.suggestedCon ?? (3 + Math.floor(level / 2) + bossBonus), level + bossBonus);
 
-    // HP scales with level and con
-    const maxHp = Math.min(ep.suggestedHp ?? (5 + con * 2 + level * 2), 80);
+    // HP: boss gets multiplied by 2.5x, elite 1.5x
+    const hpMult = isBoss ? 2.5 : isElite ? 1.5 : 1;
+    const maxHp = Math.min(Math.floor((ep.suggestedHp ?? (5 + con * 2 + level * 2)) * hpMult), 120);
 
     return {
       id: `enemy_${Date.now()}_${i}`,
