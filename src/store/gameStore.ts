@@ -306,7 +306,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
           }
 
-          const enemyLevel = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
+          // Enemy level clamped: normal = player.level ±0, elite = +1, never exceed player.level+2
+          const enemyLevel = Math.max(1, Math.min(player.level + 2, player.level - 1 + Math.floor(Math.random() * 2)));
+          // HP scales but stays beatable: base 6 + level*2 (Lv1=8, Lv3=12, Lv5=16)
+          const enemyHp = 6 + enemyLevel * 2;
           // Enemy name from location context, NOT from player input
           const enemyName = getWildEnemyName(worldState.currentLocation);
           const enemy: CombatEnemy = {
@@ -314,13 +317,13 @@ export const useGameStore = create<GameState>((set, get) => ({
             str: 4 + enemyLevel,
             dex: 3 + Math.floor(enemyLevel / 2),
             con: 3 + Math.floor(enemyLevel / 2),
-            hp: 8 + enemyLevel * 3,
-            maxHp: 8 + enemyLevel * 3,
+            hp: enemyHp,
+            maxHp: enemyHp,
             level: enemyLevel,
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;
-          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ 你发起了攻击！${enemyName}出现了！` });
+          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${enemyLevel})出现了！` });
           set({ player, worldState, logs, isProcessing: false });
           return;
         }
@@ -637,7 +640,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           playerBuffs: [],
           combatLog: [],
         },
-        combatCooldown: 4,
+        combatCooldown: 5,
       },
     });
   },
