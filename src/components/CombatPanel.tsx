@@ -65,6 +65,9 @@ export default function CombatPanel() {
           store.logs, store.eventHistory, { ...settings, customGMRules: settings.customGMRules },
         ).then(result => {
           if (result.success && result.response) {
+            // Strip combatStart to prevent re-entering combat
+            result.response.combatStart = undefined;
+            result.response.enemy = undefined;
             const state = useGameStore.getState();
             const engineResult = applyAIResponse(result.response, state.player!, { ...state.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, state.logs);
             useGameStore.setState({
@@ -102,7 +105,9 @@ export default function CombatPanel() {
           <span>{player.name} Lv.{player.level}</span>
           <span className="text-danger">HP {player.resources.hp}/{player.resources.maxHp}</span>
           <span className="text-info">MP {player.resources.mp}/{player.resources.maxMp}</span>
-          {statusText.length > 0 && <span className="text-warning">{statusText.join(',')}</span>}
+          {statusText.length > 0 && (
+            <span className="text-warning cursor-help" title={statusText.map(s => s === '疲劳' ? '疲劳：所有判定-1，酒馆/旅店休息可解除' : s).join('；')}>{statusText.join(',')}</span>
+          )}
         </div>
       </div>
 

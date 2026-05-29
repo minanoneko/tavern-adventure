@@ -291,12 +291,21 @@ export const useGameStore = create<GameState>((set, get) => ({
           });
           return;
         }
-        // combat_intent → start combat locally, don't send to AI
+        // combat_intent → require valid context, then start combat locally
         if (guard.intent === 'combat_intent') {
+          // Only allow if current narrative mentions danger/enemies
+          const sceneText = currentEvent?.scene.text || '';
+          const hasDanger = /危险|威胁|敌人|怪物|攻击|战斗|可疑|敌意|挑衅|威胁|匪|盗|贼|兽|蛇|狼|虫/.test(sceneText);
+          if (!hasDanger) {
+            set({ isProcessing: false, errorMessage: '当前周围没有可以攻击的目标。先探索一下确认是否有危险吧。' });
+            return;
+          }
+
           const enemyLevel = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
-          // Extract enemy name from player input (e.g. "攻击守卫" → "守卫")
-          const nameMatch = customText.match(/(?:攻击|砍|打|刺|杀|射击|揍|劈|捅)(?:了|向|死)?\s*(.+)/);
-          const enemyName = nameMatch ? nameMatch[1].replace(/一个|一只|一头|一位|那条|这只/g, '').trim().slice(0, 6) : '敌对者';
+          // Extract enemy name from player input
+          const nameMatch = customText.match(/(?:攻击|砍|打|刺|杀|射击|揍|劈|捅|和|跟)(?:了|向|死|的是|那个|一个|一只)?\s*(.+)/);
+          const rawName = nameMatch?.[1] || '';
+          const enemyName = rawName.replace(/一个|一只|一头|一位|那条|这只|那个/g, '').trim().slice(0, 6) || '敌对者';
           const enemy: CombatEnemy = {
             name: enemyName,
             str: 4 + enemyLevel,
@@ -648,22 +657,26 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
 
     if (isSafe) {
-      // Full restore at safe locations (cost money), or free minimal rest when broke
+      // Full restore at safe locations (cost money), or free when broke. Also clears fatigue.
       const restCost = player.level <= 3 ? { gold: 0, silver: 0, copper: 10 }
         : player.level <= 5 ? { gold: 0, silver: 0, copper: 50 }
         : { gold: 0, silver: 2, copper: 0 };
 
+      const clearFatigue = (p: typeof player) => ({
+        ...p,
+        statusEffects: p.statusEffects.filter(s => s !== '疲劳'),
+      });
+
       if (!canAfford(player.money, restCost)) {
-        // Free full recovery when broke — prevent death spiral
-        const p = { ...player, resources: { ...player.resources, hp: player.resources.maxHp, mp: player.resources.maxMp } };
-        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '你囊中羞涩，酒馆老板摇了摇头，但还是让你在角落的草垫上睡了一晚。HP/MP完全恢复（免费）。' });
+        const p = clearFatigue({ ...player, resources: { ...player.resources, hp: player.resources.maxHp, mp: player.resources.maxMp } });
+        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '你囊中羞涩，酒馆老板摇了摇头，但还是让你在角落的草垫上睡了一晚。HP/MP完全恢复，疲劳消除（免费）。' });
         set({ player: p, logs, errorMessage: null });
         return;
       }
       hpHealed = player.resources.maxHp - player.resources.hp;
       mpRestored = player.resources.maxMp - player.resources.mp;
-      const p = { ...player, resources: { ...player.resources, hp: player.resources.maxHp, mp: player.resources.maxMp }, money: subtractMoney(player.money, restCost) };
-      logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `在安全地点休息：HP/MP完全恢复（花费${restCost.copper}铜${restCost.silver ? `${restCost.silver}银` : ''}）。` });
+      const p = clearFatigue({ ...player, resources: { ...player.resources, hp: player.resources.maxHp, mp: player.resources.maxMp }, money: subtractMoney(player.money, restCost) });
+      logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `在安全地点休息：HP/MP完全恢复，疲劳消除（花费${restCost.copper}铜${restCost.silver ? `${restCost.silver}银` : ''}）。` });
       set({ player: p, logs, errorMessage: null });
     } else {
       // Non-safe location: only wild areas allow rest
