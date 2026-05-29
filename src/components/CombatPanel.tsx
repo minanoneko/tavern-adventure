@@ -40,43 +40,48 @@ export default function CombatPanel() {
   // Latest 3 combat log entries for dice narrative
   const latestLogs = combatState.combatLog.slice(-3);
 
-  // Victory/Defeat/Fled: call AI for narrative on dismiss
-  const handleDismiss = async () => {
+  // Combat stats display: DEX vs DEX for hit, STR for damage
+  const playerDex = player.attributes.dex;
+  const enemyDex = aliveEnemies[0]?.dex || 0;
+  const atkMod = playerDex >= 9 ? 4 : playerDex >= 8 ? 3 : playerDex >= 7 ? 2 : playerDex >= 6 ? 1 : playerDex >= 5 ? 0 : playerDex >= 4 ? -1 : -2;
+  const defMod = enemyDex >= 9 ? 4 : enemyDex >= 8 ? 3 : enemyDex >= 7 ? 2 : enemyDex >= 6 ? 1 : enemyDex >= 5 ? 0 : enemyDex >= 4 ? -1 : -2;
+  const hitTarget = 10 + defMod;
+  const dmgBase = 2 + (player.attributes.str >= 9 ? 4 : player.attributes.str >= 8 ? 3 : player.attributes.str >= 7 ? 2 : player.attributes.str >= 6 ? 1 : player.attributes.str >= 5 ? 0 : player.attributes.str >= 4 ? -1 : -2);
+
+  // Victory/Defeat/Fled: clear combat immediately, fetch AI narrative in background
+  const handleDismiss = () => {
     const store = useGameStore.getState();
+    store.dismissCombat();
+    // Fetch AI narrative asynchronously (fire and forget)
     if (phase === 'victory' || phase === 'defeat' || phase === 'fled') {
       const summary = phase === 'victory'
         ? `战斗胜利！${store.player?.name}击败了${combatState.enemies.map(e => e.name).join('、')}。请生成一段战斗结束后的过渡剧情。`
         : phase === 'defeat'
           ? `玩家被击败了，HP剩余${store.player?.resources.hp}。请生成一段战败后的过渡剧情。`
           : `玩家成功逃离了战斗（逃跑）。请生成一段逃跑后的过渡剧情，敌人可能还在附近。`;
-
       const settings = useSettingsStore.getState();
       if (settings.aiMode !== 'mock') {
-        try {
-          const result = await sendPlayerAction(
-            store.player!,
-            { ...store.worldState, combatState: store.worldState.combatState },
-            { id: 'combat_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
-            { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
-            store.logs, store.eventHistory,
-            { ...settings, customGMRules: settings.customGMRules },
-          );
+        sendPlayerAction(
+          store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 },
+          { id: 'combat_end', type: 'other', risk: 'low', mpCost: 0, isCustom: true, customText: summary },
+          { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
+          store.logs, store.eventHistory, { ...settings, customGMRules: settings.customGMRules },
+        ).then(result => {
           if (result.success && result.response) {
-            const engineResult = applyAIResponse(result.response, store.player!, { ...store.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, store.logs);
+            const state = useGameStore.getState();
+            const engineResult = applyAIResponse(result.response, state.player!, { ...state.worldState, combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] }, combatCooldown: 4 }, state.logs);
             useGameStore.setState({
               player: engineResult.player,
               worldState: { ...engineResult.worldState, combatCooldown: 4 },
               currentEvent: result.response,
-              eventHistory: [...store.eventHistory, result.response],
+              eventHistory: [...state.eventHistory, result.response],
               logs: engineResult.logs,
               isProcessing: false,
             });
-            return;
           }
-        } catch { /* fall through to basic dismiss */ }
+        }).catch(() => {});
       }
     }
-    store.dismissCombat();
   };
 
   return (
@@ -103,6 +108,13 @@ export default function CombatPanel() {
           {statusText.length > 0 && <span className="text-warning">{statusText.join(',')}</span>}
         </div>
       </div>
+
+      {/* Combat formula hint (compact) */}
+      {phase === 'fighting' && aliveEnemies.length > 0 && (
+        <div className="text-xs text-muted text-center">
+          攻击判定：d20+敏{atkMod>=0?'+':''}{atkMod} vs AC{hitTarget} · 伤害：{dmgBase}~{dmgBase+4}
+        </div>
+      )}
 
       {/* === Dice Roll Result (big & prominent) === */}
       {phase === 'fighting' && latestLogs.length > 0 && (

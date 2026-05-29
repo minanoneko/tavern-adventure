@@ -294,8 +294,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         // combat_intent → start combat locally, don't send to AI
         if (guard.intent === 'combat_intent') {
           const enemyLevel = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
+          // Extract enemy name from player input
+          const nameMatch = customText.match(/(?:攻击|砍|打|刺|杀|射击|揍|劈|捅)(?:了|向|死)?(?:一个|一只|一头|一条|一位)?([一-鿿]{1,6})/);
+          const enemyName = nameMatch?.[1] || '敌对者';
           const enemy: CombatEnemy = {
-            name: '敌对者',
+            name: enemyName,
             str: 4 + enemyLevel,
             dex: 3 + Math.floor(enemyLevel / 2),
             con: 3 + Math.floor(enemyLevel / 2),
@@ -305,7 +308,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;
-          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ 你发起了攻击！${enemy.name}出现了！` });
+          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ 你发起了攻击！${enemyName}出现了！` });
           set({ player, worldState, logs, isProcessing: false });
           return;
         }
