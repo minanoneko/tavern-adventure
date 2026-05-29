@@ -37,9 +37,6 @@ export default function CombatPanel() {
   const mpPct = (player.resources.mp / player.resources.maxMp) * 100;
   const statusText = player.statusEffects.filter(s => s !== '正常');
 
-  // Latest 3 combat log entries for dice narrative
-  const latestLogs = combatState.combatLog.slice(-3);
-
   // Combat stats display: DEX vs DEX for hit, STR for damage
   const playerDex = player.attributes.dex;
   const enemyDex = aliveEnemies[0]?.dex || 0;
@@ -116,16 +113,15 @@ export default function CombatPanel() {
         </div>
       )}
 
-      {/* === Dice Roll Result (big & prominent) === */}
-      {phase === 'fighting' && latestLogs.length > 0 && (
-        <div className="p-3 bg-black/60 rounded border border-[#c94040] text-center">
-          {latestLogs.map((l, i) => (
-            <div key={l.id} className={`text-sm lg:text-base font-bold ${l.type === 'enemy' ? 'text-danger' : l.type === 'action' ? 'text-info' : 'text-muted'}`}>
-              {l.type === 'action' && '🎲 '}{l.type === 'enemy' && '💢 '}{l.text}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* === Combat Log (primary dice display) === */}
+      <div className="max-h-28 overflow-auto p-2 bg-black/60 rounded border border-[#c94040] text-sm space-y-1">
+        {combatState.combatLog.length === 0 && <div className="text-muted text-center">等待战斗开始...</div>}
+        {combatState.combatLog.slice(-6).map(log => (
+          <div key={log.id} className={`${log.type === 'action' ? 'text-info' : log.type === 'enemy' ? 'text-danger' : log.type === 'reward' ? 'text-success' : 'text-muted'}`}>
+            {log.type === 'action' ? '🎲 ' : log.type === 'enemy' ? '💢 ' : ''}{log.text}
+          </div>
+        ))}
+      </div>
 
       {/* === Enemy cards === */}
       <div className="grid grid-cols-2 gap-2">
