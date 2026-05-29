@@ -293,13 +293,17 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
         // combat_intent → require valid context, then start combat locally
         if (guard.intent === 'combat_intent') {
-          // Require danger context in narrative (any scene with hostile elements)
-          const sceneText = currentEvent?.scene.text || '';
-          const sceneTitle = currentEvent?.scene.title || '';
-          const hasDanger = /危险|威胁|敌人|怪物|攻击|战斗|可疑|敌意|匪|盗|贼|兽|蛇|狼|虫|哥布林|骷髅|强盗|吼叫|咆哮|动静|黑影|人影|脚步|跟踪/.test(sceneText + sceneTitle);
-          if (!hasDanger) {
-            set({ isProcessing: false, errorMessage: '周围看起来很平静，没有可以攻击的目标。先点「探索」看看有什么发现吧。' });
-            return;
+          // Dangerous locations (wild/dungeon) always allow combat.
+          // Safe locations (town/inn) require danger in narrative.
+          const locId = worldState.currentLocation || '';
+          const isSafeLoc = locId.includes('tavern') || locId.includes('inn') || locId.includes('town') || locId.includes('shop') || locId.includes('market') || locId.includes('guild') || locId.includes('chapel');
+          if (isSafeLoc) {
+            const sceneText = currentEvent?.scene.text || '';
+            const hasDanger = /危险|威胁|敌人|怪物|攻击|战斗|可疑|敌意|匪|盗|贼|兽|蛇|狼|虫|哥布林|骷髅|强盗|吼叫|咆哮|动静|黑影|人影|脚步|跟踪/.test(sceneText);
+            if (!hasDanger) {
+              set({ isProcessing: false, errorMessage: '在城镇里没有可以攻击的目标。去野外探索吧。' });
+              return;
+            }
           }
 
           const enemyLevel = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
