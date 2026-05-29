@@ -13,7 +13,8 @@ type MobilePanel = 'none' | 'character' | 'tabs';
 
 export default function GamePage() {
   const didLevelUp = useGameStore(s => s.didLevelUp);
-  const combatActive = useGameStore(s => s.worldState.combatState.active);
+  const combatState = useGameStore(s => s.worldState.combatState);
+  const combatActive = combatState.active || combatState.phase === 'victory' || combatState.phase === 'defeat' || combatState.phase === 'fled';
   const [showSettings, setShowSettings] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('none');
   const [mobileTab, setMobileTab] = useState<string>('quest');
@@ -61,7 +62,7 @@ export default function GamePage() {
         {/* Center: Adventure Window */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <CombatPanel />
-          <AdventureWindow />
+          {!combatActive && <AdventureWindow />}
         </div>
 
         {/* Right: Tab Container — hidden during combat */}

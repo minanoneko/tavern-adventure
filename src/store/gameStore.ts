@@ -660,30 +660,24 @@ export const useGameStore = create<GameState>((set, get) => ({
       logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `在安全地点休息：HP/MP完全恢复（花费${restCost.copper}铜${restCost.silver ? `${restCost.silver}银` : ''}）。` });
       set({ player: p, logs, errorMessage: null });
     } else {
-      // Non-safe location: partial rest
+      // Non-safe location: only wild areas allow rest
+      const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('wild');
+      if (!isWild) {
+        set({ errorMessage: '这里不适合休息。去酒馆或旅店吧。' });
+        return;
+      }
+      if ((worldState.wildernessRestUsed || 0) >= 2) {
+        set({ errorMessage: '今天已在野外休息了2次，需要等到明天清晨。' });
+        return;
+      }
       const hpDeficit = player.resources.maxHp - player.resources.hp;
       const mpDeficit = player.resources.maxMp - player.resources.mp;
-      const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('wild');
-
-      if (isWild) {
-        if ((worldState.wildernessRestUsed || 0) >= 2) {
-          set({ errorMessage: '今天已在野外休息了2次，需要等到明天清晨。' });
-          return;
-        }
-        hpHealed = Math.min(hpDeficit, 5);
-        mpRestored = Math.min(mpDeficit, 3);
-        const p = { ...player, resources: { ...player.resources, hp: player.resources.hp + hpHealed, mp: player.resources.mp + mpRestored } };
-        const newWorldState = { ...worldState, wildernessRestUsed: (worldState.wildernessRestUsed || 0) + 1 };
-        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `野外休息：HP +${hpHealed}，MP +${mpRestored}（今日剩余${2 - (worldState.wildernessRestUsed || 0) - 1}次）。` });
-        set({ player: p, worldState: newWorldState, logs, errorMessage: null });
-      } else {
-        // Town/other: small free rest
-        hpHealed = Math.min(hpDeficit, 3);
-        mpRestored = Math.min(mpDeficit, 2);
-        const p = { ...player, resources: { ...player.resources, hp: player.resources.hp + hpHealed, mp: player.resources.mp + mpRestored } };
-        logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `短暂休息：HP +${hpHealed}，MP +${mpRestored}。` });
-        set({ player: p, logs, errorMessage: null });
-      }
+      hpHealed = Math.min(hpDeficit, 5);
+      mpRestored = Math.min(mpDeficit, 3);
+      const p = { ...player, resources: { ...player.resources, hp: player.resources.hp + hpHealed, mp: player.resources.mp + mpRestored } };
+      const newWorldState = { ...worldState, wildernessRestUsed: (worldState.wildernessRestUsed || 0) + 1 };
+      logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `野外休息：HP +${hpHealed}，MP +${mpRestored}（今日剩余${2 - (worldState.wildernessRestUsed || 0) - 1}次）。` });
+      set({ player: p, worldState: newWorldState, logs, errorMessage: null });
     }
   },
 
