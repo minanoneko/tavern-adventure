@@ -1,6 +1,10 @@
 import type { Player, WorldState, AIResponse } from '../types';
 import type { CombatState } from '../types/combat';
+import type { Skill } from '../types/skill';
 import type { AttributeKey } from '../types/common';
+import { getSkillById } from '../data/skills';
+import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
+import { SKILL_LIBRARY } from '../data/skills';
 
 export interface CustomActionGuardResult {
   allowed: boolean;
@@ -11,11 +15,25 @@ export interface CustomActionGuardResult {
   requiresCheck?: boolean;
   checkAttribute?: AttributeKey;
   difficultyClass?: number;
+  detectedSkillId?: string;
+}
+
+/**
+ * Scan input for any known skill name from the skill library.
+ * Returns { skill, matched } if found, null otherwise.
+ */
+function detectSkillAttempt(text: string): { skill: Skill; matched: string } | null {
+  for (const [, skill] of Object.entries(SKILL_LIBRARY)) {
+    if (skill.name && text.includes(skill.name)) {
+      return { skill, matched: skill.name };
+    }
+  }
+  return null;
 }
 
 /**
  * Validate player custom input for non-combat scenarios.
- * Rejects: claiming rewards, generating NPCs/items, instant kills, stat changes
+ * Rejects: claiming rewards, generating NPCs/items, instant kills, stat changes, unlearned skills
  * Rewrites: "I found gold" → "try searching", "instant kill" → "attack with full force"
  */
 export function validateCustomAction(
@@ -26,6 +44,28 @@ export function validateCustomAction(
 ): CustomActionGuardResult {
   const t = text.trim();
   if (!t) return { allowed: false, mode: 'reject', reason: '输入为空。', sanitizedText: t, intent: 'other' };
+
+  // === Skill attempt detection (before general patterns) ===
+  const skillAttempt = detectSkillAttempt(t);
+  if (skillAttempt) {
+    const { skill } = skillAttempt;
+    if (!_player.skills.learned.includes(skill.id)) {
+      return { allowed: false, mode: 'reject', reason: `未学会技能"${skill.name}"。技能只能通过升级或训练获得。`, sanitizedText: t, intent: 'invalid_modify_stats' };
+    }
+    if (!canCastSkill(skill, _player)) {
+      const reasons = getSkillLockReasons(skill, _player);
+      return { allowed: false, mode: 'reject', reason: `技能"${skill.name}"当前无法释放：${reasons.join('、')}。`, sanitizedText: t, intent: 'invalid_modify_stats' };
+    }
+    // Skill is learned and castable → allow with appropriate check
+    const attrMap: Record<string, AttributeKey> = { combat: 'str', magic: 'int', active: 'dex', reaction: 'dex' };
+    const attr = attrMap[skill.type] || 'int';
+    return {
+      allowed: true, mode: 'check',
+      sanitizedText: `使用技能「${skill.name}」：${t}`,
+      intent: 'use_item', requiresCheck: true, checkAttribute: attr,
+      difficultyClass: 12, detectedSkillId: skill.id,
+    };
+  }
 
   // === REJECT: instant rewards / loot / stat changes ===
   if (/捡到\d+|捡了\d+|获得.*金币|获得.*神器|获得.*装备|捡到.*物品|得到.*武器|捡到.*剑|捡到.*盾/.test(t)) {
@@ -143,6 +183,24 @@ export function validateCombatCustomAction(
 ): { allowed: boolean; reason?: string; intent: string } {
   const t = text.trim();
   if (!t) return { allowed: false, reason: '输入为空。', intent: 'other' };
+
+  // === Skill attempt detection (before general patterns) ===
+  const skillAttempt = detectSkillAttempt(t);
+  if (skillAttempt) {
+    const { skill } = skillAttempt;
+    if (!player.skills.learned.includes(skill.id)) {
+      return { allowed: false, reason: `未学会技能"${skill.name}"。`, intent: 'invalid_modify_stats' };
+    }
+    if (!player.skills.equipped.includes(skill.id)) {
+      return { allowed: false, reason: `技能"${skill.name}"未装备到技能栏。`, intent: 'invalid_modify_stats' };
+    }
+    if (!canCastSkill(skill, player)) {
+      const reasons = getSkillLockReasons(skill, player);
+      return { allowed: false, reason: `技能"${skill.name}"无法释放：${reasons.join('、')}。`, intent: 'invalid_modify_stats' };
+    }
+    // Skill is learned, equipped, and castable → allow as skill action
+    return { allowed: true, intent: 'skill' };
+  }
 
   // Reject: summon / generate NPCs / allies / instant results
   if (/召唤|生成.*队友|生成.*帮手|生成.*NPC|帮手.*帮我|叫.*人.*帮/.test(t)) {

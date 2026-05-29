@@ -4,7 +4,7 @@ import type { CombatAction, CombatState } from '../types/combat';
 import CombatActionBar from './CombatActionBar';
 import { parseCombatCustomAction } from '../services/combat/combatRules';
 import { validateCombatCustomAction } from '../services/customActionGuard';
-import { getSkillById } from '../data/skills';
+import { getSkillById, SKILL_LIBRARY } from '../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 
 export default function CombatPanel() {
@@ -173,8 +173,29 @@ export default function CombatPanel() {
                   setCustomText('');
                   return;
                 }
-                const customAction = parseCombatCustomAction(text, player);
-                submitCombatAction(customAction);
+                // Route by guard intent
+                const tid = aliveEnemies[0]?.id;
+                if (guard.intent === 'attack') {
+                  submitCombatAction({ type: 'attack', label: '攻击', targetEnemyId: tid });
+                } else if (guard.intent === 'defend') {
+                  submitCombatAction({ type: 'defend', label: '防御' });
+                } else if (guard.intent === 'flee') {
+                  submitCombatAction({ type: 'flee', label: '逃跑' });
+                } else if (guard.intent === 'observe') {
+                  submitCombatAction({ type: 'observe', label: '观察敌人', targetEnemyId: tid });
+                } else if (guard.intent === 'item') {
+                  submitCombatAction({ type: 'item', label: '治疗药水', itemId: 'healing_potion' });
+                } else if (guard.intent === 'skill') {
+                  const found = Object.values(SKILL_LIBRARY).find((s: any) => s.name && text.includes(s.name)) as any;
+                  if (found) {
+                    submitCombatAction({ type: 'skill', label: found.name, skillId: found.id, targetEnemyId: tid });
+                  } else {
+                    submitCombatAction({ type: 'attack', label: '攻击', targetEnemyId: tid });
+                  }
+                } else {
+                  const customAction = parseCombatCustomAction(text, player);
+                  submitCombatAction(customAction);
+                }
                 setCustomText('');
               }}
             >

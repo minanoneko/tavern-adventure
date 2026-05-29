@@ -289,6 +289,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           type: guard.intent,
           risk: 'medium',
           relatedAttribute: guard.checkAttribute || undefined,
+          relatedSkill: guard.detectedSkillId || null,
           mpCost: 0,
           isCustom: true,
           customText: guard.sanitizedText,
