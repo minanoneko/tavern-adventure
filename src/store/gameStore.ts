@@ -500,20 +500,27 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
 
-      // Random wild encounter: if AI didn't trigger combat, player is in wild area, cooldown = 0
+      // Force combat encounter if player avoids fighting too long
+      const actionsSinceCombat = worldState.actionsSinceLastCombat || 0;
       if (!worldState.combatState.active && worldState.combatCooldown <= 0) {
         const locId = worldState.currentLocation || '';
         const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('ruin') || locId.includes('cave') || locId.includes('wild');
-        if (isWild && Math.random() < 0.3) {
+        // Wild: 30% chance. Or forced after 6+ actions without combat (anywhere)
+        const forced = actionsSinceCombat >= 6;
+        if ((isWild && Math.random() < 0.3) || forced) {
           const elv = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
-          const enemyName = getWildEnemyName(locId);
+          const enemyName = forced && !isWild ? pickStr(['地痞', '闹事醉汉', '扒手', '可疑陌生人']) : getWildEnemyName(locId);
           const enemy: CombatEnemy = {
             name: enemyName, str: 4 + elv, dex: 3 + Math.floor(elv / 2), con: 3 + Math.floor(elv / 2),
             hp: 6 + elv * 2, maxHp: 6 + elv * 2, level: elv,
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;
-          logs.push({ id: `wild_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ 野外遭遇！${enemyName}(Lv.${elv})出现了！` });
+          if (forced) {
+            logs.push({ id: `forced_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '冒险怎能没有战斗？你察觉到周围的气氛变得紧张起来...' });
+          }
+          logs.push({ id: `enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${elv})出现了！` });
+          worldState.actionsSinceLastCombat = 0;
         }
       }
 
