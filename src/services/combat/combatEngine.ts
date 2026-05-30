@@ -235,7 +235,7 @@ export function submitCombatAction(
   }
 
   if (action.type === 'defend') {
-    logs.push(makeLog('action', '进入防御姿态，受到的伤害减半。', round));
+    logs.push(makeLog('action', '进入防御姿态——本回合伤害减半，敌人命中判定-2。', round));
     updatedState.playerBuffs = [...updatedState.playerBuffs, {
       id: `defend_${Date.now()}`,
       name: '防御',

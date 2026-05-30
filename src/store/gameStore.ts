@@ -452,22 +452,37 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (judgeResult.outcome === '失败' || judgeResult.outcome === '大失败') {
         worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 10);
       }
-      // Clear combatTrigger after sending to AI
       const hadHardTrigger = worldState.combatTrigger?.type === 'hard';
       worldState.combatTrigger = undefined;
 
-      // 3.6 Combat: detect combatStart (priority) or legacy enemy from AI response
+      // 3.6 Auto-retry FIRST: hard trigger with no combatStart → retry before combat processing
+      if (hadHardTrigger && aiResult.success && aiResult.response && !aiResult.response.combatStart && !aiResult.response.enemy) {
+        logs.push({ id: `retry_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '战斗请求未响应，自动重试...' });
+        const retryResult = await sendPlayerAction(
+          player, worldState,
+          { id: 'combat_retry', type: 'combat', risk: 'high', mpCost: 0, isCustom: true, customText: '【系统请求-勿写入剧情正文】玩家发起了攻击，必须返回combatStart。如果目标无法战斗(友方/平民/幻影)，在scene.text中说明原因。' },
+          { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
+          logs, eventHistory, { ...settings, customGMRules: settings.customGMRules },
+        );
+        if (retryResult.success && retryResult.response) {
+          if (retryResult.response.combatStart) { aiResult.response!.combatStart = retryResult.response.combatStart; }
+          if (retryResult.response.enemy) { aiResult.response!.enemy = retryResult.response.enemy; }
+        } else {
+          logs.push({ id: `retry_fail_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: 'AI重试失败，战斗请求无法完成。' });
+        }
+      }
+
+      // 3.7 Combat detection: combatStart or legacy enemy — enter combat
       if (aiResult.success && aiResult.response && !worldState.combatState.active) {
-        // Combat cooldown check
-        if (worldState.combatCooldown > 0) {
-          // On cooldown, ignore combat trigger
+        // Cooldown only blocks soft/random encounters, NOT hard triggers
+        if (worldState.combatCooldown > 0 && !hadHardTrigger) {
           if (aiResult.response) {
             (aiResult.response as any).combatStart = undefined;
             (aiResult.response as any).enemy = undefined;
           }
           logs.push({ id: `cooldown_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `战斗冷却中（还需${worldState.combatCooldown}次行动），跳过本次遭遇。` });
         }
-        // Priority 1: combatStart proposal
+        // combatStart proposal
         if (aiResult.response.combatStart) {
           try {
             const combatResult = startCombatFromAI(player, worldState, aiResult.response.combatStart);
@@ -475,40 +490,22 @@ export const useGameStore = create<GameState>((set, get) => ({
             if (combatResult.logs.length > 0) {
               logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
             }
-            // Clear enemy so gameEngine doesn't double-process
             (aiResult.response as any).enemy = undefined;
           } catch (err) {
             logs.push({ id: `combat_err_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '战斗启动失败，已转为普通剧情。' });
           }
         }
-        // Priority 2: legacy enemy (backward compat)
+        // Legacy enemy → wrap into combatStart
         else if (aiResult.response.enemy) {
-          const combatResult = startCombatFromLegacyEnemy(player, worldState, aiResult.response.enemy);
+          const legacyEnemy = aiResult.response.enemy;
+          const cs: import('../types/combat').CombatStartProposal = {
+            enemies: [{ name: legacyEnemy.name, type: 'monster', suggestedLevel: legacyEnemy.level, suggestedStr: legacyEnemy.str, suggestedDex: legacyEnemy.dex, suggestedCon: legacyEnemy.con, suggestedHp: legacyEnemy.maxHp }],
+            reason: '遭遇敌人', location: worldState.currentLocationName || worldState.currentLocation || '当前场景',
+          };
+          const combatResult = startCombatFromAI(player, worldState, cs);
           worldState.combatState = combatResult.combatState;
-          logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${aiResult.response.enemy.name}出现了！` });
+          logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${legacyEnemy.name}出现了！` });
           (aiResult.response as any).enemy = undefined;
-        }
-      }
-
-      // 3.7 Auto-retry: hard trigger with no combatStart → retry once
-      if (hadHardTrigger && aiResult.success && aiResult.response && !aiResult.response.combatStart && !aiResult.response.enemy) {
-        logs.push({ id: `retry_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '战斗请求未响应，自动重试...' });
-        const retryResult = await sendPlayerAction(
-          player, worldState,
-          { id: 'combat_retry', type: 'combat', risk: 'high', mpCost: 0, isCustom: true, customText: '【系统重试】玩家发起了攻击，必须返回combatStart。如果目标无法战斗(友方/平民/幻影)，在scene.text中说明原因。' },
-          { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' },
-          logs, eventHistory, { ...settings, customGMRules: settings.customGMRules },
-        );
-        if (retryResult.success && retryResult.response) {
-          // Only apply combatStart/enemy from retry, keep original narrative
-          if (retryResult.response.combatStart) {
-            aiResult.response!.combatStart = retryResult.response.combatStart;
-          }
-          if (retryResult.response.enemy) {
-            aiResult.response!.enemy = retryResult.response.enemy;
-          }
-        } else {
-          logs.push({ id: `retry_fail_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: 'AI重试失败，战斗请求无法完成。' });
         }
       }
 

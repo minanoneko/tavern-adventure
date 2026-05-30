@@ -20,26 +20,30 @@ export function createEnemiesFromProposal(
     ? proposal.enemies
     : [{ name: '敌对者', type: 'monster', suggestedLevel: player.level }];
   return proposals.map((ep, i) => {
-    // Reject or downgrade overpowered enemies without proper flags
+    // Reject overpowered enemies without proper flags — no downgrade, just refuse combat
     const OP_NAMES = /远古红龙|巨龙|魔王|神明|古神|灾厄|邪神|终焉|世界Boss|大魔王|灭世|龙神/i;
-    if (OP_NAMES.test(ep.name) && !proposal.bossFlag && !proposal.questFlag) {
-      // Downgrade to a reasonable enemy — keep the name but as normal stats
-      return {
-        id: `enemy_${Date.now()}_${i}`,
-        name: `幻影${ep.name.slice(0, 4)}`,
-        type: 'monster',
-        level: Math.min(player.level + 1, 3),
-        str: 6, dex: 5, con: 5,
-        hp: 15, maxHp: 15,
-        statusEffects: [],
-        isBoss: false,
-        isDefeated: false,
-        description: '这只是一个虚幻的投影，真正的威胁还在远处。',
-      };
+    if (OP_NAMES.test(ep.name)) {
+      const hasUnlock = proposal.bossFlag && worldState.worldFlags.includes(proposal.bossFlag);
+      const hasQuest = proposal.questFlag && worldState.worldFlags.includes(proposal.questFlag);
+      if (!hasUnlock && !hasQuest) {
+        // Don't create any combat entity — just a narrative placeholder
+        return {
+          id: `enemy_${Date.now()}_${i}`,
+          name: `${ep.name}（远景）`,
+          type: 'monster',
+          level: 99, str: 30, dex: 30, con: 30,
+          hp: 999, maxHp: 999,
+          statusEffects: [],
+          isBoss: false, isDefeated: false,
+          description: '无法战斗——这只是一个远景压迫/传闻/痕迹。需要剧情flag解锁。',
+        };
+      }
     }
 
-    // Boss requires unlock flag
-    const isBoss = !!(proposal.isBoss && (proposal.bossFlag || worldState.worldFlags.includes(proposal.bossFlag || '') || proposal.questFlag));
+    // Boss requires unlock flag in worldState, not just AI's proposal
+    const hasBossUnlock = proposal.bossFlag ? worldState.worldFlags.includes(proposal.bossFlag) : true;
+    const hasQuestUnlock = proposal.questFlag ? worldState.worldFlags.includes(proposal.questFlag) : true;
+    const isBoss = !!(proposal.isBoss && hasBossUnlock && hasQuestUnlock);
     const isElite = !isBoss && ep.suggestedLevel && ep.suggestedLevel > player.level + 1;
 
     // Level cap: boss can be up to +3, elite +2, normal +1
