@@ -500,9 +500,13 @@ export const useGameStore = create<GameState>((set, get) => ({
           logs, eventHistory, { ...settings, customGMRules: settings.customGMRules },
         );
         if (retryResult.success && retryResult.response) {
-          retryResult.response.actionOptions = filterAIOptions(retryResult.response.actionOptions, player);
-          aiResult.response = retryResult.response;
-          aiResult.success = true;
+          // Only apply combatStart/enemy from retry, keep original narrative
+          if (retryResult.response.combatStart) {
+            aiResult.response!.combatStart = retryResult.response.combatStart;
+          }
+          if (retryResult.response.enemy) {
+            aiResult.response!.enemy = retryResult.response.enemy;
+          }
         } else {
           logs.push({ id: `retry_fail_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: 'AI重试失败，战斗请求无法完成。' });
         }
