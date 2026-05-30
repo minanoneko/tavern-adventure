@@ -7,7 +7,7 @@ import { createDefaultPlayer } from '../types/character';
 import { createDefaultWorldState } from '../types/common';
 import { getRaceById, PERSONALITY_TRAITS } from '../data/races';
 import { getClassById } from '../data/classes';
-import { evaluate, parseCustomAction, needsCheck } from '../services/judgeService';
+import { evaluate, needsCheck } from '../services/judgeService';
 import { getSkillById } from '../data/skills';
 import { sendPlayerAction } from '../services/aiService';
 import { applyAIResponse, addAttributePoint } from '../services/gameEngine';
@@ -235,7 +235,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.isProcessing) return;
 
     // Combat guard: actions during combat go through CombatPanel
-    if (state.worldState.combatState.active) return;
+    const cs = state.worldState.combatState;
+    if (cs.active || cs.phase === 'victory' || cs.phase === 'defeat' || cs.phase === 'fled') return;
 
     // Decrement combat cooldown
     const workingWorldState = {
@@ -291,44 +292,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           });
           return;
         }
-        // combat_intent → require valid context, then start combat locally
-        if (guard.intent === 'combat_intent') {
-          // Dangerous locations (wild/dungeon) always allow combat.
-          // Safe locations (town/inn) require danger in narrative.
-          const locId = worldState.currentLocation || '';
-          const isSafeLoc = locId.includes('tavern') || locId.includes('inn') || locId.includes('town') || locId.includes('shop') || locId.includes('market') || locId.includes('guild') || locId.includes('chapel');
-          if (isSafeLoc) {
-            const sceneText = currentEvent?.scene.text || '';
-            const hasDanger = /危险|威胁|敌人|怪物|攻击|战斗|可疑|敌意|匪|盗|贼|兽|蛇|狼|虫|哥布林|骷髅|强盗|吼叫|咆哮|动静|黑影|人影|脚步|跟踪/.test(sceneText);
-            if (!hasDanger) {
-              set({ isProcessing: false, errorMessage: '在城镇里没有可以攻击的目标。去野外探索吧。' });
-              return;
-            }
-          }
-
-          // Enemy level clamped: normal = player.level ±0, elite = +1, never exceed player.level+2
-          const enemyLevel = Math.max(1, Math.min(player.level + 2, player.level - 1 + Math.floor(Math.random() * 2)));
-          // HP scales but stays beatable: base 6 + level*2 (Lv1=8, Lv3=12, Lv5=16)
-          const enemyHp = 6 + enemyLevel * 2;
-          // Enemy name from location context, NOT from player input
-          const enemyName = getWildEnemyName(worldState.currentLocation);
-          const enemy: CombatEnemy = {
-            name: enemyName,
-            str: 4 + enemyLevel,
-            dex: 3 + Math.floor(enemyLevel / 2),
-            con: 3 + Math.floor(enemyLevel / 2),
-            hp: enemyHp,
-            maxHp: enemyHp,
-            level: enemyLevel,
-          };
-          const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
-          worldState.combatState = combatResult.combatState;
-          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '——进入战斗——' });
-          logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${enemyLevel})出现了！` });
-          set({ player, worldState, logs, isProcessing: false });
-          return;
-        }
-
         playerAction = {
           id: `custom_${Date.now()}`,
           label: guard.sanitizedText.slice(0, 30),
@@ -359,6 +322,12 @@ export const useGameStore = create<GameState>((set, get) => ({
             isCustom: false,
             selectedOptionId: option.id,
             selectedOptionLabel: option.label,
+            requiresCheck: option.requiresCheck,
+            checkAttribute: option.checkAttribute,
+            difficultyClass: option.difficultyClass,
+            failureConsequence: option.failureConsequence,
+            checkReason: option.checkReason,
+            checkSkill: option.checkSkill,
           };
           // Handle option.moneyCost (purchase from option)
           if (option.moneyCost) {
@@ -368,6 +337,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
             player.money = subtractMoney(player.money, option.moneyCost);
             logs.push({ id: `purchase_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `花费${option.moneyCost.gold ? `${option.moneyCost.gold}金` : ''}${option.moneyCost.silver ? `${option.moneyCost.silver}银` : ''}${option.moneyCost.copper || 0}铜购买：${option.label}` });
+          }
+          if (option.moneyReward) {
+            player.money = addMoney(player.money, option.moneyReward);
+            logs.push({ id: `reward_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `获得${option.moneyReward.gold ? `${option.moneyReward.gold}金` : ''}${option.moneyReward.silver ? `${option.moneyReward.silver}银` : ''}${option.moneyReward.copper || 0}铜` });
           }
         } else {
           playerAction = {
@@ -497,40 +470,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           worldState.combatState = combatResult.combatState;
           logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${aiResult.response.enemy.name}出现了！` });
           (aiResult.response as any).enemy = undefined;
-        }
-      }
-
-      // Force combat encounter if player avoids fighting too long
-      const actionsSinceCombat = worldState.actionsSinceLastCombat || 0;
-      if (!worldState.combatState.active && worldState.combatCooldown <= 0) {
-        const locId = worldState.currentLocation || '';
-        const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('ruin') || locId.includes('cave') || locId.includes('wild');
-        // Wild: 25% chance per action. Forced cap at 8 actions to guarantee some combat
-        const forced = actionsSinceCombat >= 8;
-        if ((isWild && Math.random() < 0.25) || forced) {
-          const elv = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
-          // Elite enemies: higher stats, more EXP/money, but no rare boss drops
-          const isElite = Math.random() < 0.25;
-          const eliteTitle = isElite ? pickStr(['强壮的', '老练的', '凶猛的', '巨型']) : '';
-          const baseName = forced && !isWild ? pickStr(['地痞', '闹事醉汉', '扒手', '可疑陌生人']) : getWildEnemyName(locId);
-          const enemyName = isElite ? `${eliteTitle}${baseName}` : baseName;
-          const elvFinal = isElite ? Math.min(player.level + 2, elv + 1) : elv;
-          const hpMult = isElite ? 1.5 : 1;
-          const enemy: CombatEnemy = {
-            name: enemyName, str: 4 + elvFinal, dex: 3 + Math.floor(elvFinal / 2), con: 3 + Math.floor(elvFinal / 2),
-            hp: Math.floor((6 + elvFinal * 2) * hpMult), maxHp: Math.floor((6 + elvFinal * 2) * hpMult), level: elvFinal,
-            isBoss: false, // Never boss — BOSS only via AI combatStart
-          };
-          const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
-          worldState.combatState = combatResult.combatState;
-          if (isElite) {
-            logs.push({ id: `elite_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `⚡ 一个${eliteTitle}的敌人出现了！` });
-          }
-          if (forced) {
-            logs.push({ id: `forced_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '冒险怎能没有战斗？你察觉到周围的气氛变得紧张起来...' });
-          }
-          logs.push({ id: `enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${elvFinal})${isElite ? ' [精英]' : ''}出现了！` });
-          worldState.actionsSinceLastCombat = 0;
         }
       }
 
@@ -883,18 +822,6 @@ function filterAIOptions(options: ActionOption[], player: Player): ActionOption[
     return opt;
   });
 }
-
-/** Generate appropriate wild enemy name and type based on location */
-function getWildEnemyName(locId: string): string {
-  if (locId.includes('forest') || locId.includes('林')) return pickStr(['野狼', '毒蛇', '哥布林', '巨蛛', '山贼', '流浪佣兵', '暗精灵斥候']);
-  if (locId.includes('mine') || locId.includes('矿')) return pickStr(['洞穴蝙蝠', '巨蛛', '哥布林矿工', '岩蛇', '亡灵矿工', '矿洞强盗']);
-  if (locId.includes('road') || locId.includes('道')) return pickStr(['拦路强盗', '野狗', '饿狼', '可疑旅人', '流浪剑客', '逃兵']);
-  if (locId.includes('ruin') || locId.includes('遗迹') || locId.includes('废')) return pickStr(['亡灵守卫', '石像鬼', '遗迹守护者', '暗影', '邪教徒', '盗墓者']);
-  if (locId.includes('cave') || locId.includes('洞')) return pickStr(['洞穴巨蛛', '暗影生物', '蝙蝠群', '穴居人', '地底流放者']);
-  if (locId.includes('town') || locId.includes('镇') || locId.includes('market')) return pickStr(['地痞', '醉汉', '扒手', '闹事佣兵']);
-  return pickStr(['野狼', '哥布林', '强盗', '巨鼠', '毒蛇', '流浪者']);
-}
-function pickStr(arr: string[]): string { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function getMoneyChange(action: PlayerAction, player: Player, _judge: JudgeResult): { gold: number; silver: number; copper: number } {
   // Resting costs money

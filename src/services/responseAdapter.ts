@@ -33,6 +33,10 @@ const MinimalActionOptionSchema = z.object({
   checkSkill: z.string().optional(),
   difficultyClass: z.number().optional(),
   failureConsequence: z.string().optional(),
+  moneyCost: z.object({ gold: z.number().optional(), silver: z.number().optional(), copper: z.number().optional() }).optional(),
+  moneyReward: z.object({ gold: z.number().optional(), silver: z.number().optional(), copper: z.number().optional() }).optional(),
+  mpCost: z.number().optional(),
+  difficultyPreview: z.string().optional(),
 });
 
 
@@ -57,6 +61,7 @@ const MinimalQuestUpdateSchema = z.object({
   status: z.enum(['available', 'active', 'completable', 'completed', 'failed', 'hidden', 'expired', 'branching']).default('active'),
   description: z.string().optional(),
   giver: z.string().optional(),
+  objectives: z.array(z.object({ id: z.string(), description: z.string(), completed: z.boolean().optional() })).optional(),
   rewards: z.object({
     exp: z.number().optional(),
     money: z.object({ gold: z.number().optional(), silver: z.number().optional(), copper: z.number().optional() }).optional(),
@@ -325,6 +330,11 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     requiresCheck: opt.requiresCheck,
     checkReason: opt.checkReason,
     checkAttribute: opt.checkAttribute as any,
+    moneyCost: opt.moneyCost,
+    moneyReward: opt.moneyReward,
+    difficultyClass: opt.difficultyClass,
+    failureConsequence: opt.failureConsequence,
+    checkSkill: opt.checkSkill,
   })) : [{ id: `opt_${Date.now()}_0`, label: '继续探索', type: 'exploration', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '继续探索', contextNote: '当前场景内行动' },
         { id: `opt_${Date.now()}_1`, label: '观察周围', type: 'check', risk: 'low', relatedAttribute: 'wis', relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '观察周围', contextNote: '当前场景内行动' },
         { id: `opt_${Date.now()}_2`, label: '和附近的人交谈', type: 'dialogue', risk: 'low', relatedAttribute: undefined, relatedSkill: null, mpCost: 0, difficultyPreview: '简单', intent: '和附近的人交谈', contextNote: '当前场景内行动' }];
@@ -369,7 +379,7 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       ...u,
       type: u.type || undefined,
     })) : [],
-    questUpdate: (partial.questUpdate || []) as any,
+    questUpdate: Array.isArray(partial.questUpdate) ? partial.questUpdate.map((q: any) => ({ ...q, objectives: q.objectives || [], rewards: q.rewards || undefined })) : [],
     skillStateUpdate: [],
     equipmentUpdate: [],
     relationshipUpdate: (partial.relationshipUpdate || []) as any,
