@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import InventoryPanel from './InventoryPanel';
 import SkillPanel from './SkillPanel';
-import QuestPanel from './QuestPanel';
+import StoryHookPanel from './StoryHookPanel';
 import WorldMapPanel from './WorldMapPanel';
 import LogPanel from './LogPanel';
 import RelationPanel from './RelationPanel';
@@ -9,7 +9,7 @@ import RelationPanel from './RelationPanel';
 type TabId = 'quest' | 'inventory' | 'skill' | 'map' | 'log' | 'relation';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'quest', label: '任务' },
+  { id: 'quest', label: '线索' },
   { id: 'inventory', label: '背包' },
   { id: 'skill', label: '技能' },
   { id: 'map', label: '地图' },
@@ -37,7 +37,7 @@ export default function TabContainer({ initialTab }: { initialTab?: string }) {
 
       {/* Tab content */}
       <div className="flex-1 overflow-auto">
-        {activeTab === 'quest' && <QuestPanel />}
+        {activeTab === 'quest' && <StoryHookPanel />}
         {activeTab === 'inventory' && <InventoryPanel />}
         {activeTab === 'skill' && <SkillPanel />}
         {activeTab === 'map' && <WorldMapPanel />}

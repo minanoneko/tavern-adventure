@@ -122,6 +122,28 @@ export interface GeneratedLocation {
   createdAt: string;
 }
 
+export interface PostCombat {
+  outcome: 'victory' | 'defeat' | 'fled';
+  enemyNames: string[];
+  location: string;
+  summary: string;
+  playerHpAfter: number;
+  enemyStatus: 'defeated' | 'victorious' | 'left' | 'escaped';
+  mustRespectUntilTurn: number;
+}
+
+export interface StoryHook {
+  id: string;
+  title: string;
+  summary: string;
+  type: 'main' | 'side' | 'rumor' | 'npc' | 'mystery' | 'danger';
+  status: 'open' | 'resolved' | 'abandoned';
+  relatedNpcIds?: string[];
+  relatedLocationIds?: string[];
+  createdAtTurn: number;
+  updatedAtTurn: number;
+}
+
 export interface WorldState {
   currentLocation: string;
   currentLocationName?: string;
@@ -141,6 +163,9 @@ export interface WorldState {
   wildernessRestUsed: number;
   combatTrigger?: import('./ai').CombatTrigger;
   lockedStoryFacts: string[];
+  postCombat?: PostCombat;
+  storyHooks: StoryHook[];
+  currentGoal?: string;
 }
 
 export function createDefaultWorldState(): WorldState {
@@ -175,6 +200,8 @@ export function createDefaultWorldState(): WorldState {
     threatLevel: 0,
     wildernessRestUsed: 0,
     lockedStoryFacts: [],
+    storyHooks: [],
+    currentGoal: undefined,
   };
 }
 

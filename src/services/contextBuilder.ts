@@ -1,4 +1,5 @@
-import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry, ActionOption, SelectedActionContext } from '../types';
+import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry, ActionOption, SelectedActionContext, PostCombat } from '../types';
+import { ALLOWED_ITEM_IDS } from '../data/itemCatalog';
 import { getLocationById, getSubregionById, getRegionById } from '../data/regions';
 import { getSkillById } from '../data/skills';
 import { getEquipmentById } from '../data/equipment';
@@ -36,6 +37,7 @@ export interface AIContext {
   hardRules: string;
   selectedAction?: SelectedActionContext;
   lockedStoryFacts: string;
+  postCombatSection?: string;
   combatRequest?: string;
   threatLevel?: number;
 }
@@ -168,28 +170,34 @@ function buildRelevantSkills(player: Player, action: PlayerAction): string {
   return trunc(parts.join(' | ') || '无技能', BUDGET.skills);
 }
 
-// ========== 5. activeQuests ==========
-function buildActiveQuests(player: Player, worldState: WorldState): string {
-  const active = player.quests.filter(q =>
-    q.status === 'active' || q.status === 'available' || q.status === 'completable'
-  );
+// ========== 5. storyHooks (replaces activeQuests) ==========
+function buildStoryHooks(worldState: WorldState): string {
+  const hooks = worldState.storyHooks || [];
+  const openHooks = hooks.filter(h => h.status === 'open');
+  const resolvedHooks = hooks.filter(h => h.status === 'resolved').slice(-3);
 
-  if (active.length === 0) return '无活跃任务';
+  const parts: string[] = [];
 
-  // Sort: current location quests first
-  const sorted = [...active].sort((a, b) => {
-    const aNearby = a.relatedLocation === worldState.currentLocation ? -1 : 0;
-    const bNearby = b.relatedLocation === worldState.currentLocation ? -1 : 0;
-    return aNearby - bNearby;
-  });
+  // Current goal
+  if (worldState.currentGoal) {
+    parts.push(`[当前目标] ${worldState.currentGoal}`);
+  }
 
-  return trunc(
-    sorted.map(q => {
-      const incomplete = q.objectives?.filter(o => !o.completed).map(o => o.description).join('; ') || '';
-      return `${q.status === 'active' ? '▶' : q.status === 'completable' ? '✓' : '○'} ${q.name}${incomplete ? `: ${incomplete}` : ''}`;
-    }).join(' | '),
-    BUDGET.quests
-  );
+  // Open hooks
+  if (openHooks.length > 0) {
+    parts.push('[未解决线索] ' + openHooks.map(h =>
+      `${h.title}: ${h.summary.slice(0, 50)}`
+    ).join(' | '));
+  }
+
+  // Recently resolved
+  if (resolvedHooks.length > 0) {
+    parts.push('[最近解决] ' + resolvedHooks.map(h => h.title).join(', '));
+  }
+
+  if (parts.length === 0) return '暂无剧情线索';
+
+  return trunc(parts.join('\n'), BUDGET.quests);
 }
 
 // ========== 6. relationshipBrief ==========
@@ -248,8 +256,33 @@ function buildLongTermSummary(_player: Player, _worldState: WorldState): string 
   return trunc(text + flagText, BUDGET.longTermSummary);
 }
 
-// ========== 10. hardRules ==========
-const HARD_RULES = `[规则] 玩家数据以本地系统为准。AI不可直接改属性/发神器/给大量金币。奖励需合理且符合等级。遵守判定结果。输出camelCase JSON。`;
+// ========== 10. postCombat section ==========
+function buildPostCombatSection(worldState: WorldState): string | undefined {
+  const pc = worldState.postCombat;
+  if (!pc) return undefined;
+
+  const outcomeLabel = pc.outcome === 'victory' ? '胜利' : pc.outcome === 'defeat' ? '战败' : '逃跑';
+  const enemyText = pc.enemyNames.join('、') || '敌人';
+  const statusText =
+    pc.enemyStatus === 'defeated' ? `已被击败` :
+    pc.enemyStatus === 'victorious' ? `击败了玩家，占据上风` :
+    pc.enemyStatus === 'left' ? `已离开` : `已脱离战斗`;
+
+  let guidance = '';
+  if (pc.outcome === 'defeat') {
+    guidance = `下一幕必须承接战败后果：昏迷醒来、被放过、被俘、逃回安全处、被路人救起、敌人离开等。禁止反转成玩家胜利或敌人求饶。`;
+  } else if (pc.outcome === 'victory') {
+    guidance = `敌人已败/已逃，不能后续写敌人反杀或复活再战。`;
+  } else {
+    guidance = `敌人仍在该区域，玩家成功脱离。`;
+  }
+
+  return `[刚刚战斗结果] 玩家刚刚【${outcomeLabel}】，${enemyText} ${statusText}。${guidance}`;
+}
+
+// ========== 11. hardRules ==========
+const HARD_RULES = `[规则] 玩家数据以本地系统为准。AI不可直接改属性/发神器/给大量金币。奖励需合理且符合等级。遵守判定结果。输出camelCase JSON。
+[可用道具白名单] 功能道具仅限：${ALLOWED_ITEM_IDS.join(', ')}。不在白名单内的道具只能作为quest_item/story_item(usable=false)，无任何效果。`;
 
 // ========== 11. selectedAction ==========
 function buildSelectedAction(option?: ActionOption): SelectedActionContext | undefined {
@@ -314,7 +347,7 @@ export function buildAIContext(
     currentSceneBrief: buildCurrentScene(worldState, currentEvent),
     relevantInventory: buildRelevantInventory(player, playerAction),
     relevantSkills: buildRelevantSkills(player, playerAction),
-    activeQuests: buildActiveQuests(player, worldState),
+    activeQuests: buildStoryHooks(worldState),
     relationshipBrief: buildRelationshipBrief(player, worldState),
     worldBrief: buildWorldBrief(worldState),
     recentLogs: buildRecentLogs(recentLogs),
@@ -322,6 +355,7 @@ export function buildAIContext(
     hardRules: HARD_RULES,
     selectedAction: buildSelectedAction(selectedOption),
     lockedStoryFacts: buildLockedStoryFacts(worldState.lockedStoryFacts, worldState, selectedOption),
+    postCombatSection: buildPostCombatSection(worldState),
     combatRequest: worldState.combatTrigger
       ? `[战斗触发器] 类型:${worldState.combatTrigger.type==='hard'?'强制':'建议'} 原因:${worldState.combatTrigger.reason} 目标:${worldState.combatTrigger.targetHint}`
       : undefined,
@@ -352,6 +386,7 @@ export function formatAIContext(ctx: AIContext): string {
     lines.push(saLines.join(' | '));
   }
 
+  if (ctx.postCombatSection) lines.push(ctx.postCombatSection);
   if (ctx.combatRequest) lines.push(ctx.combatRequest);
   if (ctx.threatLevel && ctx.threatLevel >= 50) lines.push(`[威胁等级] ${ctx.threatLevel}% — 危险临近，应触发战斗`);
   lines.push(`[锁定事实]\n${ctx.lockedStoryFacts}`);

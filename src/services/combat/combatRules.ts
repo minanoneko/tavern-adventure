@@ -1,9 +1,11 @@
 import type { Player } from '../../types';
 import type { CombatState, CombatEnemyState, CombatAction, CombatResolution, CombatLogEntry, CombatSkillInfo, CombatBuff } from '../../types/combat';
+import type { Skill } from '../../types/skill';
 import { d20, getAttributeModifier, rollCheck, getPlayerDefense } from './dice';
 import { getSkillById } from '../../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../../utils/skillRules';
 import { getWeaponCategory } from '../../utils/equipmentRules';
+import { rollWeaponDamage, rollDice, getWeaponDamageDice } from './weaponDamage';
 
 // ========== Legal Actions ==========
 
@@ -139,18 +141,84 @@ export function validateCombatAction(
 
 // ========== Hit & Damage ==========
 
-export function calculateHitRoll(attackerDex: number, defenderDex: number): { roll: number; total: number; hit: boolean } {
+export function calculateHitRoll(attackerDex: number, defenderDex: number): {
+  roll: number;
+  total: number;
+  modifier: number;
+  ac: number;
+  hit: boolean;
+} {
   const atkMod = getAttributeModifier(attackerDex);
-  const defValue = 10 + getAttributeModifier(defenderDex);
+  const ac = 10 + getAttributeModifier(defenderDex);
   const { roll, total } = rollCheck(atkMod);
-  return { roll, total, hit: total >= defValue };
+  return { roll, total, modifier: atkMod, ac, hit: total >= ac };
 }
 
-export function calculateDamage(str: number, skillMultiplier: number = 1.0, isDefending: boolean = false, equipment?: { warriorBracer: boolean }): number {
-  const base = 3 + getAttributeModifier(str) + (equipment?.warriorBracer ? 1 : 0);
-  let damage = Math.max(2, Math.floor(base * skillMultiplier));
-  if (isDefending) damage = Math.max(1, Math.floor(damage / 2));
-  return damage;
+/**
+ * Calculate damage with weapon dice + attribute modifier.
+ * Skills with combatDamage override the dice/attribute used.
+ * Skills without combatDamage fall back to the old rarity multiplier.
+ */
+export function calculateDamage(params: {
+  weaponId: string | null;
+  player: Player;
+  skill?: Skill;
+}): { damageRoll: number; damageModifier: number; damageTotal: number; detail: string } {
+  const { weaponId, player, skill } = params;
+  const cd = skill?.combatDamage;
+
+  if (cd) {
+    // New system: explicit combatDamage config
+    let baseRoll = 0;
+    const parts: string[] = [];
+
+    // damageDice replaces weapon dice entirely (e.g. spark: "1d4")
+    if (cd.damageDice) {
+      const r = rollDice(cd.damageDice);
+      baseRoll += r.roll;
+      parts.push(r.detail);
+    } else if (cd.useWeaponDice !== false) {
+      // useWeaponDice defaults to true
+      const r = rollWeaponDamage(weaponId);
+      baseRoll += r.total;
+      parts.push(r.detail);
+    }
+
+    // bonusDice always adds on top
+    if (cd.bonusDice) {
+      const r = rollDice(cd.bonusDice);
+      baseRoll += r.roll;
+      parts.push(r.detail);
+    }
+
+    // Attribute modifier
+    const attrKey = cd.damageAttribute || 'str';
+    const attrValue = (player.attributes as any)[attrKey] ?? player.attributes.str;
+    const mod = getAttributeModifier(attrValue);
+    const total = Math.max(1, baseRoll + mod);
+
+    const attrLabel = { str: '力量', dex: '敏捷', con: '体质', int: '智力', wis: '感知', cha: '魅力' }[attrKey] || '力量';
+    const modSign = mod >= 0 ? '+' : '';
+    parts.push(`${attrLabel}${modSign}${mod}`);
+
+    return { damageRoll: baseRoll, damageModifier: mod, damageTotal: total, detail: parts.join(' + ') };
+  }
+
+  // Fallback: old rarity multiplier system for skills without combatDamage
+  const weaponResult = rollWeaponDamage(weaponId);
+  const strMod = getAttributeModifier(player.attributes.str);
+  const multiplier = skill
+    ? (skill.rarity === 'uncommon' ? 1.5 : skill.rarity === 'rare' ? 2.0 : 1.0)
+    : 1.0;
+  const base = weaponResult.total + strMod;
+  const damage = Math.max(1, Math.floor(base * multiplier));
+  const modSign = strMod >= 0 ? '+' : '';
+  return {
+    damageRoll: weaponResult.total,
+    damageModifier: strMod,
+    damageTotal: damage,
+    detail: `${weaponResult.detail} + 力量${modSign}${strMod}${multiplier !== 1 ? ` ×${multiplier}` : ''}`,
+  };
 }
 
 /** Check if player has specific rare accessories equipped */
@@ -257,11 +325,14 @@ export function applyCombatResult(
   action: CombatAction,
   combatState: CombatState,
 ): CombatResolution {
-  const { roll, total, hit } = calculateHitRoll(player.attributes.dex, enemy.dex);
+  const hitResult = calculateHitRoll(player.attributes.dex, enemy.dex);
 
   let damage = 0;
   let mpCost = 0;
   let hpCost = 0;
+  let damageRoll = 0;
+  let damageModifier = 0;
+  let damageDetail = '';
   const results: string[] = [];
 
   const updatedEnemy = { ...enemy };
@@ -275,14 +346,13 @@ export function applyCombatResult(
     if (skillUsed) {
       mpCost = skillUsed.castRequirements.mpCost || 0;
       hpCost = skillUsed.castRequirements.hpCost || 0;
-      // mana_crystal: MP cost -1 (min 1)
       if (eqFx.manaCrystal && mpCost > 0) mpCost = Math.max(1, mpCost - 1);
     }
   }
 
   // Action narrative
   if (action.flavorText) {
-    results.push(action.flavorText); // player custom input
+    results.push(action.flavorText);
   } else if (action.type === 'skill' && skillUsed) {
     const casts = SKILL_CASTS[action.skillId!] || SKILL_CASTS.default;
     results.push(pick(casts));
@@ -291,20 +361,30 @@ export function applyCombatResult(
     results.push(pick(ATTACK_ACTIONS[wCat] || ATTACK_ACTIONS.fist)(pName, enemy.name));
   }
 
-  if (hit) {
-    let multiplier = 1.0;
-    if (skillUsed) {
-      multiplier = skillUsed.rarity === 'uncommon' ? 1.5 : skillUsed.rarity === 'rare' ? 2.0 : 1.0;
+  if (hitResult.hit) {
+    const dmgResult = calculateDamage({
+      weaponId: player.equipment.mainWeapon,
+      player,
+      skill: skillUsed,
+    });
+    damage = dmgResult.damageTotal;
+    damageRoll = dmgResult.damageRoll;
+    damageModifier = dmgResult.damageModifier;
+    damageDetail = dmgResult.detail;
+
+    // warrior_bracer: +1 damage
+    if (eqFx.warriorBracer) {
+      damage += 1;
+      damageDetail += ' + 腕甲1';
     }
-    const eqFx = getEquipEffects(player);
-    damage = calculateDamage(player.attributes.str, multiplier, false, eqFx);
 
     if (action.itemId === 'fire_bomb') { damage += 6; results.push('燃烧瓶额外火焰伤害 +6'); }
 
     updatedEnemy.hp = Math.max(0, updatedEnemy.hp - damage);
-    results.push(`d20=${total} → ${pick(ATTACK_HITS)(damage)}`);
+    results.push(`d20=${hitResult.roll} + 敏${hitResult.modifier} = ${hitResult.total} vs AC${hitResult.ac} → ${pick(ATTACK_HITS)(damage)}`);
+    results.push(`${damageDetail} = ${damage}`);
   } else {
-    results.push(`d20=${total} → ${pick(ATTACK_MISSES)()}`);
+    results.push(`d20=${hitResult.roll} + 敏${hitResult.modifier} = ${hitResult.total} vs AC${hitResult.ac} → ${pick(ATTACK_MISSES)()}`);
   }
 
   if (updatedEnemy.hp <= 0) {
@@ -313,21 +393,26 @@ export function applyCombatResult(
     results.push(`${updatedEnemy.name} 被击败！`);
   }
 
-  // Smoke bomb effect
   if (action.itemId === 'smoke_bomb') {
     results.push('烟雾遮蔽，下次逃跑判定+4');
   }
 
   return {
     action,
-    hit,
-    roll: total,
+    hit: hitResult.hit,
+    roll: hitResult.total,
     damage,
     targetEnemy: updatedEnemy,
     playerHpChange: -hpCost,
     playerMpChange: -mpCost,
     appliedEffects: [],
     results,
+    hitRoll: hitResult.roll,
+    hitTotal: hitResult.total,
+    targetAC: hitResult.ac,
+    damageRoll,
+    damageModifier,
+    damageDetail,
   };
 }
 
@@ -347,12 +432,13 @@ export function enemyAttack(
   const results: string[] = [];
   let damage = 0;
 
-  // Enemy action narrative
   results.push(pick(ENEMY_ATTACKS)(enemy.name));
 
   if (hit) {
-    damage = Math.max(2, 3 + getAttributeModifier(enemy.str));
-    // adventurer_ring: -1 damage taken
+    // Enemy uses unarmed dice (1d4) + STR mod, min 2
+    const diceRoll = Math.floor(Math.random() * 4) + 1;
+    const strMod = getAttributeModifier(enemy.str);
+    damage = Math.max(2, diceRoll + strMod);
     const eqFx2 = getEquipEffects(player);
     if (eqFx2.adventurerRing) damage = Math.max(1, damage - 1);
     if (shield) {
@@ -360,7 +446,7 @@ export function enemyAttack(
       damage -= absorbed;
       results.push(`d20=${total} → 命中！护盾吸收${absorbed}，实际${damage}伤害`);
     } else {
-      results.push(`d20=${total} → 命中！${pick(ENEMY_HITS)(damage)}`);
+      results.push(`d20=${total} → 命中！1d4=${diceRoll} + 力${strMod} = ${damage} ${pick(ENEMY_HITS)(damage)}`);
     }
   } else {
     results.push(`d20=${total} → ${pick(ENEMY_MISSES)()}`);

@@ -48,10 +48,15 @@ export function updateLongTermSummary(
     s.storyProgress = narrativeLogs.slice(-5).map(l => l.text.slice(0, 60)).join(' → ');
   }
 
-  // Completed quests
-  const completed = player.quests.filter(q => q.status === 'completed').map(q => q.name);
-  if (completed.length > 0) {
-    s.completedQuests = [...new Set([...s.completedQuests, ...completed])].slice(-10);
+  // Resolved story hooks (replaces completed quests)
+  const resolved = (worldState.storyHooks || []).filter(h => h.status === 'resolved').map(h => h.title);
+  if (resolved.length > 0) {
+    s.completedQuests = [...new Set([...s.completedQuests, ...resolved])].slice(-10);
+  }
+  // Unresolved hooks for future reference
+  const openHooks = (worldState.storyHooks || []).filter(h => h.status === 'open').map(h => h.title);
+  if (openHooks.length > 0) {
+    s.unresolvedHooks = [...new Set([...s.unresolvedHooks, ...openHooks])].slice(-10);
   }
 
   // Key NPCs
@@ -99,13 +104,21 @@ export function extractImportantFacts(event: AIResponse): void {
     }
   }
 
-  // Quest updates
+  // Story hook / quest updates
   for (const qu of event.questUpdate) {
     const fact = qu.status === 'active'
-      ? `接受任务: ${qu.name}`
+      ? `新线索: ${qu.name}`
       : qu.status === 'completed'
-        ? `完成任务: ${qu.name}`
+        ? `线索解决: ${qu.name}`
         : null;
+    if (fact && !longTermMemory.importantFacts.includes(fact)) {
+      longTermMemory.importantFacts.push(fact);
+    }
+  }
+  // storyHookUpdate facts (preferred new system)
+  for (const hu of (event.storyHookUpdate || [])) {
+    const fact = hu.action === 'add' ? `新线索: ${hu.title || hu.summary}`
+      : hu.action === 'resolve' ? `线索解决: ${hu.title || hu.summary}` : null;
     if (fact && !longTermMemory.importantFacts.includes(fact)) {
       longTermMemory.importantFacts.push(fact);
     }

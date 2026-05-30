@@ -19,6 +19,7 @@ import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLo
 import { getEquipmentById } from '../data/equipment';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 import { addMoney, canAfford, subtractMoney } from '../utils/moneyUtils';
+import { getCatalogItem } from '../data/itemCatalog';
 import type { CombatEnemy } from '../types/ai';
 import type { CombatAction } from '../types/combat';
 import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy } from '../services/combat/combatEngine';
@@ -338,14 +339,45 @@ export const useGameStore = create<GameState>((set, get) => ({
             checkReason: option.checkReason,
             checkSkill: option.checkSkill,
           };
-          // Handle option.moneyCost (purchase from option)
-          if (option.moneyCost) {
+          // Handle option.moneyCost
+          if (option.moneyCost && option.purchaseItemId) {
+            // Branch A: purchaseItemId + moneyCost → purchase catalog item
+            const catalogItem = getCatalogItem(option.purchaseItemId);
+            if (!catalogItem) {
+              logs.push({ id: `purchase_err_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `未知商品"${option.purchaseItemId}"，无法购买。` });
+            } else if (!canAfford(player.money, option.moneyCost)) {
+              set({ isProcessing: false, errorMessage: `钱币不足，需要${option.moneyCost.gold ? `${option.moneyCost.gold}金` : ''}${option.moneyCost.silver ? `${option.moneyCost.silver}银` : ''}${option.moneyCost.copper || 0}铜。` });
+              return;
+            } else {
+              player.money = subtractMoney(player.money, option.moneyCost);
+              const qty = option.quantity || 1;
+              const existing = player.inventory.find(i => i.id === option.purchaseItemId);
+              if (existing) {
+                existing.quantity += qty;
+              } else {
+                player.inventory.push({
+                  id: catalogItem.id,
+                  name: catalogItem.name,
+                  type: catalogItem.type,
+                  description: catalogItem.description,
+                  quantity: qty,
+                  rarity: 'common',
+                  usable: catalogItem.usable,
+                  tags: [],
+                });
+              }
+              const costText = option.moneyCost.gold ? `${option.moneyCost.gold}金` : option.moneyCost.silver ? `${option.moneyCost.silver}银` : `${option.moneyCost.copper || 0}铜`;
+              logs.push({ id: `purchase_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `【交易】花费${costText}，获得 ${catalogItem.name} x${qty}` });
+            }
+          } else if (option.moneyCost) {
+            // Branch B: only moneyCost, no purchaseItemId → service consumption
             if (!canAfford(player.money, option.moneyCost)) {
               set({ isProcessing: false, errorMessage: `钱币不足，需要${option.moneyCost.gold ? `${option.moneyCost.gold}金` : ''}${option.moneyCost.silver ? `${option.moneyCost.silver}银` : ''}${option.moneyCost.copper || 0}铜。` });
               return;
             }
             player.money = subtractMoney(player.money, option.moneyCost);
-            logs.push({ id: `purchase_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `花费${option.moneyCost.gold ? `${option.moneyCost.gold}金` : ''}${option.moneyCost.silver ? `${option.moneyCost.silver}银` : ''}${option.moneyCost.copper || 0}铜购买：${option.label}` });
+            const costText = option.moneyCost.gold ? `${option.moneyCost.gold}金` : option.moneyCost.silver ? `${option.moneyCost.silver}银` : `${option.moneyCost.copper || 0}铜`;
+            logs.push({ id: `purchase_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `花费${costText}：${option.label}` });
           }
           if (option.moneyReward) {
             player.money = addMoney(player.money, option.moneyReward);
@@ -522,6 +554,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         const trimmedLogs = trimRecentLogs(engineResult.logs);
         const newEventHistory = [...eventHistory, aiResult.response].slice(-50);
         const newActionCount = (get().actionCount || 0) + 1;
+
+        // Expire postCombat if past mustRespectUntilTurn
+        if (finalWorldState.postCombat && newActionCount >= finalWorldState.postCombat.mustRespectUntilTurn) {
+          finalWorldState.postCombat = undefined;
+        }
 
         set({
           player: engineResult.player,
@@ -719,27 +756,32 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (state.isProcessing) return;
 
     // Run local combat settlement immediately
-    const result = runCombatAction(state.player, state.worldState.combatState, action);
+    const result = runCombatAction(state.player, state.worldState.combatState, action, state.worldState);
 
     // Apply local results to player + combatState immediately
-    let updatedPlayer = result.player;
-    let updatedCombatState = result.combatState;
+    const updatedPlayer = result.player;
+    const updatedCombatState = result.combatState;
 
-    set({
-      player: updatedPlayer,
-      worldState: { ...state.worldState, combatState: updatedCombatState },
-      isProcessing: true,
-    });
-
-    // If combat ended, just show result panel — no AI call here (avoids double-pop)
-    if (!updatedCombatState.active) {
+    // Write postCombat if combat ended (mustRespectUntilTurn set by caller)
+    if (result.postCombat && !updatedCombatState.active) {
+      result.postCombat.mustRespectUntilTurn = (state.actionCount || 0) + 2;
+      set({
+        player: updatedPlayer,
+        worldState: {
+          ...state.worldState,
+          combatState: updatedCombatState,
+          combatCooldown: 5,
+          postCombat: result.postCombat,
+        },
+        isProcessing: false,
+      });
+    } else if (!updatedCombatState.active) {
       set({
         player: updatedPlayer,
         worldState: { ...state.worldState, combatState: updatedCombatState, combatCooldown: 5 },
         isProcessing: false,
       });
     } else {
-      // Combat continuing — no AI call needed for mid-combat
       set({
         player: updatedPlayer,
         worldState: { ...state.worldState, combatState: updatedCombatState },

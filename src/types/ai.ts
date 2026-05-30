@@ -49,6 +49,10 @@ export interface ActionOption {
   failureConsequence?: string;
   moneyCost?: { gold?: number; silver?: number; copper?: number };
   moneyReward?: { gold?: number; silver?: number; copper?: number };
+  /** Optional: white-listed item to add to inventory on purchase */
+  purchaseItemId?: string;
+  /** Quantity to purchase (default 1) */
+  quantity?: number;
 }
 
 /** Structured action context sent to AI alongside the player action */
@@ -99,6 +103,14 @@ export interface QuestUpdate {
     items?: string[];
     skills?: string[];
   };
+}
+
+export interface StoryHookUpdate {
+  action: 'add' | 'update' | 'resolve' | 'abandon';
+  id?: string;
+  title?: string;
+  summary: string;
+  type?: 'main' | 'side' | 'rumor' | 'npc' | 'mystery' | 'danger';
 }
 
 export interface SkillStateUpdate {
@@ -171,6 +183,8 @@ export interface AIResponse {
   playerUpdate: PlayerUpdate;
   inventoryUpdate: InventoryUpdate[];
   questUpdate: QuestUpdate[];
+  /** @deprecated 传统任务系统，保留向后兼容。AI 应优先使用 storyHookUpdate */
+  storyHookUpdate?: StoryHookUpdate[];
   skillStateUpdate: SkillStateUpdate[];
   equipmentUpdate: EquipmentUpdate[];
   relationshipUpdate: RelationshipUpdate[];

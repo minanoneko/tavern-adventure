@@ -84,7 +84,7 @@ export interface CombatResolution {
   action: CombatAction;
   /** Whether the action succeeded (hit landed) */
   hit: boolean;
-  /** Roll result */
+  /** Roll result (hit total) */
   roll: number;
   /** Damage dealt (0 if missed) */
   damage: number;
@@ -97,6 +97,18 @@ export interface CombatResolution {
   appliedEffects: string[];
   /** Log messages */
   results: string[];
+  /** Raw d20 roll */
+  hitRoll?: number;
+  /** d20 + modifier */
+  hitTotal?: number;
+  /** Target's AC */
+  targetAC?: number;
+  /** Raw weapon/skill dice roll */
+  damageRoll?: number;
+  /** Attribute modifier added to damage */
+  damageModifier?: number;
+  /** Human-readable damage breakdown e.g. "短剑 1d6=4 + 力量1" */
+  damageDetail?: string;
 }
 
 // ========== Combat Log ==========

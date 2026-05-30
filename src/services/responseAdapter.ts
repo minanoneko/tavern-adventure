@@ -35,6 +35,8 @@ const MinimalActionOptionSchema = z.object({
   failureConsequence: z.string().optional(),
   moneyCost: z.object({ gold: z.number().optional(), silver: z.number().optional(), copper: z.number().optional() }).optional(),
   moneyReward: z.object({ gold: z.number().optional(), silver: z.number().optional(), copper: z.number().optional() }).optional(),
+  purchaseItemId: z.string().optional(),
+  quantity: z.number().optional(),
   mpCost: z.number().optional(),
   difficultyPreview: z.string().optional(),
 });
@@ -68,6 +70,14 @@ const MinimalQuestUpdateSchema = z.object({
     items: z.array(z.string()).optional(),
     skills: z.array(z.string()).optional(),
   }).optional(),
+});
+
+const MinimalStoryHookUpdateSchema = z.object({
+  action: z.enum(['add', 'update', 'resolve', 'abandon']).default('add'),
+  id: z.string().optional(),
+  title: z.string().optional(),
+  summary: z.string().default(''),
+  type: z.enum(['main', 'side', 'rumor', 'npc', 'mystery', 'danger']).optional(),
 });
 
 const MinimalRelationshipUpdateSchema = z.object({
@@ -118,6 +128,7 @@ const MinimalAIResponseSchema = z.object({
   customActionEnabled: z.boolean().default(true),
   playerUpdate: OptionalPlayerUpdateSchema,
   questUpdate: z.array(MinimalQuestUpdateSchema).optional().default([]),
+  storyHookUpdate: z.array(MinimalStoryHookUpdateSchema).optional().default([]),
   inventoryUpdate: z.array(MinimalInventoryUpdateSchema).optional().default([]),
   relationshipUpdate: z.array(MinimalRelationshipUpdateSchema).optional().default([]),
   mapUpdate: z.array(MinimalMapUpdateSchema).optional().default([]),
@@ -134,6 +145,7 @@ const LenientAIResponseSchema = z.object({
   customActionEnabled: z.any().optional(),
   systemEvents: z.any().optional(),
   questUpdate: z.any().optional(),
+  storyHookUpdate: z.any().optional(),
   inventoryUpdate: z.any().optional(),
   relationshipUpdate: z.any().optional(),
   mapUpdate: z.any().optional(),
@@ -167,6 +179,13 @@ const SNAKE_TO_CAMEL: Record<string, string> = {
   check_reason: 'checkReason', check_attribute: 'checkAttribute',
   check_skill: 'checkSkill', difficulty_class: 'difficultyClass',
   failure_consequence: 'failureConsequence',
+  purchase_item_id: 'purchaseItemId',
+  money_reward: 'moneyReward',
+  story_hook_update: 'storyHookUpdate',
+  created_at_turn: 'createdAtTurn',
+  updated_at_turn: 'updatedAtTurn',
+  related_npc_ids: 'relatedNpcIds',
+  related_location_ids: 'relatedLocationIds',
 };
 
 /** Recursively convert snake_case keys to camelCase */
@@ -332,6 +351,8 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     checkAttribute: opt.checkAttribute as any,
     moneyCost: opt.moneyCost,
     moneyReward: opt.moneyReward,
+    purchaseItemId: opt.purchaseItemId,
+    quantity: opt.quantity,
     difficultyClass: opt.difficultyClass,
     failureConsequence: opt.failureConsequence,
     checkSkill: opt.checkSkill,
@@ -380,6 +401,7 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
       type: u.type || undefined,
     })) : [],
     questUpdate: Array.isArray(partial.questUpdate) ? partial.questUpdate.map((q: any) => ({ ...q, objectives: q.objectives || [], rewards: q.rewards || undefined })) : [],
+    storyHookUpdate: Array.isArray((partial as any).storyHookUpdate) ? (partial as any).storyHookUpdate : undefined,
     skillStateUpdate: [],
     equipmentUpdate: [],
     relationshipUpdate: (partial.relationshipUpdate || []) as any,
@@ -505,13 +527,13 @@ export function normalizeAndComplete(raw: unknown): { success: true; response: A
       });
     }
     // 1.7 Normalize single objects to arrays for optional array fields
-    for (const field of ['mapUpdate', 'questUpdate', 'inventoryUpdate', 'relationshipUpdate']) {
+    for (const field of ['mapUpdate', 'questUpdate', 'storyHookUpdate', 'inventoryUpdate', 'relationshipUpdate']) {
       const val = (normalized as any)[field];
       if (val && !Array.isArray(val) && typeof val === 'object') {
         (normalized as any)[field] = [val];
       }
     }
-    // 1.8 Normalize quest objectives: strings → objects
+    // 1.8 Normalize quest objectives: strings → objects (legacy compat)
     if (Array.isArray((normalized as any).questUpdate)) {
       (normalized as any).questUpdate = (normalized as any).questUpdate.map((q: any) => {
         if (q.objectives && Array.isArray(q.objectives)) {

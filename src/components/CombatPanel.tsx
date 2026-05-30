@@ -3,6 +3,8 @@ import { useGameStore } from '../store/gameStore';
 import type { CombatAction, CombatState } from '../types/combat';
 import { getSkillById } from '../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
+import { getWeaponDamageDice } from '../services/combat/weaponDamage';
+import { getAttributeModifier } from '../services/combat/dice';
 
 export default function CombatPanel() {
   const player = useGameStore(s => s.player);
@@ -34,10 +36,13 @@ export default function CombatPanel() {
   // Combat stats display: DEX vs DEX for hit, STR for damage
   const playerDex = player.attributes.dex;
   const enemyDex = aliveEnemies[0]?.dex || 0;
-  const atkMod = playerDex >= 9 ? 4 : playerDex >= 8 ? 3 : playerDex >= 7 ? 2 : playerDex >= 6 ? 1 : playerDex >= 5 ? 0 : playerDex >= 4 ? -1 : -2;
-  const defMod = enemyDex >= 9 ? 4 : enemyDex >= 8 ? 3 : enemyDex >= 7 ? 2 : enemyDex >= 6 ? 1 : enemyDex >= 5 ? 0 : enemyDex >= 4 ? -1 : -2;
+  const atkMod = getAttributeModifier(playerDex);
+  const defMod = getAttributeModifier(enemyDex);
   const hitTarget = 10 + defMod;
-  const dmgBase = 2 + (player.attributes.str >= 9 ? 4 : player.attributes.str >= 8 ? 3 : player.attributes.str >= 7 ? 2 : player.attributes.str >= 6 ? 1 : player.attributes.str >= 5 ? 0 : player.attributes.str >= 4 ? -1 : -2);
+  const weaponDice = getWeaponDamageDice(player.equipment.mainWeapon);
+  const strMod = getAttributeModifier(player.attributes.str);
+  const dmgMin = 1 + strMod; // minimum damage
+  const dmgMax = weaponDice.dice * weaponDice.count + strMod; // max possible damage
 
   // Victory/Defeat/Fled: just dismiss
   const handleDismiss = () => {
@@ -74,7 +79,7 @@ export default function CombatPanel() {
       {/* Combat formula hint (compact) */}
       {phase === 'fighting' && aliveEnemies.length > 0 && (
         <div className="text-xs text-muted text-center">
-          攻击判定：d20+敏{atkMod>=0?'+':''}{atkMod} vs AC{hitTarget} · 伤害：{dmgBase}~{dmgBase+4}
+          攻击判定：d20+敏{atkMod>=0?'+':''}{atkMod} vs AC{hitTarget} · 伤害：{weaponDice.count}d{weaponDice.dice}+{strMod>=0?'+':''}{strMod}={dmgMin}~{dmgMax}
         </div>
       )}
 
@@ -101,7 +106,7 @@ export default function CombatPanel() {
             }`} onClick={() => !enemy.isDefeated && setSelectedTarget(enemy.id)}>
               <div className="flex justify-between font-bold">
                 <span>{enemy.name}{enemy.isBoss ? <span className="text-danger ml-1">BOSS</span> : ''}</span>
-                <span className="text-muted">Lv.{enemy.level} AC{10 + (enemy.dex>=9?4:enemy.dex>=8?3:enemy.dex>=7?2:enemy.dex>=6?1:enemy.dex>=5?0:enemy.dex>=4?-1:-2)}</span>
+                <span className="text-muted">Lv.{enemy.level} AC{10 + getAttributeModifier(enemy.dex)}</span>
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-danger text-xs">HP</span>
@@ -122,7 +127,7 @@ export default function CombatPanel() {
           <div className="flex flex-wrap gap-1.5">
             {actions.map((a, i) => {
               let tip = '';
-              if (a.type === 'attack') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs AC${hitTarget} · ${dmgBase}~${dmgBase+4}伤害`;
+              if (a.type === 'attack') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs AC${hitTarget} · ${weaponDice.count}d${weaponDice.dice}+${strMod>=0?'+':''}${strMod}=${dmgMin}~${dmgMax}伤害`;
               else if (a.type === 'skill') tip = '技能攻击（消耗MP）';
               else if (a.type === 'defend') tip = '本回合伤害减半';
               else if (a.type === 'flee') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs DC14 逃跑`;

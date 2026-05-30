@@ -5,6 +5,7 @@ import { addMoney as addMoneyUtil } from '../utils/moneyUtils';
 import { createLogEntry } from '../types/log';
 import { SKILL_LIBRARY } from '../data/skills';
 import { EQUIPMENT_LIBRARY } from '../data/equipment';
+import { isAllowedItem } from '../data/itemCatalog';
 import { validateAgainstLockedFacts } from './memoryService';
 
 export interface GameEngineResult {
@@ -98,8 +99,11 @@ export function applyAIResponse(
   // 4. Apply inventory updates
   updatedPlayer = applyInventoryUpdate(updatedPlayer, response, logs);
 
-  // 5. Apply quest updates
-  updatedPlayer = applyQuestUpdate(updatedPlayer, response, logs);
+  // 5. Apply story hook updates (replaces legacy quest system)
+  updatedWorld = applyStoryHookUpdate(updatedWorld, response, logs);
+
+  // 5.5 Legacy quest compat — keep player.quests for save compat but no rewards
+  updatedPlayer = applyLegacyQuestUpdate(updatedPlayer, response, logs);
 
   // 6. Apply skill updates
   updatedPlayer = applySkillUpdate(updatedPlayer, response, logs);
@@ -235,9 +239,17 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
       let itemType = (update.type as any) || 'material';
       let itemRarity = (update.rarity as any) || 'common';
 
-      // DEFENSE: Unknown items → treat as quest_item/storyItem
+      // DEFENSE: Items must be in item catalog or equipment library
       const isKnownEquip = equipLib.includes(update.itemId);
       const isEquipType = ['weapon', 'armor', 'accessory'].includes(itemType);
+      const isCatalogItem = isAllowedItem(update.itemId);
+
+      if (!isCatalogItem && !isKnownEquip) {
+        // Non-whitelist item → downgrade to story item
+        itemType = 'quest_item';
+        itemRarity = 'common';
+        logs.push(createLogEntry('system', `未知道具"${update.name}"已降格为剧情物品，usable=false。`));
+      }
 
       if (!isKnownEquip && isEquipType) {
         // Unknown equipment → downgrade to quest_item
@@ -284,12 +296,66 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
   return p;
 }
 
-function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
-  const p = { ...player, quests: [...player.quests] };
+function applyStoryHookUpdate(world: WorldState, response: AIResponse, logs: LogEntry[]): WorldState {
+  // Prefer storyHookUpdate; fall back to converting legacy questUpdate
+  const legacyUpdates = (response.questUpdate || []).map(q => ({
+    action: q.status === 'completed' ? 'resolve' as const
+      : q.status === 'active' ? 'add' as const
+      : q.status === 'failed' ? 'abandon' as const
+      : 'update' as const,
+    id: q.id,
+    title: q.name,
+    summary: q.description || q.name,
+    type: 'side' as const,
+  }));
+  const updates = response.storyHookUpdate?.length ? response.storyHookUpdate : legacyUpdates;
 
+  if (!updates.length) return world;
+
+  const hooks = [...world.storyHooks];
+  const actionCount = (world.storyHooks.length > 0
+    ? Math.max(...world.storyHooks.map(h => h.updatedAtTurn), 0)
+    : 0) + 1;
+
+  for (const u of updates) {
+    const hookId = u.id || `hook_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const existingIdx = hooks.findIndex(h => h.id === hookId);
+
+    if (u.action === 'add' && existingIdx < 0) {
+      hooks.push({
+        id: hookId,
+        title: u.title || u.summary.slice(0, 20),
+        summary: u.summary,
+        type: u.type || 'side',
+        status: 'open',
+        createdAtTurn: actionCount,
+        updatedAtTurn: actionCount,
+      });
+      logs.push(createLogEntry('world', `【新线索】${u.title || u.summary.slice(0, 20)}`));
+    } else if (u.action === 'update' && existingIdx >= 0) {
+      hooks[existingIdx] = { ...hooks[existingIdx], summary: u.summary, updatedAtTurn: actionCount };
+      if (u.title) hooks[existingIdx].title = u.title;
+      if (u.type) hooks[existingIdx].type = u.type;
+    } else if (u.action === 'resolve' && existingIdx >= 0) {
+      hooks[existingIdx] = { ...hooks[existingIdx], status: 'resolved', summary: u.summary, updatedAtTurn: actionCount };
+      logs.push(createLogEntry('world', `【线索解决】${hooks[existingIdx].title}`));
+    } else if (u.action === 'abandon' && existingIdx >= 0) {
+      hooks[existingIdx] = { ...hooks[existingIdx], status: 'abandoned', summary: u.summary, updatedAtTurn: actionCount };
+      logs.push(createLogEntry('world', `【线索放弃】${hooks[existingIdx].title}`));
+    } else if (u.action === 'add' && existingIdx >= 0) {
+      hooks[existingIdx] = { ...hooks[existingIdx], summary: u.summary, updatedAtTurn: actionCount };
+    }
+  }
+
+  return { ...world, storyHooks: hooks };
+}
+
+/** Legacy quest compat: keep player.quests updated for save compatibility, no rewards */
+function applyLegacyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
+  if (!response.questUpdate?.length) return player;
+  const p = { ...player, quests: [...player.quests] };
   for (const update of response.questUpdate) {
     const existingIdx = p.quests.findIndex(q => q.id === update.id);
-    const oldStatus = existingIdx >= 0 ? p.quests[existingIdx].status : null;
     const quest = {
       id: update.id,
       name: update.name,
@@ -299,32 +365,9 @@ function applyQuestUpdate(player: Player, response: AIResponse, logs: LogEntry[]
       objectives: (update.objectives || []).map(o => ({ id: o.id, description: o.description, completed: o.completed || false })),
       rewards: update.rewards || {},
     };
-
-    if (existingIdx >= 0) {
-      p.quests[existingIdx] = quest;
-    } else {
-      p.quests.push(quest);
-    }
-    logs.push(createLogEntry('quest', `任务：${update.name}（${update.status}）`));
-
-    // Award exp + money on quest completion
-    if (update.status === 'completed' && oldStatus !== 'completed' && update.rewards) {
-      if (update.rewards.exp) {
-        p.exp += update.rewards.exp;
-        logs.push(createLogEntry('quest', `任务奖励：经验 +${update.rewards.exp}`));
-      }
-      if (update.rewards.money) {
-        p.money = addMoneyUtil(p.money, update.rewards.money);
-        const m = update.rewards.money;
-        const parts = [];
-        if (m.gold) parts.push(`${m.gold}金`);
-        if (m.silver) parts.push(`${m.silver}银`);
-        if (m.copper) parts.push(`${m.copper}铜`);
-        if (parts.length > 0) logs.push(createLogEntry('quest', `任务奖励：${parts.join(' ')}`));
-      }
-    }
+    if (existingIdx >= 0) p.quests[existingIdx] = quest;
+    else p.quests.push(quest);
   }
-
   return p;
 }
 

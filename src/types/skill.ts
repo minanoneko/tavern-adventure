@@ -35,6 +35,17 @@ export interface CastRequirement {
   cooldownTurns?: number;
 }
 
+export interface CombatDamage {
+  /** Whether to add weapon dice (default true for weapon skills) */
+  useWeaponDice?: boolean;
+  /** Replacement dice, e.g. "1d6" for pure magic skills */
+  damageDice?: string;
+  /** Extra dice on top, e.g. "1d4" for heavy_strike bonus */
+  bonusDice?: string;
+  /** Which attribute mod to use for damage (default 'str') */
+  damageAttribute?: import('./common').AttributeKey;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -45,6 +56,7 @@ export interface Skill {
   classTags?: string[];
   learnRequirements: LearnRequirement;
   castRequirements: CastRequirement;
+  combatDamage?: CombatDamage;
   effectsDescription?: string;
   source?: string;
 }

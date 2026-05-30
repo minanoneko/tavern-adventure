@@ -71,7 +71,7 @@ export interface Player {
 // ========== Inventory ==========
 export type ItemType =
   | 'weapon' | 'armor' | 'accessory' | 'consumable' | 'material'
-  | 'quest_item' | 'book' | 'skill_book' | 'valuable' | 'cursed';
+  | 'quest_item' | 'book' | 'skill_book' | 'valuable' | 'cursed' | 'tool';
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'cursed' | 'relic';
 

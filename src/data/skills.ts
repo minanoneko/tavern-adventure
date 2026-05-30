@@ -12,6 +12,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     description: '在指尖凝聚一小团火焰，可用于点燃、照明或轻微灼烧目标。',
     learnRequirements: {},
     castRequirements: { mpCost: 2, requiresWeaponType: 'staff' },
+    combatDamage: { useWeaponDice: false, damageDice: '1d4', damageAttribute: 'int' },
   },
   magic_sense: {
     id: 'magic_sense',
@@ -80,6 +81,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     description: '蓄力一击，造成比普通攻击更高的伤害。',
     learnRequirements: {},
     castRequirements: { requiresWeaponType: 'sword', mpCost: 3 },
+    combatDamage: { useWeaponDice: true, bonusDice: '1d4', damageAttribute: 'str' },
   },
   shield_block: {
     id: 'shield_block',
@@ -122,6 +124,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     description: '从背后发起偷袭，造成额外伤害。需要未被目标察觉。',
     learnRequirements: {},
     castRequirements: { requiresWeaponType: 'dagger' },
+    combatDamage: { useWeaponDice: true, bonusDice: '1d6', damageAttribute: 'dex' },
   },
   lockpick: {
     id: 'lockpick',
@@ -190,6 +193,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     description: '用蛮力砸开障碍物、门或……人。',
     learnRequirements: {},
     castRequirements: {},
+    combatDamage: { useWeaponDice: true, bonusDice: '1d4', damageAttribute: 'str' },
   },
   pain_resist: {
     id: 'pain_resist',
@@ -446,6 +450,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     description: '将火焰凝聚成箭矢射出，造成远程火焰伤害。',
     learnRequirements: { minLevel: 3, attributes: { int: 8 } },
     castRequirements: { mpCost: 4, requiresWeaponType: 'staff' },
+    combatDamage: { useWeaponDice: false, damageDice: '1d6', bonusDice: '1d4', damageAttribute: 'int' },
   },
   frost_bind: {
     id: 'frost_bind',

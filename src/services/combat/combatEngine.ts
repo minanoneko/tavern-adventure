@@ -1,4 +1,4 @@
-import type { Player, WorldState } from '../../types';
+import type { Player, WorldState, PostCombat } from '../../types';
 import type { CombatState, CombatStartProposal, CombatAction, CombatResolution, CombatLogEntry } from '../../types/combat';
 import { createEnemiesFromProposal, migrateOldEnemyToState } from './enemyFactory';
 import { getLegalCombatActions, validateCombatAction, applyCombatResult, enemyAttack, checkVictoryDefeat, tryFlee, observeEnemy, tickBuffs } from './combatRules';
@@ -100,6 +100,7 @@ export interface CombatActionResult {
   victory: boolean;
   defeat: boolean;
   fled: boolean;
+  postCombat?: PostCombat;
 }
 
 /**
@@ -109,6 +110,7 @@ export function submitCombatAction(
   player: Player,
   combatState: CombatState,
   action: CombatAction,
+  worldState: WorldState,
 ): CombatActionResult {
   const logs = [...combatState.combatLog];
   let updatedPlayer = { ...player, resources: { ...player.resources } };
@@ -148,8 +150,8 @@ export function submitCombatAction(
     }
     updatedState.turn = 'enemy';
     updatedState = { ...updatedState, combatLog: logs };
-    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
-    return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false };
+    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
+    return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false, postCombat: enemyResult.postCombat };
   }
 
   // Buff skill handler — apply buffs directly, no hit/miss roll
@@ -177,8 +179,8 @@ export function submitCombatAction(
       }
       updatedState.turn = 'enemy';
       updatedState = { ...updatedState, combatLog: logs };
-      const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
-      return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false };
+      const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
+      return { player: enemyResult.player, combatState: enemyResult.combatState, resolution: null, enemyTurnResult: enemyResult.result, victory: false, defeat: enemyResult.defeat, fled: false, postCombat: enemyResult.postCombat };
     }
   }
 
@@ -189,19 +191,29 @@ export function submitCombatAction(
       logs.push(makeLog('system', '逃跑成功！脱离了战斗。', round));
       updatedState.phase = 'fled';
       updatedState.active = false;
+      const enemyNames = combatState.enemies.filter(e => !e.isDefeated).map(e => e.name);
       return {
         player: updatedPlayer,
         combatState: { ...updatedState, combatLog: logs },
         resolution: null,
         enemyTurnResult: null,
         victory: false, defeat: false, fled: true,
+        postCombat: {
+          outcome: 'fled',
+          enemyNames,
+          location: worldState.currentLocationName || worldState.currentLocation || '未知地点',
+          summary: `玩家从与${enemyNames.join('、') || '敌人'}的战斗中逃脱。`,
+          playerHpAfter: updatedPlayer.resources.hp,
+          enemyStatus: 'escaped',
+          mustRespectUntilTurn: 0, // filled by gameStore
+        },
       };
     } else {
       logs.push(makeLog('system', '逃跑失败！', round));
       updatedState.turn = 'enemy';
       updatedState = { ...updatedState, combatLog: logs };
       // Enemy gets a turn
-      const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+      const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
       updatedPlayer = enemyResult.player;
       updatedState = enemyResult.combatState;
       return {
@@ -209,7 +221,7 @@ export function submitCombatAction(
         combatState: updatedState,
         resolution: null,
         enemyTurnResult: enemyResult.result,
-        victory: false, defeat: enemyResult.defeat, fled: false,
+        victory: false, defeat: enemyResult.defeat, fled: false, postCombat: enemyResult.postCombat,
       };
     }
   }
@@ -222,7 +234,7 @@ export function submitCombatAction(
     }
     updatedState.turn = 'enemy';
     updatedState = { ...updatedState, combatLog: logs };
-    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
     updatedPlayer = enemyResult.player;
     updatedState = enemyResult.combatState;
     return {
@@ -230,7 +242,7 @@ export function submitCombatAction(
       combatState: updatedState,
       resolution: null,
       enemyTurnResult: enemyResult.result,
-      victory: false, defeat: enemyResult.defeat, fled: false,
+      victory: false, defeat: enemyResult.defeat, fled: false, postCombat: enemyResult.postCombat,
     };
   }
 
@@ -247,7 +259,7 @@ export function submitCombatAction(
 
     updatedState.turn = 'enemy';
     updatedState = { ...updatedState, combatLog: logs };
-    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+    const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
     updatedPlayer = enemyResult.player;
     updatedState = enemyResult.combatState;
     return {
@@ -255,7 +267,7 @@ export function submitCombatAction(
       combatState: updatedState,
       resolution: null,
       enemyTurnResult: enemyResult.result,
-      victory: false, defeat: enemyResult.defeat, fled: false,
+      victory: false, defeat: enemyResult.defeat, fled: false, postCombat: enemyResult.postCombat,
     };
   }
 
@@ -299,9 +311,19 @@ export function submitCombatAction(
             updatedState.phase = 'fled';
             updatedState.active = false;
             logs.push(makeLog('system', `${negoTarget.name}接受了你的交涉，停止了战斗。`, round));
+            const negoNames = updatedState.enemies.map(e => e.name);
             return {
               player: updatedPlayer, combatState: { ...updatedState, combatLog: logs },
               resolution: null, enemyTurnResult: null, victory: true, defeat: false, fled: false,
+              postCombat: {
+                outcome: 'fled',
+                enemyNames: negoNames,
+                location: worldState.currentLocationName || worldState.currentLocation || '未知地点',
+                summary: `玩家通过交涉说服${negoTarget.name}停止战斗。`,
+                playerHpAfter: updatedPlayer.resources.hp,
+                enemyStatus: 'left',
+                mustRespectUntilTurn: 0,
+              },
             };
           } else {
             logs.push(makeLog('system', '交涉失败，敌人没有理会你。', round));
@@ -334,9 +356,20 @@ export function submitCombatAction(
     if (vicCheck === 'victory') {
       updatedState.phase = 'victory'; updatedState.active = false;
       logs.push(makeLog('system', '战斗胜利！', round));
-      return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, resolution: null, enemyTurnResult: null, victory: true, defeat: false, fled: false };
+      const vicNames = updatedState.enemies.map(e => e.name);
+      return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, resolution: null, enemyTurnResult: null, victory: true, defeat: false, fled: false,
+        postCombat: {
+          outcome: 'victory',
+          enemyNames: vicNames,
+          location: worldState.currentLocationName || worldState.currentLocation || '未知地点',
+          summary: `玩家在战斗中获胜，击败了${vicNames.join('、')}。`,
+          playerHpAfter: updatedPlayer.resources.hp,
+          enemyStatus: 'defeated',
+          mustRespectUntilTurn: 0,
+        },
+      };
     }
-    const specEnemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+    const specEnemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
     return { player: specEnemyResult.player, combatState: specEnemyResult.combatState, resolution: null, enemyTurnResult: specEnemyResult.result, victory: false, defeat: specEnemyResult.defeat, fled: false };
   }
 
@@ -415,12 +448,22 @@ export function submitCombatAction(
     const rewardText = `获得：经验 +${rewards.exp}，钱币 ${rewards.money.gold > 0 ? `${rewards.money.gold}金` : ''}${rewards.money.silver > 0 ? `${rewards.money.silver}银` : ''}${rewards.money.copper}铜`;
     logs.push(makeLog('reward', rewardText, round));
 
+    const victoryNames = updatedState.enemies.map(e => e.name);
     return {
       player: updatedPlayer,
       combatState: { ...updatedState, combatLog: logs },
       resolution,
       enemyTurnResult: null,
       victory: true, defeat: false, fled: false,
+      postCombat: {
+        outcome: 'victory',
+        enemyNames: victoryNames,
+        location: worldState.currentLocationName || worldState.currentLocation || '未知地点',
+        summary: `玩家在战斗中获胜，击败了${victoryNames.join('、')}。`,
+        playerHpAfter: updatedPlayer.resources.hp,
+        enemyStatus: 'defeated',
+        mustRespectUntilTurn: 0,
+      },
     };
   }
 
@@ -437,26 +480,36 @@ export function submitCombatAction(
       updatedPlayer.statusEffects = [...updatedPlayer.statusEffects, '疲劳' as any];
     }
     logs.push(makeLog('system', `战败惩罚：HP恢复至${defeatHp}，失去${loseCopper}铜币，获得「疲劳」状态。`, round));
+    const defeatNames = updatedState.enemies.filter(e => !e.isDefeated).map(e => e.name);
     return {
       player: updatedPlayer,
       combatState: { ...updatedState, combatLog: logs },
       resolution,
       enemyTurnResult: null,
       victory: false, defeat: true, fled: false,
+      postCombat: {
+        outcome: 'defeat',
+        enemyNames: defeatNames,
+        location: worldState.currentLocationName || worldState.currentLocation || '未知地点',
+        summary: `玩家被${defeatNames.join('、') || '敌人'}击败。`,
+        playerHpAfter: updatedPlayer.resources.hp,
+        enemyStatus: 'victorious',
+        mustRespectUntilTurn: 0,
+      },
     };
   }
 
   // Enemy turn
   updatedState.turn = 'enemy';
   updatedState = { ...updatedState, combatLog: logs };
-  const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState);
+  const enemyResult = runEnemyTurnInternal(updatedPlayer, updatedState, worldState);
 
   return {
     player: enemyResult.player,
     combatState: enemyResult.combatState,
     resolution,
     enemyTurnResult: enemyResult.result,
-    victory: false, defeat: enemyResult.defeat, fled: false,
+    victory: false, defeat: enemyResult.defeat, fled: false, postCombat: enemyResult.postCombat,
   };
 }
 
@@ -465,7 +518,8 @@ export function submitCombatAction(
 function runEnemyTurnInternal(
   player: Player,
   combatState: CombatState,
-): { player: Player; combatState: CombatState; result: { damage: number; hit: boolean; roll: number; results: string[] } | null; defeat: boolean } {
+  worldState: WorldState,
+): { player: Player; combatState: CombatState; result: { damage: number; hit: boolean; roll: number; results: string[] } | null; defeat: boolean; postCombat?: PostCombat } {
   let updatedPlayer = { ...player, resources: { ...player.resources } };
   const logs = [...combatState.combatLog];
   const round = combatState.round;
@@ -512,7 +566,18 @@ function runEnemyTurnInternal(
       updatedPlayer.statusEffects = [...updatedPlayer.statusEffects, '疲劳' as any];
     }
     logs.push(makeLog('system', `战败惩罚：HP恢复至${defeatHp}，失去${loseCopper}铜币，获得「疲劳」状态。`, round));
-    return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, result: enemyTurnResult, defeat: true };
+    const defNames = combatState.enemies.filter(e => !e.isDefeated).map(e => e.name);
+    return { player: updatedPlayer, combatState: { ...updatedState, combatLog: logs }, result: enemyTurnResult, defeat: true,
+      postCombat: {
+        outcome: 'defeat',
+        enemyNames: defNames,
+        location: worldState.currentLocationName || worldState.currentLocation || '未知地点',
+        summary: `玩家被${defNames.join('、') || '敌人'}击败。`,
+        playerHpAfter: updatedPlayer.resources.hp,
+        enemyStatus: 'victorious',
+        mustRespectUntilTurn: 0,
+      },
+    };
   }
 
   // Next round
@@ -524,7 +589,7 @@ function runEnemyTurnInternal(
     combatLog: logs,
   };
 
-  return { player: updatedPlayer, combatState: updatedState, result: enemyTurnResult, defeat: false };
+  return { player: updatedPlayer, combatState: updatedState, result: enemyTurnResult, defeat: false, postCombat: undefined };
 }
 
 // ========== End Combat ==========
