@@ -22,18 +22,18 @@ export default function ActionOptions({ options }: { options: ActionOption[] }) 
 
   return (
     <div>
-      <div className="text-sm text-muted mb-2">行动选项</div>
-      <div className="flex flex-wrap gap-2">
+      <div className="hidden lg:block text-sm text-muted mb-2">行动选项</div>
+      <div className="grid grid-cols-1 lg:flex lg:flex-wrap gap-1.5 lg:gap-2">
         {options.map(opt => (
           <button
             key={opt.id}
-            className="btn text-sm text-left py-3 px-4 flex-1 min-w-[140px]"
+            className="btn text-sm text-left py-2 lg:py-3 px-3 lg:px-4 lg:flex-1 lg:min-w-[140px]"
             style={{ borderColor: getRiskColor(opt.risk) }}
             onClick={() => submitAction(opt.id)}
             disabled={!canAffordMp(opt.mpCost)}
           >
-            <div>{opt.label}</div>
-            <div className="flex gap-1 mt-1">
+            <div className="leading-snug">{opt.label}</div>
+            <div className="hidden sm:flex gap-1 mt-1">
               {opt.relatedAttribute && opt.relatedAttribute !== 'none' && (
                 <span className="tag tag-common text-xs">{opt.relatedAttribute.toUpperCase()}</span>
               )}

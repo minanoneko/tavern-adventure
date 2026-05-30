@@ -15,9 +15,9 @@ export const JSON_FORMAT_PROMPT = `=== 输出规则（极其重要）===
     "weather": "多云"
   },
   "actionOptions": [
-    {"label":"选项(≤15字)","type":"dialogue","risk":"low","intent":"动作目的","contextNote":"关联NPC/目标/事件","targetEntityId":"npc_xxx"},
-    {"label":"选项","type":"trade","risk":"low","intent":"购买意图","moneyCost":{"copper":50},"requiresCheck":false},
-    {"label":"选项","type":"check","risk":"medium","intent":"动作目的","requiresCheck":true,"checkAttribute":"dex","difficultyClass":14,"failureConsequence":"被守卫发现"}
+    {"label":"逼问报价漏洞","type":"dialogue","risk":"low","intent":"套出对方隐瞒的条件或破绽","contextNote":"关联当前NPC/交易/委托","targetEntityId":"npc_xxx"},
+    {"label":"花钱买捷径","type":"trade","risk":"low","intent":"用小额钱币换取路线、情报或引荐","moneyCost":{"copper":50},"requiresCheck":false},
+    {"label":"冒险抢先手","type":"check","risk":"medium","intent":"用一次有风险的行动换取先手或关键情报","requiresCheck":true,"checkAttribute":"dex","difficultyClass":14,"failureConsequence":"暴露意图或引发冲突"}
   ],
   "combatStart": { "enemies": [{"name":"灰狼","type":"monster","suggestedLevel":2}], "reason":"理由" },
   "customActionEnabled": true

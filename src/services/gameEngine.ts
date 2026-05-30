@@ -1,10 +1,11 @@
-import type { Player, WorldState, AIResponse, LogEntry } from '../types';
+import type { Player, WorldState, AIResponse, LogEntry, ItemType, ItemRarity, PlayerAction, ActionOption } from '../types';
 import type { Weather } from '../types/common';
 import { clampResource, normalizeWeather, normalizeTimeOfDay, advanceTime, nextWeatherInCycle } from '../types/common';
 import { addMoney as addMoneyUtil } from '../utils/moneyUtils';
 import { createLogEntry } from '../types/log';
 import { SKILL_LIBRARY } from '../data/skills';
 import { EQUIPMENT_LIBRARY } from '../data/equipment';
+import { getRegionById, getSubregionById, getLocationById, REGIONS, SUBREGIONS, LOCATIONS } from '../data/regions';
 import { isAllowedItem } from '../data/itemCatalog';
 import { validateAgainstLockedFacts } from './memoryService';
 
@@ -62,11 +63,51 @@ function clampMoneyChangeByLevel(
   return { gold, silver, copper };
 }
 
+interface ApplyAIResponseOptions {
+  playerAction?: PlayerAction;
+  selectedOption?: ActionOption;
+  allowMapTransition?: boolean;
+}
+
+function normalizeInventoryType(raw?: string): ItemType {
+  const value = (raw || 'material').toLowerCase().trim();
+  const map: Record<string, ItemType> = {
+    quest: 'quest_item',
+    questitem: 'quest_item',
+    story: 'quest_item',
+    story_item: 'quest_item',
+    storyitem: 'quest_item',
+    equipment: 'quest_item',
+    equip: 'quest_item',
+    skillbook: 'skill_book',
+    skill_book: 'skill_book',
+  };
+  const allowed: ItemType[] = ['weapon', 'armor', 'accessory', 'consumable', 'material', 'quest_item', 'book', 'skill_book', 'valuable', 'cursed', 'tool'];
+  return map[value] || (allowed.includes(value as ItemType) ? value as ItemType : 'material');
+}
+
+function normalizeInventoryRarity(raw?: string): ItemRarity {
+  const value = (raw || 'common').toLowerCase().trim();
+  const map: Record<string, ItemRarity> = {
+    normal: 'common',
+    white: 'common',
+    green: 'uncommon',
+    blue: 'uncommon',
+    purple: 'rare',
+    orange: 'epic',
+    gold: 'legendary',
+    red: 'cursed',
+  };
+  const allowed: ItemRarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'cursed', 'relic'];
+  return map[value] || (allowed.includes(value as ItemRarity) ? value as ItemRarity : 'common');
+}
+
 export function applyAIResponse(
   response: AIResponse,
   player: Player,
   worldState: WorldState,
-  existingLogs: LogEntry[]
+  existingLogs: LogEntry[],
+  options: ApplyAIResponseOptions = {},
 ): GameEngineResult {
   const logs: LogEntry[] = [];
   let updatedPlayer = { ...player };
@@ -85,8 +126,13 @@ export function applyAIResponse(
     response.playerUpdate.moneyChange = {};
   }
 
-  // 1. Log scene
-  logs.push(createLogEntry('narrative', `【${response.scene.title}】${response.scene.text.slice(0, 100)}...`));
+  // 1. Log scene as a compact index entry; the full prose already appears in the story panel.
+  const sceneMeta = [
+    response.scene.location || worldState.currentLocationName,
+    response.scene.time,
+    response.scene.weather,
+  ].filter(Boolean).join(' · ');
+  logs.push(createLogEntry('narrative', `【${response.scene.title}】${sceneMeta || '剧情推进'}`));
 
   // 2. Log system events
   for (const se of response.systemEvents) {
@@ -118,13 +164,13 @@ export function applyAIResponse(
   updatedWorld = applyMapUpdate(updatedWorld, response, logs);
 
   // 10. Apply scene location (before memory update)
-  updatedWorld = applySceneLocation(updatedWorld, response, logs);
+  updatedWorld = applySceneLocation(updatedWorld, response, updatedPlayer, logs, options);
 
   // 10.5 Sync scene time/weather back to worldState
   updatedWorld = applySceneMeta(updatedWorld, response);
 
   // 11. Apply memory updates
-  updatedWorld = applyMemoryUpdate(updatedWorld, response);
+  updatedWorld = applyMemoryUpdate(updatedWorld, response, updatedPlayer, logs, options);
 
   // 11.5 Validate and merge lockedFacts from AI
   if (response.memoryUpdate.lockedFacts?.length) {
@@ -236,8 +282,8 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
       continue;
     }
     if (update.action === 'add') {
-      let itemType = (update.type as any) || 'material';
-      let itemRarity = (update.rarity as any) || 'common';
+      let itemType = normalizeInventoryType(update.type);
+      let itemRarity = normalizeInventoryRarity(update.rarity);
 
       // DEFENSE: Items must be in item catalog or equipment library
       const isKnownEquip = equipLib.includes(update.itemId);
@@ -498,8 +544,94 @@ function applyMapUpdate(world: WorldState, response: AIResponse, logs: LogEntry[
   return w;
 }
 
+function addDiscoveredRegion(w: WorldState, regionId: string, logs: LogEntry[], name?: string): WorldState {
+  if (w.discoveredRegions.includes(regionId)) return w;
+  logs.push(createLogEntry('world', `发现区域：${name || getRegionById(regionId)?.name || regionId}`));
+  return { ...w, discoveredRegions: [...w.discoveredRegions, regionId] };
+}
+
+function addDiscoveredLocation(w: WorldState, locationId: string, logs: LogEntry[], name?: string): WorldState {
+  if (w.discoveredLocations.includes(locationId)) return w;
+  logs.push(createLogEntry('world', `发现地点：${name || getLocationById(locationId)?.name || getSubregionById(locationId)?.name || locationId}`));
+  return { ...w, discoveredLocations: [...w.discoveredLocations, locationId] };
+}
+
+function resolveKnownMapTarget(locId: string, locName: string): {
+  id: string;
+  name: string;
+  kind: 'region' | 'subregion' | 'location';
+  regionId?: string;
+} | null {
+  const id = locId.trim();
+  const name = locName.trim();
+  const location = LOCATIONS.find(l => l.id === id || l.name === name || l.name === id);
+  if (location) {
+    const sub = getSubregionById(location.subregionId);
+    return { id: location.id, name: location.name, kind: 'location', regionId: sub?.regionId };
+  }
+
+  const subregion = SUBREGIONS.find(s => s.id === id || s.name === name || s.name === id);
+  if (subregion) {
+    return { id: subregion.id, name: subregion.name, kind: 'subregion', regionId: subregion.regionId };
+  }
+
+  const region = REGIONS.find(r => r.id === id || r.name === name || r.name === id);
+  if (region) {
+    return { id: region.id, name: region.name, kind: 'region', regionId: region.id };
+  }
+
+  return null;
+}
+
+function meetsUnlockCondition(
+  condition: { type: string; minLevel?: number; factionId?: string; minStanding?: number; flag?: string; itemId?: string } | undefined,
+  player: Player,
+  world: WorldState,
+): boolean {
+  if (!condition) return true;
+  if (condition.type === 'level') return player.level >= (condition.minLevel ?? 1);
+  if (condition.type === 'flag') return !!condition.flag && world.worldFlags.includes(condition.flag);
+  if (condition.type === 'faction') return (world.factionStandings[condition.factionId || ''] ?? 0) >= (condition.minStanding ?? 0);
+  if (condition.type === 'item') return player.inventory.some(i => i.id === condition.itemId && i.quantity > 0);
+  return false;
+}
+
+function canEnterKnownMapTarget(
+  target: ReturnType<typeof resolveKnownMapTarget>,
+  player: Player,
+  world: WorldState,
+): boolean {
+  if (!target) return true;
+  if (target.kind === 'region' && world.discoveredRegions.includes(target.id)) return true;
+  if (target.kind !== 'region' && world.discoveredLocations.includes(target.id)) return true;
+
+  const region = target.regionId ? getRegionById(target.regionId) : undefined;
+  const subregion = target.kind === 'subregion'
+    ? getSubregionById(target.id)
+    : target.kind === 'location'
+      ? getSubregionById(getLocationById(target.id)?.subregionId || '')
+      : undefined;
+  const location = target.kind === 'location' ? getLocationById(target.id) : undefined;
+
+  if (region && !meetsUnlockCondition(region.unlockCondition, player, world)) return false;
+  if (subregion && !meetsUnlockCondition(subregion.unlockCondition, player, world)) return false;
+  if (location && !meetsUnlockCondition(location.unlockCondition, player, world)) return false;
+
+  const recommended = location?.dangerLevel ?? subregion?.recommendedLevel ?? region?.recommendedLevel ?? 1;
+  return player.level + 2 >= recommended;
+}
+
+function allowsMapTransition(options: ApplyAIResponseOptions): boolean {
+  if (options.allowMapTransition) return true;
+  if (options.selectedOption?.allowsTransition) return true;
+  if (options.selectedOption?.type === 'travel') return true;
+  const action = options.playerAction;
+  if (!action) return false;
+  return action.type === 'move' || action.type === 'travel';
+}
+
 /** Update current location from AI scene response */
-function applySceneLocation(world: WorldState, response: AIResponse, logs: LogEntry[]): WorldState {
+function applySceneLocation(world: WorldState, response: AIResponse, player: Player, logs: LogEntry[], options: ApplyAIResponseOptions): WorldState {
   let locId = response.scene.locationId
     || response.memoryUpdate?.currentLocationId
     || response.memoryUpdate?.currentLocation
@@ -512,8 +644,38 @@ function applySceneLocation(world: WorldState, response: AIResponse, logs: LogEn
     return world;
   }
 
+  const knownTarget = resolveKnownMapTarget(locId, locName);
+  if (knownTarget) {
+    const isSamePlace = knownTarget.id === world.currentLocation;
+    if (!isSamePlace && !allowsMapTransition(options)) {
+      logs.push(createLogEntry('world', `地图过渡被延后：${knownTarget.name}。需要玩家选择旅行或明确移动后才能抵达。`));
+      return { ...world, currentLocationName: world.currentLocationName };
+    }
+    if (!canEnterKnownMapTarget(knownTarget, player, world)) {
+      logs.push(createLogEntry('world', `尚未解锁区域：${knownTarget.name}。已保留当前位置。`));
+      return world;
+    }
+    let w: WorldState = {
+      ...world,
+      currentLocation: knownTarget.id,
+      currentLocationName: knownTarget.name,
+      discoveredRegions: [...world.discoveredRegions],
+      discoveredLocations: [...world.discoveredLocations],
+    };
+    if (knownTarget.regionId) {
+      w = addDiscoveredRegion(w, knownTarget.regionId, logs);
+    }
+    if (knownTarget.kind !== 'region') {
+      w = addDiscoveredLocation(w, knownTarget.id, logs, knownTarget.name);
+    }
+    return w;
+  }
+
   // If we have a name but no id, generate a story location id
   if (!locId && locName) {
+    if (!allowsMapTransition(options)) {
+      return world;
+    }
     const generatedId = `story_${locName.replace(/[^a-zA-Z一-鿿]/g, '_').toLowerCase().slice(0, 30)}`;
     if (!world.generatedLocations[generatedId]) {
       world.generatedLocations[generatedId] = {
@@ -529,6 +691,9 @@ function applySceneLocation(world: WorldState, response: AIResponse, logs: LogEn
   }
 
   if (locId) {
+    if (locId !== world.currentLocation && !allowsMapTransition(options)) {
+      return world;
+    }
     const w = { ...world, currentLocation: locId, currentLocationName: locName || world.currentLocationName, generatedLocations: { ...world.generatedLocations } };
     if (!w.discoveredLocations.includes(locId) && !locId.startsWith('gray_deer') && !locId.startsWith('whitestone') && !locId.startsWith('forest_road')) {
       w.discoveredLocations = [...w.discoveredLocations, locId];
@@ -586,8 +751,8 @@ function avoidRepeatedWeather(current: Weather, flags: string[]): Weather {
   return current;
 }
 
-function applyMemoryUpdate(world: WorldState, response: AIResponse): WorldState {
-  const w = {
+function applyMemoryUpdate(world: WorldState, response: AIResponse, player: Player, logs: LogEntry[], options: ApplyAIResponseOptions): WorldState {
+  let w = {
     ...world,
     worldFlags: [...world.worldFlags],
   };
@@ -596,15 +761,32 @@ function applyMemoryUpdate(world: WorldState, response: AIResponse): WorldState 
     if (!w.worldFlags.includes(flag)) w.worldFlags.push(flag);
   }
 
-  if (response.memoryUpdate.currentLocationId) {
+  const memoryLocId = response.memoryUpdate.currentLocationId || response.memoryUpdate.currentLocation || '';
+  const memoryTarget = resolveKnownMapTarget(memoryLocId, response.scene.location || '');
+  if (memoryTarget) {
+    const isSamePlace = memoryTarget.id === w.currentLocation;
+    if (!isSamePlace && !allowsMapTransition(options)) {
+      logs.push(createLogEntry('world', `地图过渡被延后：${memoryTarget.name}。需要玩家选择旅行或明确移动后才能抵达。`));
+      return w;
+    }
+    if (!canEnterKnownMapTarget(memoryTarget, player, w)) {
+      logs.push(createLogEntry('world', `尚未解锁区域：${memoryTarget.name}。已忽略本次地图切换。`));
+      return w;
+    }
+    w.currentLocation = memoryTarget.id;
+    w.currentLocationName = memoryTarget.name;
+    if (memoryTarget.regionId) {
+      w = addDiscoveredRegion(w, memoryTarget.regionId, logs);
+    }
+    if (memoryTarget.kind !== 'region') {
+      w = addDiscoveredLocation(w, memoryTarget.id, logs, memoryTarget.name);
+    }
+  } else if (response.memoryUpdate.currentLocationId) {
+    if (response.memoryUpdate.currentLocationId !== w.currentLocation && !allowsMapTransition(options)) return w;
     w.currentLocation = response.memoryUpdate.currentLocationId;
   } else if (response.memoryUpdate.currentLocation) {
+    if (response.memoryUpdate.currentLocation !== w.currentLocation && !allowsMapTransition(options)) return w;
     w.currentLocation = response.memoryUpdate.currentLocation;
-  }
-
-  // Sync from scene locationId as well
-  if (response.scene.locationId) {
-    w.currentLocation = response.scene.locationId;
   }
 
   return w;

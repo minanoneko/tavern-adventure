@@ -1,6 +1,7 @@
 import type { Player, Skill, SkillStatus, SkillLockInfo } from '../types';
 import { getSkillById } from '../data/skills';
 import { getEquipmentById } from '../data/equipment';
+import { getEffectiveAttributes } from './equipmentRules';
 
 export function canLearnSkill(skill: Skill, player: Player): boolean {
   const req = skill.learnRequirements;
@@ -20,12 +21,13 @@ export function canLearnSkill(skill: Skill, player: Player): boolean {
 
 export function canCastSkill(skill: Skill, player: Player, currentLocation?: string): boolean {
   const req = skill.castRequirements;
+  const effectiveAttributes = getEffectiveAttributes(player);
   if (req.minLevel && player.level < req.minLevel) return false;
   if (req.mpCost && player.resources.mp < req.mpCost) return false;
   if (req.hpCost && player.resources.hp < req.hpCost) return false;
   if (req.attributes) {
     for (const [key, val] of Object.entries(req.attributes)) {
-      if ((player.attributes[key as keyof typeof player.attributes] ?? 0) < val) return false;
+      if ((effectiveAttributes[key as keyof typeof effectiveAttributes] ?? 0) < val) return false;
     }
   }
   // Check weapon type requirement
@@ -63,6 +65,7 @@ export function canCastSkill(skill: Skill, player: Player, currentLocation?: str
 export function getSkillLockReasons(skill: Skill, player: Player, currentLocation?: string): string[] {
   const reasons: string[] = [];
   const req = skill.castRequirements;
+  const effectiveAttributes = getEffectiveAttributes(player);
 
   if (req.minLevel && player.level < req.minLevel) {
     reasons.push(`等级不足，需要 Lv.${req.minLevel}`);
@@ -76,7 +79,7 @@ export function getSkillLockReasons(skill: Skill, player: Player, currentLocatio
   if (req.attributes) {
     for (const [key, val] of Object.entries(req.attributes)) {
       const attrLabels: Record<string, string> = { str: '力量', dex: '敏捷', con: '体质', int: '智力', wis: '感知', cha: '魅力' };
-      if ((player.attributes[key as keyof typeof player.attributes] ?? 0) < val) {
+      if ((effectiveAttributes[key as keyof typeof effectiveAttributes] ?? 0) < val) {
         reasons.push(`${attrLabels[key]}不足，需要 ${val}`);
       }
     }

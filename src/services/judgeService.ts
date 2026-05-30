@@ -2,6 +2,7 @@ import type { Player, PlayerAction, JudgeResult, JudgeOutcome } from '../types';
 import type { AttributeKey } from '../types/common';
 import { ATTRIBUTE_LABELS } from '../types/common';
 import { getSkillById } from '../data/skills';
+import { getEffectiveAttributes } from '../utils/equipmentRules';
 
 function d20(): number {
   return Math.floor(Math.random() * 20) + 1;
@@ -48,10 +49,11 @@ export function evaluate(
   const rawAttr = (action.checkAttribute || action.relatedAttribute) as string | undefined;
   let modifier = 0;
   let attrLabel = '';
+  const effectiveAttributes = getEffectiveAttributes(player);
 
   if (rawAttr && rawAttr !== 'none') {
     const attrKey = rawAttr as AttributeKey;
-    const attrValue = player.attributes[attrKey] ?? 5;
+    const attrValue = effectiveAttributes[attrKey] ?? 5;
     modifier = getAttributeModifier(attrValue);
     attrLabel = ATTRIBUTE_LABELS[attrKey];
   }

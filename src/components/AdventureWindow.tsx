@@ -17,7 +17,7 @@ export default function AdventureWindow() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Scrollable event area */}
-      <div className="flex-1 overflow-auto px-3 lg:px-6 py-3 lg:py-5 space-y-3 lg:space-y-4">
+      <div className="flex-1 overflow-auto px-3 lg:px-6 py-3 lg:py-5 space-y-3 lg:space-y-4 pb-4">
         {/* Past events breadcrumb */}
         {eventHistory.length > 1 && (
           <div className="text-sm text-muted border-b border-[var(--color-tavern-border)] pb-3 mb-3">
@@ -28,13 +28,13 @@ export default function AdventureWindow() {
         {/* Current Event */}
         {currentEvent && (
           <div>
-            <div className="flex items-center gap-3 mb-3">
-              <h2 className="text-xl" style={{ color: 'var(--color-tavern-accent)' }}>{currentEvent.scene.title}</h2>
-              <span className="text-sm text-muted">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 mb-3">
+              <h2 className="text-lg lg:text-xl leading-snug" style={{ color: 'var(--color-tavern-accent)' }}>{currentEvent.scene.title}</h2>
+              <span className="text-xs lg:text-sm text-muted">
                 {currentEvent.scene.location} · {currentEvent.scene.time} · {currentEvent.scene.weather}
               </span>
             </div>
-            <div className="text-base leading-relaxed whitespace-pre-wrap" style={{ lineHeight: '1.8' }}>
+            <div className="text-[15px] lg:text-base leading-relaxed whitespace-pre-wrap" style={{ lineHeight: '1.75' }}>
               {currentEvent.scene.text}
             </div>
 
@@ -90,7 +90,7 @@ export default function AdventureWindow() {
 
       {/* Action area (fixed at bottom) — hidden during combat */}
       {currentEvent && !isProcessing && !combatActive && (
-        <div className="border-t border-[var(--color-tavern-border)] px-2 lg:px-6 py-2 lg:py-3 space-y-1.5 lg:space-y-2 flex-shrink-0">
+        <div className="mobile-action-dock border-t border-[var(--color-tavern-border)] px-2 lg:px-6 py-2 lg:py-3 space-y-1.5 lg:space-y-2 flex-shrink-0">
           {/* AI-generated story options (max 2) */}
           <ActionOptions options={currentEvent.actionOptions.slice(0, 3)} />
           {/* Player fixed actions */}

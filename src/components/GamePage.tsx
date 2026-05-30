@@ -49,7 +49,7 @@ export default function GamePage() {
         {mobilePanel === 'character' && (
           <div className="lg:hidden fixed inset-0 z-30 flex">
             <div className="flex-1 bg-black/50" onClick={() => setMobilePanel('none')} />
-            <div className="w-72 h-full overflow-auto panel border-l border-[var(--color-tavern-border)]">
+            <div className="w-[86vw] max-w-80 h-full overflow-auto panel border-l border-[var(--color-tavern-border)]">
               <div className="flex justify-between items-center p-2 border-b border-[var(--color-tavern-border)]">
                 <span className="text-sm text-muted">角色</span>
                 <button className="btn text-xs" onClick={() => setMobilePanel('none')}>关闭</button>
@@ -74,7 +74,7 @@ export default function GamePage() {
         {mobilePanel === 'tabs' && (
           <div className="lg:hidden fixed inset-0 z-30 flex justify-end">
             <div className="flex-1 bg-black/50" onClick={() => setMobilePanel('none')} />
-            <div className="w-80 h-full overflow-hidden flex flex-col panel border-l border-[var(--color-tavern-border)]">
+            <div className="w-[92vw] max-w-96 h-full overflow-hidden flex flex-col panel border-l border-[var(--color-tavern-border)]">
               <div className="flex justify-between items-center p-2 border-b border-[var(--color-tavern-border)]">
                 <span className="text-sm text-muted">面板</span>
                 <button className="btn text-xs" onClick={() => setMobilePanel('none')}>关闭</button>
@@ -88,48 +88,36 @@ export default function GamePage() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <div className="lg:hidden flex border-t border-[var(--color-tavern-border)] bg-[var(--color-tavern-panel)]">
+      <div className="lg:hidden grid grid-cols-5 border-t border-[var(--color-tavern-border)] bg-[var(--color-tavern-panel)]">
         <button
-          className={`flex-1 py-2 text-xs flex flex-col items-center gap-0.5 ${mobilePanel === 'character' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
+          className={`py-2.5 text-sm flex items-center justify-center ${mobilePanel === 'character' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
           onClick={() => setMobilePanel(mobilePanel === 'character' ? 'none' : 'character')}
         >
-          <span className="text-base">👤</span>
           <span>角色</span>
         </button>
         <button
-          className="flex-1 py-2 text-xs flex flex-col items-center gap-0.5 text-[var(--color-tavern-accent)]"
+          className="py-2.5 text-sm flex items-center justify-center text-[var(--color-tavern-accent)]"
           onClick={() => setMobilePanel('none')}
         >
-          <span className="text-base">📜</span>
           <span>冒险</span>
         </button>
         <button
-          className={`flex-1 py-2 text-xs flex flex-col items-center gap-0.5 ${mobilePanel === 'tabs' && mobileTab === 'quest' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
-          onClick={() => { setMobileTab('quest'); setMobilePanel('tabs'); }}
+          className={`py-2.5 text-sm flex items-center justify-center ${mobilePanel === 'tabs' && mobileTab === 'log' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
+          onClick={() => { setMobileTab('log'); setMobilePanel('tabs'); }}
         >
-          <span className="text-base">📋</span>
-          <span>任务</span>
+          <span>日志</span>
         </button>
         <button
-          className={`flex-1 py-2 text-xs flex flex-col items-center gap-0.5 ${mobilePanel === 'tabs' && mobileTab === 'inventory' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
+          className={`py-2.5 text-sm flex items-center justify-center ${mobilePanel === 'tabs' && mobileTab === 'inventory' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
           onClick={() => { setMobileTab('inventory'); setMobilePanel('tabs'); }}
         >
-          <span className="text-base">🎒</span>
           <span>背包</span>
         </button>
         <button
-          className={`flex-1 py-2 text-xs flex flex-col items-center gap-0.5 ${mobilePanel === 'tabs' && mobileTab === 'relation' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
+          className={`py-2.5 text-sm flex items-center justify-center ${mobilePanel === 'tabs' && mobileTab === 'relation' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
           onClick={() => { setMobileTab('relation'); setMobilePanel('tabs'); }}
         >
-          <span className="text-base">💬</span>
-          <span>关系</span>
-        </button>
-        <button
-          className="flex-1 py-2 text-xs flex flex-col items-center gap-0.5 text-muted"
-          onClick={() => setShowSettings(true)}
-        >
-          <span className="text-base">⚙️</span>
-          <span>设置</span>
+          <span>人物</span>
         </button>
       </div>
 

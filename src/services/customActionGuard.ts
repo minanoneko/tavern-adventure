@@ -4,6 +4,7 @@ import type { Skill } from '../types/skill';
 import type { AttributeKey } from '../types/common';
 import { canCastSkill, getSkillLockReasons } from '../utils/skillRules';
 import { SKILL_LIBRARY } from '../data/skills';
+import { REGIONS, SUBREGIONS, LOCATIONS, getRegionById, getSubregionById } from '../data/regions';
 
 export interface CustomActionGuardResult {
   allowed: boolean;
@@ -61,6 +62,58 @@ function detectInjection(text: string): string | null {
   // Mass reward injection
   if (/(?:100000|99999|无限|unlimited).*(?:金币|金|银|铜|经验|exp|等级|级)/.test(t)) return '不能请求异常数量的奖励。';
   return null;
+}
+
+function resolveKnownMapName(text: string): { id: string; name: string; kind: 'region' | 'subregion' | 'location'; regionId?: string } | null {
+  const targetText = text.replace(/^(我)?(想要|准备|打算)?(前往|去|进入|离开|来到|回到|返回|走向|走到)/, '').trim();
+  const location = LOCATIONS.find(l => targetText.includes(l.name) || targetText.includes(l.id));
+  if (location) {
+    const sub = getSubregionById(location.subregionId);
+    return { id: location.id, name: location.name, kind: 'location', regionId: sub?.regionId };
+  }
+
+  const subregion = SUBREGIONS.find(s => targetText.includes(s.name) || targetText.includes(s.id));
+  if (subregion) {
+    return { id: subregion.id, name: subregion.name, kind: 'subregion', regionId: subregion.regionId };
+  }
+
+  const region = REGIONS.find(r => targetText.includes(r.name) || targetText.includes(r.id));
+  if (region) {
+    return { id: region.id, name: region.name, kind: 'region', regionId: region.id };
+  }
+
+  return null;
+}
+
+function meetsUnlock(condition: { type: string; minLevel?: number; factionId?: string; minStanding?: number; flag?: string; itemId?: string } | undefined, player: Player, worldState: WorldState): boolean {
+  if (!condition) return true;
+  if (condition.type === 'level') return player.level >= (condition.minLevel ?? 1);
+  if (condition.type === 'flag') return !!condition.flag && worldState.worldFlags.includes(condition.flag);
+  if (condition.type === 'faction') return (worldState.factionStandings[condition.factionId || ''] ?? 0) >= (condition.minStanding ?? 0);
+  if (condition.type === 'item') return player.inventory.some(i => i.id === condition.itemId && i.quantity > 0);
+  return false;
+}
+
+function canReachKnownMapTarget(target: ReturnType<typeof resolveKnownMapName>, player: Player, worldState: WorldState): boolean {
+  if (!target) return true;
+  if (target.kind === 'region' && worldState.discoveredRegions.includes(target.id)) return true;
+  if (target.kind !== 'region' && worldState.discoveredLocations.includes(target.id)) return true;
+  if (target.regionId && !worldState.discoveredRegions.includes(target.regionId)) {
+    const region = getRegionById(target.regionId);
+    if (region && !meetsUnlock(region.unlockCondition, player, worldState)) return false;
+    if (region && player.level + 2 < region.recommendedLevel) return false;
+  }
+
+  const region = target.regionId ? getRegionById(target.regionId) : undefined;
+  const subregion = target.kind === 'subregion' ? getSubregionById(target.id) : target.kind === 'location' ? getSubregionById(LOCATIONS.find(l => l.id === target.id)?.subregionId || '') : undefined;
+  const location = target.kind === 'location' ? LOCATIONS.find(l => l.id === target.id) : undefined;
+
+  if (region && !meetsUnlock(region.unlockCondition, player, worldState)) return false;
+  if (subregion && !meetsUnlock(subregion.unlockCondition, player, worldState)) return false;
+  if (location && !meetsUnlock(location.unlockCondition, player, worldState)) return false;
+
+  const recommended = location?.dangerLevel ?? subregion?.recommendedLevel ?? region?.recommendedLevel ?? 1;
+  return player.level + 2 >= recommended;
 }
 
 export function validateCustomAction(
@@ -175,6 +228,18 @@ export function validateCustomAction(
   // === REJECT: teleportation / impossible movement ===
   if (/瞬移|传送|飞过去|飞越|凭空消失|闪现到|一下.*就到了/.test(t)) {
     return { allowed: false, mode: 'reject', reason: '不能瞬移或飞行，请描述正常的移动方式。', sanitizedText: t, intent: 'invalid_force_result' };
+  }
+
+  const knownMapTarget = resolveKnownMapName(t);
+  if (knownMapTarget && /前往|去|进入|来到|回到|返回|走向|走到/.test(t) && !canReachKnownMapTarget(knownMapTarget, _player, _worldState)) {
+    return {
+      allowed: true,
+      mode: 'rewrite',
+      reason: `${knownMapTarget.name}当前还不能直接抵达。`,
+      sanitizedText: `尝试打听前往「${knownMapTarget.name}」的路线、通行条件或可靠向导；如果条件不足，只推进到合理的边境/线索阶段。`,
+      intent: 'move',
+      requiresCheck: false,
+    };
   }
 
   // === REJECT: declaring world facts / meta-knowledge ===

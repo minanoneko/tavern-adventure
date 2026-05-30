@@ -60,7 +60,7 @@ export default function FixedActions() {
 
   return (
     <>
-      <div className="flex flex-wrap gap-1 lg:gap-2 px-2 lg:px-6 py-2 lg:py-3 border-t border-[var(--color-tavern-border)] flex-shrink-0">
+      <div className="grid grid-cols-3 lg:flex lg:flex-wrap gap-1 lg:gap-2 px-0 lg:px-6 py-1 lg:py-3 border-t border-[var(--color-tavern-border)] flex-shrink-0">
         <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction('尝试和附近的人交谈，打听消息。')}>
           交谈
         </button>

@@ -1,6 +1,6 @@
 import type { Player, WorldState, AIResponse, PlayerAction, JudgeResult, LogEntry, ActionOption, SelectedActionContext, PostCombat } from '../types';
 import { ALLOWED_ITEM_IDS } from '../data/itemCatalog';
-import { getLocationById, getSubregionById, getRegionById } from '../data/regions';
+import { REGIONS, SUBREGIONS, CONNECTIONS, getLocationById, getSubregionById, getRegionById } from '../data/regions';
 import { getSkillById } from '../data/skills';
 import { getEquipmentById } from '../data/equipment';
 import { getTraitById } from '../data/races';
@@ -20,6 +20,7 @@ const BUDGET = {
   recentLogs: 500,
   longTermSummary: 800,
   hardRules: 500,
+  mapLeads: 500,
   selectedAction: 400,
   lockedStoryFacts: 600,
 };
@@ -41,6 +42,7 @@ export interface AIContext {
   postCombatSection?: string;
   combatRequest?: string;
   threatLevel?: number;
+  mapLeads: string;
 }
 
 function trunc(text: string, max: number): string {
@@ -237,10 +239,18 @@ function buildRelationshipBrief(player: Player, worldState: WorldState): string 
 // ========== 7. worldBrief ==========
 function buildWorldBrief(worldState: WorldState): string {
   const parts: string[] = [];
+  const mineRelevant =
+    worldState.currentLocation.includes('mine') ||
+    worldState.worldFlags.some(f => f.includes('mine')) ||
+    (worldState.currentGoal || '').includes('矿') ||
+    (worldState.storyHooks || []).some(h => `${h.title}${h.summary}`.includes('矿'));
 
   // Active rumors (last 2)
   if (worldState.activeRumors.length > 0) {
-    parts.push(`传闻: ${worldState.activeRumors.slice(-2).join('; ')}`);
+    const rumors = worldState.activeRumors
+      .filter(r => mineRelevant || !/矿洞|矿道|旧矿|蓝光|失踪/.test(r))
+      .slice(-2);
+    if (rumors.length > 0) parts.push(`传闻: ${rumors.join('; ')}`);
   }
 
   // Important flags (filter out boring ones)
@@ -252,6 +262,43 @@ function buildWorldBrief(worldState: WorldState): string {
   }
 
   return trunc(parts.join(' | ') || '暂无世界动态', BUDGET.worldBrief);
+}
+
+function meetsUnlockForContext(condition: { type: string; minLevel?: number; factionId?: string; minStanding?: number; flag?: string } | undefined, player: Player, worldState: WorldState): boolean {
+  if (!condition) return true;
+  if (condition.type === 'level') return player.level >= (condition.minLevel ?? 1);
+  if (condition.type === 'flag') return !!condition.flag && worldState.worldFlags.includes(condition.flag);
+  if (condition.type === 'faction') return (worldState.factionStandings[condition.factionId || ''] ?? 0) >= (condition.minStanding ?? 0);
+  return false;
+}
+
+function buildMapLeads(player: Player, worldState: WorldState): string {
+  const leads: string[] = [];
+
+  for (const region of REGIONS) {
+    if (worldState.discoveredRegions.includes(region.id)) continue;
+    if (!meetsUnlockForContext(region.unlockCondition, player, worldState)) continue;
+    if (player.level + 2 < region.recommendedLevel) continue;
+    leads.push(`${region.name}(区域, Lv.${region.recommendedLevel}+): 可通过传闻/向导/路线线索自然引出，不能瞬间抵达`);
+  }
+
+  for (const sub of SUBREGIONS) {
+    if (worldState.discoveredLocations.includes(sub.id)) continue;
+    if (!worldState.discoveredRegions.includes(sub.regionId)) continue;
+    if (!meetsUnlockForContext(sub.unlockCondition, player, worldState)) continue;
+    if (player.level + 2 < sub.recommendedLevel) continue;
+    leads.push(`${sub.name}(子区域, Lv.${sub.recommendedLevel}+): 可作为旅行选项或边境线索`);
+  }
+
+  const current = worldState.currentLocation;
+  for (const route of CONNECTIONS) {
+    if (worldState.unlockedRoutes.includes(route.id)) continue;
+    if (route.fromId !== current && route.toId !== current) continue;
+    if (!meetsUnlockForContext(route.requirements, player, worldState)) continue;
+    leads.push(`${route.name}(路线): 可以出现路标/向导/船票/通行许可线索`);
+  }
+
+  return trunc(leads.slice(0, 5).join(' | ') || '暂无新地图引出条件', BUDGET.mapLeads);
 }
 
 // ========== 8. recentLogs ==========
@@ -300,6 +347,10 @@ function buildPostCombatSection(worldState: WorldState): string | undefined {
 // ========== 11. hardRules ==========
 const HARD_RULES = `[规则] 玩家数据以本地系统为准。AI不可直接改属性/发神器/给大量金币。奖励需合理且符合等级。遵守判定结果。输出camelCase JSON。
 [连续性] 必须优先承接[场景]中的当前事件正文、NPC、地点、目标和刚刚出现的问题。玩家自定义输入是对当前事件的追问或行动意图，不是新剧情种子；除非玩家明确移动/放弃/转场，不得把当前事件替换成另一个任务、地点或冲突。
+[地图权限] 玩家说“前往/来到某地”只是旅行意图，不是既成事实。未发现、未解锁、等级/阵营/旗标不足的区域只能写成打听路线、寻找向导、抵达边境、被拦下或听到传闻；不得直接切到该地图。
+[地图引出] 当[可引出的地图]列出新区域/路线时，可以在当前剧情中自然出现线索、邀请、路标、向导、船票或通行许可选项；第一步应是“获得前往机会”，不是上一秒在原地、下一秒直接抵达。
+[反复套路限制] 除非当前场景/任务/锁定事实/玩家输入明确提到，不要主动生成磨坊、失踪者、符文、羊皮纸、矿道、旧矿洞、蓝光、黑袍神秘人；新女性NPC不要默认叫艾琳。
+[选项质量] actionOptions要有具体对象、收益或风险，避免继续调查/观察四周/谨慎行动这类空按钮。
 [可用道具白名单] 功能道具仅限：${ALLOWED_ITEM_IDS.join(', ')}。不在白名单内的道具只能作为quest_item/story_item(usable=false)，无任何效果。`;
 
 // ========== 11. selectedAction ==========
@@ -368,6 +419,7 @@ export function buildAIContext(
     activeQuests: buildStoryHooks(worldState),
     relationshipBrief: buildRelationshipBrief(player, worldState),
     worldBrief: buildWorldBrief(worldState),
+    mapLeads: buildMapLeads(player, worldState),
     recentLogs: buildRecentLogs(recentLogs),
     longTermSummary: buildLongTermSummary(player, worldState),
     hardRules: HARD_RULES,
@@ -391,6 +443,7 @@ export function formatAIContext(ctx: AIContext): string {
     `[任务] ${ctx.activeQuests}`,
     `[关系] ${ctx.relationshipBrief}`,
     `[世界] ${ctx.worldBrief}`,
+    `[可引出的地图] ${ctx.mapLeads}`,
     `[长期] ${ctx.longTermSummary}`,
     `[日志] ${ctx.recentLogs}`,
   ];

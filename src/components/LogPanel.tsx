@@ -2,13 +2,13 @@ import { useGameStore } from '../store/gameStore';
 import { LOG_TYPE_LABELS, type LogType } from '../types/log';
 import { useState } from 'react';
 
-const LOG_FILTERS: Array<LogType | '全部'> = ['全部', 'narrative', 'combat', 'quest', 'item', 'world', 'system', 'judge'];
+const LOG_FILTERS: Array<LogType | '全部'> = ['全部', 'combat', 'quest', 'item', 'world', 'system', 'judge', 'narrative'];
 
 export default function LogPanel() {
   const logs = useGameStore(s => s.logs);
   const [filter, setFilter] = useState<LogType | '全部'>('全部');
 
-  const filtered = filter === '全部' ? logs : logs.filter(l => l.type === filter);
+  const filtered = filter === '全部' ? logs.filter(l => l.type !== 'narrative') : logs.filter(l => l.type === filter);
 
   return (
     <div className="h-full flex flex-col">

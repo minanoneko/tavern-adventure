@@ -16,9 +16,36 @@ const RARITY_LABELS: Record<string, string> = {
 };
 
 const rarityColors: Record<string, string> = {
-  common: '#aaa', uncommon: '#4a7f8f', rare: '#9a4aaa',
-  epic: '#c9a44b', legendary: '#ff8800', cursed: '#b8453a', relic: '#c9a44b',
+  common: '#d8d8d8',
+  uncommon: '#4aa3ff',
+  rare: '#a66cff',
+  epic: '#ff9d2e',
+  legendary: '#ffcf4a',
+  cursed: '#ff4a4a',
+  relic: '#ff6b2e',
 };
+
+function normalizeType(type: string): string {
+  const value = String(type || '').toLowerCase();
+  if (value === 'quest' || value === 'questitem' || value === 'story' || value === 'story_item') return 'quest_item';
+  if (value === 'skillbook') return 'skill_book';
+  return value;
+}
+
+function normalizeRarity(rarity: string): string {
+  const value = String(rarity || '').toLowerCase();
+  const map: Record<string, string> = {
+    normal: 'common',
+    white: 'common',
+    green: 'uncommon',
+    blue: 'uncommon',
+    purple: 'rare',
+    orange: 'epic',
+    gold: 'legendary',
+    red: 'cursed',
+  };
+  return map[value] || value || 'common';
+}
 
 export default function InventoryPanel() {
   const player = useGameStore(s => s.player);
@@ -57,15 +84,15 @@ export default function InventoryPanel() {
           {filtered.map(item => (
             <div key={item.id} className="panel p-3 text-sm">
               <div className="flex items-center justify-between mb-1">
-                <span style={{ color: rarityColors[item.rarity] || 'var(--color-tavern-text)' }}>
+                <span style={{ color: rarityColors[normalizeRarity(item.rarity)] || 'var(--color-tavern-text)' }}>
                   {item.name}
                   {item.quantity > 1 && <span className="text-muted ml-1">x{item.quantity}</span>}
                 </span>
-                <span className="tag text-xs" style={{ color: rarityColors[item.rarity] }}>
-                  {RARITY_LABELS[item.rarity] || item.rarity}
+                <span className="tag text-xs" style={{ color: rarityColors[normalizeRarity(item.rarity)] }}>
+                  {RARITY_LABELS[normalizeRarity(item.rarity)] || normalizeRarity(item.rarity)}
                 </span>
               </div>
-              <div className="text-xs text-muted">{TYPE_LABELS[item.type] || item.type}</div>
+              <div className="text-xs text-muted">{TYPE_LABELS[normalizeType(item.type)] || '剧情物品'}</div>
               {item.description && <div className="text-muted mt-1 text-xs">{item.description.slice(0, 60)}</div>}
               {item.effects && item.effects.length > 0 && (
                 <div className="text-info mt-1 text-xs">{item.effects.join('，')}</div>

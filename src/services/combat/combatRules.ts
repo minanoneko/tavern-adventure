@@ -4,7 +4,14 @@ import type { Skill } from '../../types/skill';
 import { d20, getAttributeModifier, rollCheck, getPlayerDefense } from './dice';
 import { getSkillById } from '../../data/skills';
 import { canCastSkill, getSkillLockReasons } from '../../utils/skillRules';
-import { getWeaponCategory } from '../../utils/equipmentRules';
+import {
+  getEffectiveAttributes,
+  getEquipmentDamageBonus,
+  getEquipmentDamageReduction,
+  getEquipmentDefenseBonus,
+  getEquipmentHitBonus,
+  getWeaponCategory,
+} from '../../utils/equipmentRules';
 import { rollWeaponDamage, rollDice, getWeaponDamageDice } from './weaponDamage';
 
 // ========== Legal Actions ==========
@@ -141,14 +148,14 @@ export function validateCombatAction(
 
 // ========== Hit & Damage ==========
 
-export function calculateHitRoll(attackerDex: number, defenderDex: number): {
+export function calculateHitRoll(attackerDex: number, defenderDex: number, hitBonus = 0): {
   roll: number;
   total: number;
   modifier: number;
   ac: number;
   hit: boolean;
 } {
-  const atkMod = getAttributeModifier(attackerDex);
+  const atkMod = getAttributeModifier(attackerDex) + hitBonus;
   const ac = 10 + getAttributeModifier(defenderDex);
   const { roll, total } = rollCheck(atkMod);
   return { roll, total, modifier: atkMod, ac, hit: total >= ac };
@@ -166,6 +173,10 @@ export function calculateDamage(params: {
 }): { damageRoll: number; damageModifier: number; damageTotal: number; detail: string } {
   const { weaponId, player, skill } = params;
   const cd = skill?.combatDamage;
+  const effectiveAttributes = getEffectiveAttributes(player);
+  const weaponCategory = getWeaponCategory(weaponId || '');
+  const damageKind = skill?.type === 'magic' ? 'magic' : weaponCategory === 'bow' ? 'ranged' : 'physical';
+  const equipmentDamageBonus = getEquipmentDamageBonus(player, damageKind);
 
   if (cd) {
     // New system: explicit combatDamage config
@@ -193,31 +204,32 @@ export function calculateDamage(params: {
 
     // Attribute modifier
     const attrKey = cd.damageAttribute || 'str';
-    const attrValue = (player.attributes as any)[attrKey] ?? player.attributes.str;
+    const attrValue = (effectiveAttributes as any)[attrKey] ?? effectiveAttributes.str;
     const mod = getAttributeModifier(attrValue);
-    const total = Math.max(1, baseRoll + mod);
+    const total = Math.max(1, baseRoll + mod + equipmentDamageBonus);
 
     const attrLabel = { str: '力量', dex: '敏捷', con: '体质', int: '智力', wis: '感知', cha: '魅力' }[attrKey] || '力量';
     const modSign = mod >= 0 ? '+' : '';
     parts.push(`${attrLabel}${modSign}${mod}`);
+    if (equipmentDamageBonus > 0) parts.push(`装备+${equipmentDamageBonus}`);
 
     return { damageRoll: baseRoll, damageModifier: mod, damageTotal: total, detail: parts.join(' + ') };
   }
 
   // Fallback: old rarity multiplier system for skills without combatDamage
   const weaponResult = rollWeaponDamage(weaponId);
-  const strMod = getAttributeModifier(player.attributes.str);
+  const strMod = getAttributeModifier(effectiveAttributes.str);
   const multiplier = skill
     ? (skill.rarity === 'uncommon' ? 1.5 : skill.rarity === 'rare' ? 2.0 : 1.0)
     : 1.0;
-  const base = weaponResult.total + strMod;
+  const base = weaponResult.total + strMod + equipmentDamageBonus;
   const damage = Math.max(1, Math.floor(base * multiplier));
   const modSign = strMod >= 0 ? '+' : '';
   return {
     damageRoll: weaponResult.total,
     damageModifier: strMod,
     damageTotal: damage,
-    detail: `${weaponResult.detail} + 力量${modSign}${strMod}${multiplier !== 1 ? ` ×${multiplier}` : ''}`,
+    detail: `${weaponResult.detail} + 力量${modSign}${strMod}${equipmentDamageBonus > 0 ? ` + 装备${equipmentDamageBonus}` : ''}${multiplier !== 1 ? ` ×${multiplier}` : ''}`,
   };
 }
 
@@ -325,7 +337,8 @@ export function applyCombatResult(
   action: CombatAction,
   combatState: CombatState,
 ): CombatResolution {
-  const hitResult = calculateHitRoll(player.attributes.dex, enemy.dex);
+  const effectiveAttributes = getEffectiveAttributes(player);
+  const hitResult = calculateHitRoll(effectiveAttributes.dex, enemy.dex, getEquipmentHitBonus(player));
 
   let damage = 0;
   let mpCost = 0;
@@ -425,7 +438,9 @@ export function enemyAttack(
 ): { damage: number; hit: boolean; roll: number; results: string[] } {
   const shield = playerBuffs.find(b => b.type === 'shield');
   const defenseBonus = playerBuffs.find(b => b.type === 'defense');
-  const playerDef = getPlayerDefense(player.attributes.dex, defenseBonus?.value);
+  const effectiveAttributes = getEffectiveAttributes(player);
+  const armorDefense = getEquipmentDefenseBonus(player);
+  const playerDef = getPlayerDefense(effectiveAttributes.dex, (defenseBonus?.value ?? 0) + armorDefense);
   const dexMod = getAttributeModifier(enemy.dex);
   const { roll, total } = rollCheck(dexMod);
   const hit = total >= playerDef;
@@ -442,6 +457,8 @@ export function enemyAttack(
     damage = Math.max(2, diceRoll + strMod);
     const eqFx2 = getEquipEffects(player);
     if (eqFx2.adventurerRing) damage = Math.max(1, damage - 1);
+    const armorReduction = getEquipmentDamageReduction(player);
+    if (armorReduction > 0) damage = Math.max(0, damage - armorReduction);
     if (shield) {
       const absorbed = Math.min(damage, shield.value);
       damage -= absorbed;
@@ -468,7 +485,7 @@ export function checkVictoryDefeat(player: Player, combatState: CombatState): 'o
 // ========== Flee Check ==========
 
 export function tryFlee(player: Player): boolean {
-  const mod = getAttributeModifier(player.attributes.dex);
+  const mod = getAttributeModifier(getEffectiveAttributes(player).dex);
   const { total } = rollCheck(mod);
   return total >= 14;
 }

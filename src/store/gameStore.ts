@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   Player, WorldState, AIResponse, LogEntry,
-  CharacterCreationData, PlayerAction, JudgeResult, AIResult, ActionOption,
+  CharacterCreationData, PlayerAction, JudgeResult, AIResult, ActionOption, PostCombat,
 } from '../types';
 import { createDefaultPlayer } from '../types/character';
 import { createDefaultWorldState } from '../types/common';
@@ -189,7 +189,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       // Apply opening event through gameEngine
-      const engineResult = applyAIResponse(result.event, player, worldState, updatedLogs);
+      const engineResult = applyAIResponse(result.event, player, worldState, updatedLogs, { allowMapTransition: true });
 
       set({
         player: engineResult.player,
@@ -543,7 +543,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // 4. Handle AI result
       if (aiResult.success && aiResult.response) {
-        const engineResult = applyAIResponse(aiResult.response, player, worldState, logs);
+        const engineResult = applyAIResponse(aiResult.response, player, worldState, logs, { playerAction, selectedOption });
 
         // Ensure combatState changes are preserved
         const finalWorldState = { ...engineResult.worldState, combatState: worldState.combatState };
@@ -765,6 +765,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Write postCombat if combat ended (mustRespectUntilTurn set by caller)
     if (result.postCombat && !updatedCombatState.active) {
       result.postCombat.mustRespectUntilTurn = (state.actionCount || 0) + 2;
+      const postCombatEvent = buildPostCombatEvent(result.postCombat, state.worldState, updatedPlayer);
+      const nextHistory = [...state.eventHistory, postCombatEvent].slice(-50);
       set({
         player: updatedPlayer,
         worldState: {
@@ -773,6 +775,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           combatCooldown: 5,
           postCombat: result.postCombat,
         },
+        currentEvent: postCombatEvent,
+        eventHistory: nextHistory,
+        lastAIResult: null,
         isProcessing: false,
       });
     } else if (!updatedCombatState.active) {
@@ -913,4 +918,102 @@ function getMoneyChange(action: PlayerAction, player: Player, _judge: JudgeResul
   }
   // No per-action money — income comes from quest completion rewards
   return { gold: 0, silver: 0, copper: 0 };
+}
+
+function buildPostCombatEvent(postCombat: PostCombat, worldState: WorldState, player: Player): AIResponse {
+  const enemyNames = postCombat.enemyNames.join('、') || '敌人';
+  const location = worldState.currentLocationName || worldState.currentLocation || postCombat.location || '当前地点';
+  const hpText = `HP ${player.resources.hp}/${player.resources.maxHp}`;
+
+  const title = postCombat.outcome === 'victory'
+    ? '战斗结束：胜利'
+    : postCombat.outcome === 'defeat'
+      ? '战斗结束：败退'
+      : '战斗结束：脱离';
+
+  const text = postCombat.outcome === 'victory'
+    ? `战斗尘埃落定，${enemyNames}已被击败或失去战意。\n\n${postCombat.summary}\n\n你现在位于${location}，状态：${hpText}。接下来可以检查周围、处理伤势，或继续追查刚才冲突背后的原因。`
+    : postCombat.outcome === 'defeat'
+      ? `${enemyNames}占了上风，战斗以你的败退告终。\n\n${postCombat.summary}\n\n你勉强保住性命，状态：${hpText}。下一步需要先确认自己身处何处、敌人是否还在附近，以及如何脱离危险。`
+      : `你成功从与${enemyNames}的战斗中脱离。\n\n${postCombat.summary}\n\n你现在位于${location}附近，状态：${hpText}。敌人可能仍在这一带，继续行动前最好判断局势。`;
+
+  return {
+    scene: {
+      title,
+      text,
+      location,
+      locationId: worldState.currentLocation,
+      time: `${worldState.date} ${worldState.timeOfDay}`,
+      weather: worldState.weather,
+    },
+    event: {
+      id: `post_combat_${Date.now()}`,
+      type: 'post_combat_event',
+      urgency: postCombat.outcome === 'victory' ? 'normal' : 'high',
+      riskLevel: postCombat.outcome === 'victory' ? 'low' : 'medium',
+    },
+    systemEvents: [{
+      type: postCombat.outcome === 'victory' ? 'reward' : postCombat.outcome === 'defeat' ? 'penalty' : 'info',
+      text: postCombat.outcome === 'victory'
+        ? '战斗奖励已由本地战斗系统结算。'
+        : postCombat.outcome === 'defeat'
+          ? '战败惩罚已由本地战斗系统结算。'
+          : '已成功脱离战斗。战斗结果会影响接下来的剧情承接。',
+    }],
+    actionOptions: [
+      {
+        id: `post_combat_check_${Date.now()}`,
+        label: '检查周围情况',
+        type: 'check',
+        risk: postCombat.outcome === 'defeat' ? 'medium' : 'low',
+        relatedAttribute: 'wis',
+        relatedSkill: null,
+        mpCost: 0,
+        difficultyPreview: postCombat.outcome === 'defeat' ? '普通' : '简单',
+        intent: '承接刚刚的战斗结果，观察敌人、痕迹和环境变化',
+        contextNote: postCombat.summary,
+        requiresCheck: true,
+        checkAttribute: 'wis',
+        difficultyClass: postCombat.outcome === 'defeat' ? 14 : 12,
+        failureConsequence: '可能错过敌人的去向或附近危险',
+      },
+      {
+        id: `post_combat_breathe_${Date.now()}`,
+        label: postCombat.outcome === 'victory' ? '整理战场' : '先稳住状态',
+        type: 'cautious',
+        risk: 'low',
+        relatedAttribute: 'none',
+        relatedSkill: null,
+        mpCost: 0,
+        difficultyPreview: '简单',
+        intent: postCombat.outcome === 'victory' ? '在不新增奖励的前提下整理现场和线索' : '喘息、确认伤势并寻找安全落脚点',
+        contextNote: postCombat.summary,
+        requiresCheck: false,
+      },
+      {
+        id: `post_combat_continue_${Date.now()}`,
+        label: '继续当前线索',
+        type: 'exploration',
+        risk: postCombat.outcome === 'defeat' ? 'medium' : 'low',
+        relatedAttribute: 'none',
+        relatedSkill: null,
+        mpCost: 0,
+        difficultyPreview: postCombat.outcome === 'defeat' ? '谨慎' : '简单',
+        intent: '让AI严格承接刚刚的战斗结果继续当前事件',
+        contextNote: postCombat.summary,
+        requiresCheck: false,
+      },
+    ],
+    customActionEnabled: true,
+    playerUpdate: { hpChange: 0, mpChange: 0, expChange: 0, moneyChange: { gold: 0, silver: 0, copper: 0 } },
+    inventoryUpdate: [],
+    questUpdate: [],
+    storyHookUpdate: [],
+    skillStateUpdate: [],
+    equipmentUpdate: [],
+    relationshipUpdate: [],
+    mapUpdate: [],
+    worldBroadcasts: [],
+    memoryUpdate: { flags: [`post_combat_${postCombat.outcome}`], currentLocation: worldState.currentLocation, currentLocationId: worldState.currentLocation },
+  };
 }

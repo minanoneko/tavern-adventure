@@ -175,6 +175,29 @@ body {
 .text-info { color: var(--color-tavern-info); }
 .text-muted { color: var(--color-tavern-muted); }
 
+@media (max-width: 1023px) {
+  .btn {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .input {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .mobile-action-dock {
+    max-height: 46vh;
+    overflow-y: auto;
+    background: rgba(26, 15, 7, 0.96);
+  }
+
+  .panel-header {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+}
+
 .dice-roll {
   display: flex;
   align-items: center;

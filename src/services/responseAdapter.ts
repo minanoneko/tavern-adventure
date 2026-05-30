@@ -464,9 +464,9 @@ export function fallbackTextToMinimalResponse(text: string): AIResponse {
   return completeAIResponse({
     scene: { title: '事件继续', text: clean },
     actionOptions: [
-      { label: '继续追问', type: 'dialogue', risk: 'low' },
-      { label: '观察四周', type: 'check', risk: 'low' },
-      { label: '谨慎行动', type: 'cautious', risk: 'low' },
+      { label: '逼问关键细节', type: 'dialogue', risk: 'low', intent: '向当前人物追问被含糊带过的关键细节', contextNote: '当前场景内的人物或事件' },
+      { label: '找最短捷径', type: 'check', risk: 'medium', intent: '寻找能更快接近目标但可能暴露的办法', contextNote: '当前地点和目标' },
+      { label: '设个小试探', type: 'cautious', risk: 'medium', intent: '用低成本试探对方反应或危险边界', contextNote: '当前冲突或疑点' },
     ],
     customActionEnabled: true,
   } as any);

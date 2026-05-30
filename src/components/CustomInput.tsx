@@ -15,20 +15,20 @@ export default function CustomInput() {
 
   return (
     <div>
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 lg:gap-2">
         <input
-          className="input flex-1"
+          className="input flex-1 min-w-0 text-sm"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') handleSubmit(); }}
           placeholder="输入行动意图（如：绕到后门看看、调查痕迹、悄悄跟踪、询问NPC...）"
           disabled={isProcessing}
         />
-        <button className="btn btn-primary" onClick={handleSubmit} disabled={!input.trim() || isProcessing}>
+        <button className="btn btn-primary px-3 lg:px-4 py-2" onClick={handleSubmit} disabled={!input.trim() || isProcessing}>
           行动
         </button>
       </div>
-      <div className="text-xs text-muted mt-1">
+      <div className="hidden lg:block text-xs text-muted mt-1">
         可以写：移动/探索、观察/调查、对话/询问、潜行/跟踪、说服/交涉、使用物品、休息。不能写：直接获得金钱/物品/技能、生成NPC/敌人、秒杀、瞬移。
       </div>
       {errorMessage && (

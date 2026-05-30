@@ -108,7 +108,7 @@ async function sendAIRequest(
     const body: Record<string, unknown> = {
       model: settings.apiModel,
       messages,
-      temperature: 0.3,
+      temperature: 0.55,
       max_tokens: maxTokens,
     };
     // JSON mode only for OpenAI-compatible APIs (NOT DeepSeek)
