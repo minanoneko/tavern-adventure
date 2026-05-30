@@ -137,8 +137,9 @@ export interface WorldState {
   activeRumors: string[];
   combatState: import('./combat').CombatState;
   combatCooldown: number;
-  actionsSinceLastCombat: number;
+  threatLevel: number;
   wildernessRestUsed: number;
+  combatRequest?: import('./ai').CombatRequest;
   lockedStoryFacts: string[];
 }
 
@@ -171,7 +172,7 @@ export function createDefaultWorldState(): WorldState {
     activeRumors: [],
     combatState: { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] },
     combatCooldown: 0,
-    actionsSinceLastCombat: 0,
+    threatLevel: 0,
     wildernessRestUsed: 0,
     lockedStoryFacts: [],
   };

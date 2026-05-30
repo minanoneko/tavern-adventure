@@ -181,6 +181,13 @@ export interface AIResponse {
   combatStart?: import('./combat').CombatStartProposal;
 }
 
+/** Player combat intent forwarded to AI */
+export interface CombatRequest {
+  reason: string;
+  targetHint: string;
+  urgency: 'optional' | 'preferred' | 'required';
+}
+
 // ========== AI Result (after processing) ==========
 export interface AIResult {
   success: boolean;

@@ -292,6 +292,16 @@ export const useGameStore = create<GameState>((set, get) => ({
           });
           return;
         }
+        // combat_intent → generate combatRequest for AI, don't start combat locally
+        if (guard.intent === 'combat_intent') {
+          worldState.combatRequest = {
+            reason: '玩家明确表达了攻击意图',
+            targetHint: customText.replace(/攻击|砍|打倒|射击|刺|杀|揍|劈|捅/g, '').trim().slice(0, 20) || '不明目标',
+            urgency: 'required',
+          };
+          // Increase threat level
+          worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 15);
+        }
         playerAction = {
           id: `custom_${Date.now()}`,
           label: guard.sanitizedText.slice(0, 30),
@@ -438,6 +448,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (aiResult.success && aiResult.response) {
         aiResult.response.actionOptions = filterAIOptions(aiResult.response.actionOptions, player);
       }
+
+      // 3.55 Check judge result — failed risky actions increase threatLevel
+      if (judgeResult.outcome === '失败' || judgeResult.outcome === '大失败') {
+        worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 10);
+      }
+      // Clear combatRequest after sending to AI
+      worldState.combatRequest = undefined;
 
       // 3.6 Combat: detect combatStart (priority) or legacy enemy from AI response
       if (aiResult.success && aiResult.response && !worldState.combatState.active) {
@@ -612,7 +629,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           combatLog: [],
         },
         combatCooldown: 6,
-        actionsSinceLastCombat: 0,
       },
     });
   },

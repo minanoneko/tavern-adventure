@@ -36,6 +36,8 @@ export interface AIContext {
   hardRules: string;
   selectedAction?: SelectedActionContext;
   lockedStoryFacts: string;
+  combatRequest?: string;
+  threatLevel?: number;
 }
 
 function trunc(text: string, max: number): string {
@@ -320,6 +322,10 @@ export function buildAIContext(
     hardRules: HARD_RULES,
     selectedAction: buildSelectedAction(selectedOption),
     lockedStoryFacts: buildLockedStoryFacts(worldState.lockedStoryFacts, worldState, selectedOption),
+    combatRequest: worldState.combatRequest
+      ? `[战斗请求] 原因:${worldState.combatRequest.reason} 目标:${worldState.combatRequest.targetHint} 紧急度:${worldState.combatRequest.urgency}`
+      : undefined,
+    threatLevel: worldState.threatLevel || 0,
   };
 }
 
@@ -346,6 +352,8 @@ export function formatAIContext(ctx: AIContext): string {
     lines.push(saLines.join(' | '));
   }
 
+  if (ctx.combatRequest) lines.push(ctx.combatRequest);
+  if (ctx.threatLevel && ctx.threatLevel >= 50) lines.push(`[威胁等级] ${ctx.threatLevel}% — 危险临近，应触发战斗`);
   lines.push(`[锁定事实]\n${ctx.lockedStoryFacts}`);
   lines.push(ctx.hardRules);
 
