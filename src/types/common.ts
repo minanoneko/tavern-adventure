@@ -139,7 +139,7 @@ export interface WorldState {
   combatCooldown: number;
   threatLevel: number;
   wildernessRestUsed: number;
-  combatRequest?: import('./ai').CombatRequest;
+  combatTrigger?: import('./ai').CombatTrigger;
   lockedStoryFacts: string[];
 }
 

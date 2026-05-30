@@ -322,8 +322,8 @@ export function buildAIContext(
     hardRules: HARD_RULES,
     selectedAction: buildSelectedAction(selectedOption),
     lockedStoryFacts: buildLockedStoryFacts(worldState.lockedStoryFacts, worldState, selectedOption),
-    combatRequest: worldState.combatRequest
-      ? `[战斗请求] 原因:${worldState.combatRequest.reason} 目标:${worldState.combatRequest.targetHint} 紧急度:${worldState.combatRequest.urgency}`
+    combatRequest: worldState.combatTrigger
+      ? `[战斗触发器] 类型:${worldState.combatTrigger.type==='hard'?'强制':'建议'} 原因:${worldState.combatTrigger.reason} 目标:${worldState.combatTrigger.targetHint}`
       : undefined,
     threatLevel: worldState.threatLevel || 0,
   };

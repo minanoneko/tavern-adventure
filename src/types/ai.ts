@@ -181,12 +181,14 @@ export interface AIResponse {
   combatStart?: import('./combat').CombatStartProposal;
 }
 
-/** Player combat intent forwarded to AI */
-export interface CombatRequest {
+/** Player combat intent forwarded to AI — ONLY way to request combat */
+export interface CombatTrigger {
   reason: string;
   targetHint: string;
-  urgency: 'optional' | 'preferred' | 'required';
+  type: 'soft' | 'hard';
 }
+// soft: danger rising, AI should consider combat
+// hard: player attacks / ambush / failed CHECK alerts enemy — AI MUST return combatStart
 
 // ========== AI Result (after processing) ==========
 export interface AIResult {
