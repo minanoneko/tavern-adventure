@@ -505,9 +505,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (!worldState.combatState.active && worldState.combatCooldown <= 0) {
         const locId = worldState.currentLocation || '';
         const isWild = locId.includes('forest') || locId.includes('mine') || locId.includes('road') || locId.includes('ruin') || locId.includes('cave') || locId.includes('wild');
-        // Wild: 40% chance. Or forced after 4+ actions without combat (anywhere)
-        const forced = actionsSinceCombat >= 4;
-        if ((isWild && Math.random() < 0.3) || forced) {
+        // Wild: 25% chance per action. Forced cap at 8 actions to guarantee some combat
+        const forced = actionsSinceCombat >= 8;
+        if ((isWild && Math.random() < 0.25) || forced) {
           const isBoss = forced && Math.random() < 0.15;
           const elv = Math.max(1, player.level + (isBoss ? 1 : -1) + Math.floor(Math.random() * 2));
           const baseName = forced && !isWild ? pickStr(['地痞', '闹事醉汉', '扒手', '可疑陌生人']) : getWildEnemyName(locId);
@@ -669,7 +669,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           playerBuffs: [],
           combatLog: [],
         },
-        combatCooldown: 5,
+        combatCooldown: 6,
         actionsSinceLastCombat: 0,
       },
     });
