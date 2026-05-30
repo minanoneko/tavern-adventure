@@ -172,10 +172,21 @@ function getCombatActions(player: NonNullable<ReturnType<typeof useGameStore.get
   return actions;
 }
 
+// Non-combat skills that should NOT appear in combat actions
+const NON_COMBAT_SKILLS = new Set([
+  'magic_sense', 'read_runes', 'focus_cast', 'tracking', 'wilderness_survival', 'trap_detect',
+  'brew_potion', 'identify_herb', 'material_analysis', 'lockpick', 'eavesdrop',
+  'history_knowledge', 'ancient_script', 'logic_analysis', 'note_organize',
+  'monster_identify', 'curse_resist', 'noble_etiquette', 'negotiation', 'read_people',
+  'survival_instinct', 'rumor_gathering', 'performance', 'small_talk', 'soothe',
+  'alchemy_craft', 'dual_wield',
+]);
+
 function getSkillCombatInfo(sid: string, player: NonNullable<ReturnType<typeof useGameStore.getState>['player']>): { name: string; mpCost: number; hpCost: number; usable: boolean; lockReason?: string } | null {
   const skill = getSkillById(sid);
   if (!skill || !player.skills.learned.includes(sid)) return null;
   if (!['combat', 'magic', 'active', 'reaction'].includes(skill.type)) return null;
+  if (NON_COMBAT_SKILLS.has(sid)) return null;
   if (!player.skills.equipped.includes(sid)) return { name: skill.name, mpCost: 0, hpCost: 0, usable: false, lockReason: '未装备' };
   const usable = canCastSkill(skill, player);
   const reasons = usable ? [] : getSkillLockReasons(skill, player);

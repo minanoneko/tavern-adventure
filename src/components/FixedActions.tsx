@@ -71,7 +71,7 @@ export default function FixedActions() {
         <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction('尝试和附近的人交谈，打听消息。')}>
           交谈
         </button>
-        <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction('仔细观察周围的细节，寻找线索或可疑之处。')}>
+        <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => doAction('仔细检查当前场景：墙上的痕迹、地面的脚印、可疑的物品或隐藏的线索。')}>
           调查
         </button>
         <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={handleRest} title={isSafe ? '全额恢复HP/MP（需花费钱币）' : isWild ? `野外休息(剩余${wildRestRemaining}次)` : '少量恢复'}>

@@ -147,8 +147,8 @@ export function calculateHitRoll(attackerDex: number, defenderDex: number): { ro
 }
 
 export function calculateDamage(str: number, skillMultiplier: number = 1.0, isDefending: boolean = false, equipment?: { warriorBracer: boolean }): number {
-  const base = 2 + getAttributeModifier(str) + (equipment?.warriorBracer ? 1 : 0);
-  let damage = Math.max(1, Math.floor(base * skillMultiplier));
+  const base = 3 + getAttributeModifier(str) + (equipment?.warriorBracer ? 1 : 0);
+  let damage = Math.max(2, Math.floor(base * skillMultiplier));
   if (isDefending) damage = Math.max(1, Math.floor(damage / 2));
   return damage;
 }
@@ -351,7 +351,7 @@ export function enemyAttack(
   results.push(pick(ENEMY_ATTACKS)(enemy.name));
 
   if (hit) {
-    damage = Math.max(1, 2 + getAttributeModifier(enemy.str));
+    damage = Math.max(2, 3 + getAttributeModifier(enemy.str));
     // adventurer_ring: -1 damage taken
     const eqFx2 = getEquipEffects(player);
     if (eqFx2.adventurerRing) damage = Math.max(1, damage - 1);
