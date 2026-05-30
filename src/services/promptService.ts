@@ -70,6 +70,7 @@ export function buildEventPromptFull(
   let actionText: string;
   if (playerAction.isCustom && playerAction.customText) {
     actionText = `玩家输入了自定义行动："${playerAction.customText}"`;
+    actionText += '\n[连续性要求] 这句话必须理解为围绕当前场景的追问或行动意图。请先回答它和当前事件的关系，再推进后续；不要仅抓关键词改写成新的任务、地点或冲突。';
   } else if (playerAction.label) {
     actionText = `玩家选择了："${playerAction.label}"`;
   } else {

@@ -3,6 +3,7 @@ import { ALLOWED_ITEM_IDS } from '../data/itemCatalog';
 import { getLocationById, getSubregionById, getRegionById } from '../data/regions';
 import { getSkillById } from '../data/skills';
 import { getEquipmentById } from '../data/equipment';
+import { getTraitById } from '../data/races';
 import { getSkillLockReasons, canCastSkill } from '../utils/skillRules';
 import { getActiveTraits, getEquipmentPenalty } from '../utils/equipmentRules';
 import { getLongTermSummary, formatSummaryForAI, getRecentImportantLogs, getGameFlags } from './memoryService';
@@ -10,7 +11,7 @@ import { getLongTermSummary, formatSummaryForAI, getRecentImportantLogs, getGame
 // ========== Budget limits (character counts) ==========
 const BUDGET = {
   playerBrief: 600,
-  currentScene: 400,
+  currentScene: 900,
   inventory: 500,
   skills: 400,
   quests: 400,
@@ -69,9 +70,14 @@ function buildPlayerBrief(player: Player): string {
   const status = player.statusEffects.filter(s => s !== '正常');
 
   const genderLabel = player.gender === '女' ? '女性(必须用她/少女/女士/女冒险者称呼)' : player.gender === '男' ? '男性(必须用他/少年/先生/男冒险者称呼)' : '未指定';
+  const traitNames = player.personalityTraits.map(id => getTraitById(id)?.name || id).filter(Boolean);
+  const ageTone = player.age < 18 ? '少年/少女，阅历较浅但反应直接'
+    : player.age >= 50 ? '年长冒险者，阅历较深，行动稳健'
+    : '成年冒险者';
 
   return trunc(
     `[${player.name}] ${genderLabel} Lv.${player.level} ${player.race} ${player.classOrigin} | ` +
+    `年龄:${player.age}(${ageTone}) | 性格:${traitNames.join('、') || '未选'} | ` +
     `HP ${player.resources.hp}/${player.resources.maxHp} MP ${player.resources.mp}/${player.resources.maxMp} | ` +
     `${attrs} | ` +
     `装备: ${gear || '无'} | ` +
@@ -94,12 +100,23 @@ function buildCurrentScene(worldState: WorldState, currentEvent: AIResponse | nu
     .slice(0, 4)
     .map(id => getLocationById(id)?.name || id);
 
-  return trunc(
-    `位置: ${locName} | ${worldState.date} ${worldState.timeOfDay} ${worldState.weather}` +
-    (nearby.length ? ` | 附近: ${nearby.join(', ')}` : '') +
-    (currentEvent ? ` | 当前事件: ${currentEvent.scene.title}` : ''),
-    BUDGET.currentScene
-  );
+  const sceneParts = [
+    `位置: ${locName}`,
+    `${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
+  ];
+  if (nearby.length) sceneParts.push(`附近: ${nearby.join(', ')}`);
+  if (currentEvent) {
+    const optionHints = currentEvent.actionOptions
+      .slice(0, 5)
+      .map(o => o.intent || o.contextNote || o.label)
+      .filter(Boolean)
+      .join(' / ');
+    sceneParts.push(`当前事件标题: ${currentEvent.scene.title}`);
+    sceneParts.push(`当前事件正文: ${currentEvent.scene.text.slice(-420)}`);
+    if (optionHints) sceneParts.push(`当前可延展方向: ${optionHints}`);
+  }
+
+  return trunc(sceneParts.join(' | '), BUDGET.currentScene);
 }
 
 // ========== 3. relevantInventory ==========
@@ -282,6 +299,7 @@ function buildPostCombatSection(worldState: WorldState): string | undefined {
 
 // ========== 11. hardRules ==========
 const HARD_RULES = `[规则] 玩家数据以本地系统为准。AI不可直接改属性/发神器/给大量金币。奖励需合理且符合等级。遵守判定结果。输出camelCase JSON。
+[连续性] 必须优先承接[场景]中的当前事件正文、NPC、地点、目标和刚刚出现的问题。玩家自定义输入是对当前事件的追问或行动意图，不是新剧情种子；除非玩家明确移动/放弃/转场，不得把当前事件替换成另一个任务、地点或冲突。
 [可用道具白名单] 功能道具仅限：${ALLOWED_ITEM_IDS.join(', ')}。不在白名单内的道具只能作为quest_item/story_item(usable=false)，无任何效果。`;
 
 // ========== 11. selectedAction ==========

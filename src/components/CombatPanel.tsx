@@ -13,6 +13,7 @@ export default function CombatPanel() {
   const isProcessing = useGameStore(s => s.isProcessing);
 
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
+  const [skillRoll, setSkillRoll] = useState<{ label: string; value: string; rolling: boolean; caption: string } | null>(null);
 
   const shouldShow = combatState.active || combatState.phase === 'victory' || combatState.phase === 'defeat' || combatState.phase === 'fled';
   if (!player || !shouldShow) return null;
@@ -21,9 +22,43 @@ export default function CombatPanel() {
   const phase = combatState.phase;
   const actions = getCombatActions(player, combatState);
 
+  const playSkillRoll = (action: CombatAction) => {
+    const label = action.label || '技能';
+    setSkillRoll({ label, value: String(Math.floor(Math.random() * 20) + 1), rolling: true, caption: '技能判定 · d20' });
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      setSkillRoll({ label, value: String(Math.floor(Math.random() * 20) + 1), rolling: ticks < 8, caption: '技能判定 · d20' });
+      if (ticks >= 8) {
+        window.clearInterval(timer);
+        window.setTimeout(() => {
+          submitCombatAction(action);
+          setSelectedTarget(null);
+          window.setTimeout(() => {
+            const logs = useGameStore.getState().worldState.combatState.combatLog;
+            const recentAction = [...logs].reverse().find(log => log.type === 'action' && /d20=(\d+)/.test(log.text));
+            const actualRoll = recentAction?.text.match(/d20=(\d+)/)?.[1];
+            setSkillRoll({
+              label,
+              value: actualRoll || '✓',
+              rolling: false,
+              caption: actualRoll ? '真实判定 · 查看战斗日志' : '技能生效',
+            });
+          }, 0);
+          window.setTimeout(() => setSkillRoll(null), 650);
+        }, 180);
+      }
+    }, 80);
+  };
+
   const handleAction = (action: CombatAction) => {
+    if (skillRoll?.rolling) return;
     if ((action.type === 'attack' || action.type === 'skill' || (action.type === 'item' && action.itemId?.includes('bomb'))) && aliveEnemies.length > 0) {
       action = { ...action, targetEnemyId: selectedTarget || aliveEnemies[0].id };
+    }
+    if (action.type === 'skill') {
+      playSkillRoll(action);
+      return;
     }
     submitCombatAction(action);
     setSelectedTarget(null);
@@ -83,6 +118,13 @@ export default function CombatPanel() {
         </div>
       )}
 
+      {skillRoll && (
+        <div className={`dice-roll ${skillRoll.rolling ? 'rolling' : ''}`} aria-live="polite">
+          <div className="dice-face">{skillRoll.value}</div>
+          <div className="dice-caption">{skillRoll.label} · {skillRoll.caption}</div>
+        </div>
+      )}
+
       {/* === Combat Log (primary dice display) === */}
       <div className="h-32 lg:h-36 overflow-auto p-3 bg-black/60 rounded border border-[#c94040] text-sm lg:text-base space-y-1.5">
         {combatState.combatLog.length === 0 && <div className="text-muted text-center">等待战斗开始...</div>}
@@ -132,9 +174,9 @@ export default function CombatPanel() {
               else if (a.type === 'defend') tip = '本回合伤害减半';
               else if (a.type === 'flee') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs DC14 逃跑`;
               return (
-                <button key={i} className={`btn text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' ? 'opacity-50' : ''}`}
+                <button key={i} className={`btn text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' || skillRoll?.rolling ? 'opacity-50' : ''}`}
                   style={{ borderColor: a.type==='attack'?'#c97a30':a.type==='skill'?'#6b8cce':a.type==='item'?'#5a9e6f':a.type==='defend'?'#8a8a8a':a.type==='flee'?'#c94040':'var(--color-tavern-muted)' }}
-                  onClick={() => handleAction(a)} disabled={isProcessing || combatState.turn !== 'player'}
+                  onClick={() => handleAction(a)} disabled={isProcessing || combatState.turn !== 'player' || !!skillRoll?.rolling}
                   title={tip}>
                   {a.label}
                 </button>

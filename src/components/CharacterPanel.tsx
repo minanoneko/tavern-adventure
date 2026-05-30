@@ -1,9 +1,16 @@
 import { useGameStore } from '../store/gameStore';
 import { ATTRIBUTE_LABELS, type AttributeKey } from '../types/common';
 import { getEquipmentById } from '../data/equipment';
+import { getTraitById } from '../data/races';
 import { getActiveTraits, getEquipmentPenalty } from '../utils/equipmentRules';
 
 const SAFE_LOCATIONS = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch'];
+
+function getAgeProfile(age: number): string {
+  if (age < 18) return '年轻';
+  if (age >= 50) return '年长';
+  return '成年';
+}
 
 export default function CharacterPanel() {
   const player = useGameStore(s => s.player);
@@ -19,14 +26,14 @@ export default function CharacterPanel() {
       {/* Identity */}
       <div className="text-center py-2">
         <div className="text-base" style={{ color: 'var(--color-tavern-accent)' }}>{player.name}</div>
-        <div className="text-sm text-muted mt-1">{player.race} · {player.gender} · {player.age}岁</div>
+        <div className="text-sm text-muted mt-1">{player.race} · {player.gender} · {player.age}岁 · {getAgeProfile(player.age)}</div>
         <div className="text-sm text-muted">{player.classOrigin}</div>
         {player.customOrigin && (
           <div className="text-xs text-muted mt-1 italic">"{player.customOrigin.slice(0, 40)}..."</div>
         )}
         <div className="mt-2 flex flex-wrap gap-1 justify-center">
           {player.personalityTraits.map(t => (
-            <span key={t} className="tag tag-common text-xs">{t}</span>
+            <span key={t} className="tag tag-common text-xs">{getTraitById(t)?.name || t}</span>
           ))}
         </div>
       </div>

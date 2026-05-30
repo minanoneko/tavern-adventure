@@ -174,3 +174,45 @@ body {
 .text-success { color: var(--color-tavern-success); }
 .text-info { color: var(--color-tavern-info); }
 .text-muted { color: var(--color-tavern-muted); }
+
+.dice-roll {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 164, 75, 0.65);
+  background: rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 0 18px rgba(201, 164, 75, 0.08);
+}
+
+.dice-face {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-tavern-accent);
+  border-radius: 8px;
+  background: radial-gradient(circle at 30% 25%, #f1d987, #9d6f26 55%, #3d250d);
+  color: #1a0f07;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 22px;
+  transform: rotate(0deg);
+}
+
+.dice-caption {
+  color: var(--color-tavern-accent);
+  font-size: 13px;
+}
+
+.dice-roll.rolling .dice-face {
+  animation: dice-tumble 0.42s linear infinite;
+}
+
+@keyframes dice-tumble {
+  0% { transform: rotate(0deg) scale(1); }
+  35% { transform: rotate(120deg) scale(1.1); }
+  70% { transform: rotate(250deg) scale(0.96); }
+  100% { transform: rotate(360deg) scale(1); }
+}

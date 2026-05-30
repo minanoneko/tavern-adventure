@@ -81,6 +81,18 @@ export function validateCustomAction(
 
   const t = raw;
 
+  // Very short inputs like "商队？" are usually follow-up questions about the current scene,
+  // not a request to spawn a new plot branch.
+  if (t.length <= 12 && /[?？]$/.test(t)) {
+    return {
+      allowed: true,
+      mode: 'allow',
+      sanitizedText: `围绕当前事件追问：${t}`,
+      intent: 'talk',
+      requiresCheck: false,
+    };
+  }
+
   // === Skill attempt detection (before general patterns) ===
   const skillAttempt = detectSkillAttempt(t);
   if (skillAttempt) {

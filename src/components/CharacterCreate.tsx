@@ -11,6 +11,25 @@ import type { Attributes } from '../types/common';
 
 type Step = 1 | 2 | 3 | 4;
 
+function buildStartingAttributes(classId: string, raceId: string): Attributes {
+  const selectedClass = CLASS_ORIGINS.find(c => c.id === classId);
+  const selectedRace = RACES.find(r => r.id === raceId);
+  const next = { ...(selectedClass?.attributes || DEFAULT_ATTRIBUTES) };
+  if (selectedRace) {
+    for (const [key, val] of Object.entries(selectedRace.attributeBonus)) {
+      const attr = key as AttributeKey;
+      next[attr] = Math.max(1, Math.min(10, (next[attr] || 4) + val));
+    }
+  }
+  return next;
+}
+
+function getAgeProfile(age: number): string {
+  if (age < 18) return '年轻：更容易冲动和被低估，叙事中应体现阅历较浅。';
+  if (age >= 50) return '年长：阅历更深、行事更稳，叙事中应体现经验感。';
+  return '成年：状态均衡，叙事中按成熟冒险者处理。';
+}
+
 export default function CharacterCreate() {
   const createCharacter = useGameStore(s => s.createCharacter);
   const setPhase = useGameStore(s => s.setPhase);
@@ -30,7 +49,7 @@ export default function CharacterCreate() {
   const [classId, setClassId] = useState('mage');
 
   // Step 3 data
-  const [attrs, setAttrs] = useState<Attributes>({ ...DEFAULT_ATTRIBUTES });
+  const [attrs, setAttrs] = useState<Attributes>(() => buildStartingAttributes('mage', 'human'));
 
   // Step 4 data
   const [customOrigin, setCustomOrigin] = useState('');
@@ -47,17 +66,7 @@ export default function CharacterCreate() {
   };
 
   const applyClassDefaults = (cId: string) => {
-    const c = CLASS_ORIGINS.find(cl => cl.id === cId);
-    if (!c) return;
-    // Apply race bonus to class base
-    const race = RACES.find(r => r.id === raceId);
-    const newAttrs = { ...c.attributes };
-    if (race) {
-      for (const [key, val] of Object.entries(race.attributeBonus)) {
-        newAttrs[key as AttributeKey] = (newAttrs[key as AttributeKey] || 5) + val;
-      }
-    }
-    setAttrs(newAttrs);
+    setAttrs(buildStartingAttributes(cId, raceId));
   };
 
   const handleClassChange = (cId: string) => {
@@ -66,28 +75,12 @@ export default function CharacterCreate() {
   };
 
   const handleRaceChange = (rId: string) => {
-    const oldRace = RACES.find(r => r.id === raceId);
-    const newRace = RACES.find(r => r.id === rId);
     setRaceId(rId);
-
-    // Recalculate attributes: undo old race, apply new race
-    const newAttrs = { ...attrs };
-    if (oldRace) {
-      for (const [key, val] of Object.entries(oldRace.attributeBonus)) {
-        newAttrs[key as AttributeKey] -= val;
-      }
-    }
-    if (newRace) {
-      for (const [key, val] of Object.entries(newRace.attributeBonus)) {
-        newAttrs[key as AttributeKey] += val;
-      }
-    }
-    setAttrs(newAttrs);
+    setAttrs(buildStartingAttributes(classId, rId));
   };
 
   const classBase = selectedClass ? Object.values(selectedClass.attributes).reduce((a, b) => a + b, 0) : 24;
-  const raceBonus = selectedRace ? Object.values(selectedRace.attributeBonus).reduce((a, b) => a + b, 0) : 0;
-  const baseline = classBase + raceBonus;
+  const baseline = Object.values(buildStartingAttributes(classId, raceId)).reduce((a, b) => a + b, 0);
   const totalAttrPoints = Object.values(attrs).reduce((a, b) => a + b, 0);
   const availablePoints = 2 + baseline - totalAttrPoints; // 2 free points + any saved from reduced stats
 
@@ -154,6 +147,7 @@ export default function CharacterCreate() {
               <div>
                 <label className="block text-sm mb-1 text-muted">年龄</label>
                 <input className="input" type="number" value={age} onChange={e => setAge(Number(e.target.value))} min={14} max={99} />
+                <div className="text-xs text-muted mt-1">{getAgeProfile(age)}</div>
               </div>
               <div>
                 <label className="block text-sm mb-1 text-muted">性别</label>
@@ -235,7 +229,7 @@ export default function CharacterCreate() {
           <div className="space-y-4">
             <div className="text-sm text-muted mb-4">
               可分配点数：<span style={{ color: 'var(--color-tavern-accent)' }}>{availablePoints}</span>
-              （基于{selectedClass?.name}初始值 + {selectedRace?.name}种族修正）
+              （基于{selectedClass?.name}初始值 + {selectedRace?.name}种族修正 + 2 点自由分配）
             </div>
             {ATTRIBUTE_LABELS && Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => (
               <div key={key} className="flex items-center gap-4">

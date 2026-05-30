@@ -306,9 +306,9 @@ const ENEMY_ATTACKS = [
   (e: string) => `${e}发出一声咆哮，攻了过来`,
 ];
 const ENEMY_HITS = [
-  (d: number) => `受到 ${d} 点伤害！`,
-  (d: number) => `被打中了！${d} 点伤害`,
-  (d: number) => `${d} 点伤害，你咬紧牙关`,
+  () => '你被击中，踉跄后退！',
+  () => '攻击命中，你咬紧牙关稳住身形。',
+  () => '这一击擦过护甲，仍然造成了伤害。',
 ];
 const ENEMY_MISSES = [
   () => '你闪开了攻击！',
@@ -426,7 +426,8 @@ export function enemyAttack(
   const shield = playerBuffs.find(b => b.type === 'shield');
   const defenseBonus = playerBuffs.find(b => b.type === 'defense');
   const playerDef = getPlayerDefense(player.attributes.dex, defenseBonus?.value);
-  const { roll, total } = rollCheck(getAttributeModifier(enemy.dex));
+  const dexMod = getAttributeModifier(enemy.dex);
+  const { roll, total } = rollCheck(dexMod);
   const hit = total >= playerDef;
 
   const results: string[] = [];
@@ -444,12 +445,12 @@ export function enemyAttack(
     if (shield) {
       const absorbed = Math.min(damage, shield.value);
       damage -= absorbed;
-      results.push(`d20=${total} → 命中！护盾吸收${absorbed}，实际${damage}伤害`);
+      results.push(`d20=${roll}${dexMod >= 0 ? '+' : ''}${dexMod}=${total} vs 防御${playerDef} → 命中！护盾吸收${absorbed}，实际伤害${damage}`);
     } else {
-      results.push(`d20=${total} → 命中！1d4=${diceRoll} + 力${strMod} = ${damage} ${pick(ENEMY_HITS)(damage)}`);
+      results.push(`d20=${roll}${dexMod >= 0 ? '+' : ''}${dexMod}=${total} vs 防御${playerDef} → 命中！伤害 1d4=${diceRoll}${strMod >= 0 ? '+' : ''}${strMod}=${damage}。${pick(ENEMY_HITS)()}`);
     }
   } else {
-    results.push(`d20=${total} → ${pick(ENEMY_MISSES)()}`);
+    results.push(`d20=${roll}${dexMod >= 0 ? '+' : ''}${dexMod}=${total} vs 防御${playerDef} → ${pick(ENEMY_MISSES)()}`);
   }
 
   return { damage, hit, roll: total, results };
