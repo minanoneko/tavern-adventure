@@ -20,8 +20,26 @@ export function createEnemiesFromProposal(
     ? proposal.enemies
     : [{ name: '敌对者', type: 'monster', suggestedLevel: player.level }];
   return proposals.map((ep, i) => {
-    // Determine enemy rank
-    const isBoss = !!(proposal.isBoss);
+    // Reject or downgrade overpowered enemies without proper flags
+    const OP_NAMES = /远古红龙|巨龙|魔王|神明|古神|灾厄|邪神|终焉|世界Boss|大魔王|灭世|龙神/i;
+    if (OP_NAMES.test(ep.name) && !proposal.bossFlag && !proposal.questFlag) {
+      // Downgrade to a reasonable enemy — keep the name but as normal stats
+      return {
+        id: `enemy_${Date.now()}_${i}`,
+        name: `幻影${ep.name.slice(0, 4)}`,
+        type: 'monster',
+        level: Math.min(player.level + 1, 3),
+        str: 6, dex: 5, con: 5,
+        hp: 15, maxHp: 15,
+        statusEffects: [],
+        isBoss: false,
+        isDefeated: false,
+        description: '这只是一个虚幻的投影，真正的威胁还在远处。',
+      };
+    }
+
+    // Boss requires unlock flag
+    const isBoss = !!(proposal.isBoss && (proposal.bossFlag || worldState.worldFlags.includes(proposal.bossFlag || '') || proposal.questFlag));
     const isElite = !isBoss && ep.suggestedLevel && ep.suggestedLevel > player.level + 1;
 
     // Level cap: boss can be up to +3, elite +2, normal +1

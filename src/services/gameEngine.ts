@@ -175,6 +175,10 @@ function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[
   // clampMoneyChangeByLevel returns a clamped CHANGE, NOT a total — must add, not replace
   const clampedChange = clampMoneyChangeByLevel(p, response.playerUpdate.moneyChange, logs);
   p.money = addMoneyUtil(p.money, clampedChange);
+  if (clampedChange.gold !== 0 || clampedChange.silver !== 0 || clampedChange.copper !== 0) {
+    const sign = clampedChange.gold! > 0 || clampedChange.silver! > 0 || clampedChange.copper! > 0 ? '+' : '';
+    logs.push(createLogEntry('system', `【钱币】${sign}${clampedChange.gold ? `${clampedChange.gold}金` : ''}${clampedChange.silver ? `${clampedChange.silver}银` : ''}${clampedChange.copper ? `${clampedChange.copper}铜` : ''}`));
+  }
 
   // Status effects
   if (response.playerUpdate.statusEffectAdd) {
@@ -202,18 +206,20 @@ function applyInventoryUpdate(player: Player, response: AIResponse, logs: LogEnt
   for (const update of response.inventoryUpdate) {
     // Money type: change wallet directly, not inventory
     if ((update as any).type === 'money') {
+      // Parse coin amount from name (e.g. "5铜币" → 5, "铜币" quantity=3 → 3)
+      const coinName = update.name || '';
+      const nameNum = parseInt(coinName.match(/(\d+)/)?.[1] || '0');
+      const coinCount = nameNum > 0 ? nameNum : (update.quantity || 1);
       if (update.action === 'add') {
-        const coinAmount = { gold: 0, silver: 0, copper: update.quantity || 0 };
-        const coinName = update.name || '';
-        if (coinName.includes('金')) { coinAmount.gold = update.quantity; coinAmount.copper = 0; }
-        else if (coinName.includes('银')) { coinAmount.silver = update.quantity; coinAmount.copper = 0; }
+        const coinAmount = { gold: 0, silver: 0, copper: coinCount };
+        if (coinName.includes('金')) { coinAmount.gold = coinCount; coinAmount.copper = 0; }
+        else if (coinName.includes('银')) { coinAmount.silver = coinCount; coinAmount.copper = 0; }
         p.money = addMoneyUtil(p.money, coinAmount);
-        logs.push(createLogEntry('item', `获得：${coinName}（已转入钱包）`));
+        logs.push(createLogEntry('system', `【钱币】获得 ${coinCount}${coinName.includes('金') ? '金' : coinName.includes('银') ? '银' : '铜'}`));
       } else if (update.action === 'remove') {
-        const coinAmount = { gold: 0, silver: 0, copper: update.quantity || 0 };
-        const coinName = update.name || '';
-        if (coinName.includes('金')) { coinAmount.gold = update.quantity; coinAmount.copper = 0; }
-        else if (coinName.includes('银')) { coinAmount.silver = update.quantity; coinAmount.copper = 0; }
+        const coinAmount = { gold: 0, silver: 0, copper: coinCount };
+        if (coinName.includes('金')) { coinAmount.gold = coinCount; coinAmount.copper = 0; }
+        else if (coinName.includes('银')) { coinAmount.silver = coinCount; coinAmount.copper = 0; }
         const currentCopper = (p.money.gold * 10000 + p.money.silver * 100 + p.money.copper);
         const costCopper = (coinAmount.gold || 0) * 10000 + (coinAmount.silver || 0) * 100 + (coinAmount.copper || 0);
         if (currentCopper < costCopper) {
@@ -456,6 +462,12 @@ function applySceneLocation(world: WorldState, response: AIResponse, logs: LogEn
     || response.memoryUpdate?.currentLocation
     || '';
   const locName = response.scene.location || '';
+
+  // Filter generic location names to avoid pollution
+  const GENERIC_NAMES = /^(当前地点|附近|原地|这里|那里|此处|稍后|未知|某处)$/;
+  if (GENERIC_NAMES.test(locName.trim())) {
+    return world;
+  }
 
   // If we have a name but no id, generate a story location id
   if (!locId && locName) {
