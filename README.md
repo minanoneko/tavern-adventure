@@ -71,6 +71,13 @@ VITE_DEBUG_PROMPT=false
 
 如需 AI：设为 `false`，填入 API 地址、模型、Key。
 
+### API Key 安全说明
+
+- **纯前端项目无法隐藏 API Key**。浏览器端发起的请求，Key 始终暴露在客户端。
+- 公开部署时不内置任何作者自己的付费 Key。用户**只填写自己的 Key**，风险由本地环境承担。
+- Key 默认仅保存在 sessionStorage（关浏览器即清空），设置页可选 local 持久化（泄露风险）。
+- 部分 API 不支持浏览器直连（CORS 限制），请确认服务商支持浏览器端调用。
+
 ## License
 
 MIT
