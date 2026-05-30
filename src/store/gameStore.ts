@@ -516,7 +516,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           const hpMult = isBoss ? 2.5 : 1;
           const enemy: CombatEnemy = {
             name: enemyName, str: 4 + elv, dex: 3 + Math.floor(elv / 2), con: 3 + Math.floor(elv / 2),
-            hp: Math.floor((6 + elv * 2) * hpMult), maxHp: Math.floor((6 + elv * 2) * hpMult), level: elv,
+            hp: Math.floor((6 + elv * 2) * hpMult), maxHp: Math.floor((6 + elv * 2) * hpMult), level: elv, isBoss,
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;

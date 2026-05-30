@@ -158,6 +158,7 @@ export interface CombatEnemy {
   maxHp: number;
   level: number;
   description?: string;
+  isBoss?: boolean;
 }
 
 // ========== AI Response ==========

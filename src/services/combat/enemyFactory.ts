@@ -77,7 +77,7 @@ export function migrateOldEnemyToState(
     hp: enemy.hp,
     maxHp: enemy.maxHp,
     statusEffects: [],
-    isBoss: false,
+    isBoss: enemy.isBoss || false,
     isDefeated: false,
     description: enemy.description,
   };
