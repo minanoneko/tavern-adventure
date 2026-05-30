@@ -508,25 +508,28 @@ export const useGameStore = create<GameState>((set, get) => ({
         // Wild: 25% chance per action. Forced cap at 8 actions to guarantee some combat
         const forced = actionsSinceCombat >= 8;
         if ((isWild && Math.random() < 0.25) || forced) {
-          const isBoss = forced && Math.random() < 0.15;
-          const elv = Math.max(1, player.level + (isBoss ? 1 : -1) + Math.floor(Math.random() * 2));
+          const elv = Math.max(1, player.level - 1 + Math.floor(Math.random() * 2));
+          // Elite enemies: higher stats, more EXP/money, but no rare boss drops
+          const isElite = Math.random() < 0.25;
+          const eliteTitle = isElite ? pickStr(['强壮的', '老练的', '凶猛的', '巨型']) : '';
           const baseName = forced && !isWild ? pickStr(['地痞', '闹事醉汉', '扒手', '可疑陌生人']) : getWildEnemyName(locId);
-          const bossTitles = ['愤怒的', '精英', '首领', '暗影', '巨型'];
-          const enemyName = isBoss ? `${pickStr(bossTitles)}${baseName}` : baseName;
-          const hpMult = isBoss ? 2.5 : 1;
+          const enemyName = isElite ? `${eliteTitle}${baseName}` : baseName;
+          const elvFinal = isElite ? Math.min(player.level + 2, elv + 1) : elv;
+          const hpMult = isElite ? 1.5 : 1;
           const enemy: CombatEnemy = {
-            name: enemyName, str: 4 + elv, dex: 3 + Math.floor(elv / 2), con: 3 + Math.floor(elv / 2),
-            hp: Math.floor((6 + elv * 2) * hpMult), maxHp: Math.floor((6 + elv * 2) * hpMult), level: elv, isBoss,
+            name: enemyName, str: 4 + elvFinal, dex: 3 + Math.floor(elvFinal / 2), con: 3 + Math.floor(elvFinal / 2),
+            hp: Math.floor((6 + elvFinal * 2) * hpMult), maxHp: Math.floor((6 + elvFinal * 2) * hpMult), level: elvFinal,
+            isBoss: false, // Never boss — BOSS only via AI combatStart
           };
           const combatResult = startCombatFromLegacyEnemy(player, worldState, enemy);
           worldState.combatState = combatResult.combatState;
-          if (isBoss) {
-            logs.push({ id: `boss_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '⚡ 一个强大的敌人出现了！' });
+          if (isElite) {
+            logs.push({ id: `elite_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `⚡ 一个${eliteTitle}的敌人出现了！` });
           }
           if (forced) {
             logs.push({ id: `forced_enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '冒险怎能没有战斗？你察觉到周围的气氛变得紧张起来...' });
           }
-          logs.push({ id: `enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${elv})${isBoss ? ' [BOSS]' : ''}出现了！` });
+          logs.push({ id: `enc_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: `⚔ ${enemyName}(Lv.${elvFinal})${isElite ? ' [精英]' : ''}出现了！` });
           worldState.actionsSinceLastCombat = 0;
         }
       }
