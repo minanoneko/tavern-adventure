@@ -267,9 +267,10 @@ function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[
   const mpChange = Math.max(-10, Math.min(10, response.playerUpdate.mpChange || 0));
   p.resources.hp = clampResource(p.resources.hp + hpChange, p.resources.maxHp);
   p.resources.mp = clampResource(p.resources.mp + mpChange, p.resources.maxMp);
-  // DEFENSE: Cap exp change per event
-  const expCap = 100;
-  p.exp += Math.min(response.playerUpdate.expChange, expCap);
+  // DEFENSE: AI narrative cannot grant EXP. Combat and future quest rewards must be settled locally.
+  if ((response.playerUpdate.expChange || 0) !== 0) {
+    response.playerUpdate.expChange = 0;
+  }
 
   // DEFENSE: Cap money change per event (both positive and negative)
   // clampMoneyChangeByLevel returns a clamped CHANGE, NOT a total — must add, not replace

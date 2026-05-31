@@ -200,7 +200,7 @@ function getGenericOpening(classId: string, sanitizedOrigin: string): AIResponse
       { id: 'follow_spice_smell', label: '追香料味来源', type: 'check', risk: 'medium', relatedAttribute: 'wis' },
     ],
     customActionEnabled: true,
-    playerUpdate: { hpChange: 0, mpChange: 0, expChange: 3, moneyChange: {} },
+    playerUpdate: { hpChange: 0, mpChange: 0, expChange: 0, moneyChange: {} },
     inventoryUpdate: [], questUpdate: [], skillStateUpdate: [], equipmentUpdate: [], relationshipUpdate: [],
     mapUpdate: [{ targetId: 'gray_deer_tavern', targetType: 'location', name: '灰鹿酒馆', status: 'discovered' }],
     worldBroadcasts: [],

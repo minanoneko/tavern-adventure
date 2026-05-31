@@ -398,7 +398,7 @@ export function completeAIResponse(partial: Record<string, unknown>): AIResponse
     playerUpdate: {
       hpChange: (partial.playerUpdate as any)?.hpChange ?? 0,
       mpChange: (partial.playerUpdate as any)?.mpChange ?? 0,
-      expChange: (partial.playerUpdate as any)?.expChange ?? 0,
+      expChange: 0,
       moneyChange: (partial.playerUpdate as any)?.moneyChange ? { ...EMPTY_MONEY, ...(partial.playerUpdate as any).moneyChange } : { ...EMPTY_MONEY },
     },
     inventoryUpdate: Array.isArray(partial.inventoryUpdate) ? partial.inventoryUpdate.map((u: any) => ({
