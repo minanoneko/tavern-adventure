@@ -1,5 +1,6 @@
 import { useGameStore } from '../store/gameStore';
 import type { ActionOption } from '../types';
+import type { CSSProperties } from 'react';
 
 export default function ActionOptions({ options }: { options: ActionOption[] }) {
   const submitAction = useGameStore(s => s.submitAction);
@@ -21,14 +22,14 @@ export default function ActionOptions({ options }: { options: ActionOption[] }) 
   };
 
   return (
-    <div>
+    <div className="rune-actions">
       <div className="hidden lg:block text-sm text-muted mb-2">行动选项</div>
       <div className="grid grid-cols-1 lg:flex lg:flex-wrap gap-1.5 lg:gap-2">
         {options.map(opt => (
           <button
             key={opt.id}
-            className="btn text-sm text-left py-2 lg:py-3 px-3 lg:px-4 lg:flex-1 lg:min-w-[140px]"
-            style={{ borderColor: getRiskColor(opt.risk) }}
+            className="btn rune-action-card text-sm text-left py-2 lg:py-3 px-3 lg:px-4 lg:flex-1 lg:min-w-[140px]"
+            style={{ '--risk-color': getRiskColor(opt.risk) } as CSSProperties}
             onClick={() => submitAction(opt.id)}
             disabled={!canAffordMp(opt.mpCost)}
           >

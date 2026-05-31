@@ -27,14 +27,14 @@ export default function AdventureWindow() {
 
         {/* Current Event */}
         {currentEvent && (
-          <div>
-            <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 mb-3">
+          <div className="story-page">
+            <div className="story-heading flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-3 mb-3">
               <h2 className="text-lg lg:text-xl leading-snug" style={{ color: 'var(--color-tavern-accent)' }}>{currentEvent.scene.title}</h2>
               <span className="text-xs lg:text-sm text-muted">
                 {currentEvent.scene.location} · {currentEvent.scene.time} · {currentEvent.scene.weather}
               </span>
             </div>
-            <div className="text-[15px] lg:text-base leading-relaxed whitespace-pre-wrap" style={{ lineHeight: '1.75' }}>
+            <div className="story-text text-[15px] lg:text-base leading-relaxed whitespace-pre-wrap" style={{ lineHeight: '1.75' }}>
               {currentEvent.scene.text}
             </div>
 

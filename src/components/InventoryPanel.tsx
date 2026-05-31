@@ -1,6 +1,7 @@
 import { useGameStore } from '../store/gameStore';
 import { formatMoney } from '../types/common';
 import { useState } from 'react';
+import { getInventoryRarityColor, normalizeRarity } from '../utils/rarityColors';
 
 const TYPE_FILTERS = ['全部', '武器', '防具', '饰品', '消耗品', '材料', '任务物品', '技能书'];
 
@@ -15,36 +16,11 @@ const RARITY_LABELS: Record<string, string> = {
   epic: '史诗', legendary: '传说', cursed: '诅咒', relic: '遗物',
 };
 
-const rarityColors: Record<string, string> = {
-  common: '#d8d8d8',
-  uncommon: '#4aa3ff',
-  rare: '#a66cff',
-  epic: '#ff9d2e',
-  legendary: '#ffcf4a',
-  cursed: '#ff4a4a',
-  relic: '#ff6b2e',
-};
-
 function normalizeType(type: string): string {
   const value = String(type || '').toLowerCase();
   if (value === 'quest' || value === 'questitem' || value === 'story' || value === 'story_item') return 'quest_item';
   if (value === 'skillbook') return 'skill_book';
   return value;
-}
-
-function normalizeRarity(rarity: string): string {
-  const value = String(rarity || '').toLowerCase();
-  const map: Record<string, string> = {
-    normal: 'common',
-    white: 'common',
-    green: 'uncommon',
-    blue: 'uncommon',
-    purple: 'rare',
-    orange: 'epic',
-    gold: 'legendary',
-    red: 'cursed',
-  };
-  return map[value] || value || 'common';
 }
 
 export default function InventoryPanel() {
@@ -81,15 +57,18 @@ export default function InventoryPanel() {
         <div className="text-sm text-muted p-3">背包空空如也。</div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(item => (
+          {filtered.map(item => {
+            const rarity = normalizeRarity(item.rarity);
+            const rarityColor = getInventoryRarityColor(item.rarity, item.type);
+            return (
             <div key={item.id} className="panel p-3 text-sm">
               <div className="flex items-center justify-between mb-1">
-                <span style={{ color: rarityColors[normalizeRarity(item.rarity)] || 'var(--color-tavern-text)' }}>
+                <span style={{ color: rarityColor }}>
                   {item.name}
                   {item.quantity > 1 && <span className="text-muted ml-1">x{item.quantity}</span>}
                 </span>
-                <span className="tag text-xs" style={{ color: rarityColors[normalizeRarity(item.rarity)] }}>
-                  {RARITY_LABELS[normalizeRarity(item.rarity)] || normalizeRarity(item.rarity)}
+                <span className="tag text-xs" style={{ color: rarityColor, borderColor: rarityColor }}>
+                  {RARITY_LABELS[rarity] || rarity}
                 </span>
               </div>
               <div className="text-xs text-muted">{TYPE_LABELS[normalizeType(item.type)] || '剧情物品'}</div>
@@ -98,7 +77,7 @@ export default function InventoryPanel() {
                 <div className="text-info mt-1 text-xs">{item.effects.join('，')}</div>
               )}
             </div>
-          ))}
+          )})}
         </div>
       )}
 

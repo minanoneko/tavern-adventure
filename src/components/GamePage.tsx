@@ -39,9 +39,9 @@ export default function GamePage() {
       <StatusBar onSettingsClick={() => setShowSettings(true)} />
 
       {/* Middle: Main Layout */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="game-layout flex-1 flex overflow-hidden relative">
         {/* Left: Character Panel — hidden during combat */}
-        {!combatActive && <div className="hidden lg:block w-64 flex-shrink-0 overflow-auto border-r border-[var(--color-tavern-border)]">
+        {!combatActive && <div className="game-side-panel hidden lg:block w-64 flex-shrink-0 overflow-auto border-r border-[var(--color-tavern-border)]">
           <CharacterPanel />
         </div>}
 
@@ -60,13 +60,13 @@ export default function GamePage() {
         )}
 
         {/* Center: Adventure Window */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="game-main-panel flex-1 flex flex-col overflow-hidden min-w-0">
           <CombatPanel />
           {!combatActive && <AdventureWindow />}
         </div>
 
         {/* Right: Tab Container — hidden during combat */}
-        {!combatActive && <div className="hidden lg:block w-80 flex-shrink-0 overflow-hidden border-l border-[var(--color-tavern-border)]">
+        {!combatActive && <div className="game-side-panel hidden lg:block w-80 flex-shrink-0 overflow-hidden border-l border-[var(--color-tavern-border)]">
           <TabContainer />
         </div>}
 

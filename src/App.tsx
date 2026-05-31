@@ -5,6 +5,7 @@ import { saveGame } from './services/saveService';
 import StartPage from './components/StartPage';
 import CharacterCreate from './components/CharacterCreate';
 import GamePage from './components/GamePage';
+import FantasyBackdrop from './components/FantasyBackdrop';
 
 function App() {
   const phase = useGameStore(s => s.phase);
@@ -27,10 +28,13 @@ function App() {
   }, []);
 
   return (
-    <div className="h-full w-full bg-[var(--color-tavern-bg)] text-[var(--color-tavern-text)]">
-      {phase === 'start' && <StartPage />}
-      {phase === 'create' && <CharacterCreate />}
-      {phase === 'game' && <GamePage />}
+    <div className="fantasy-shell h-full w-full text-[var(--color-tavern-text)]">
+      <FantasyBackdrop />
+      <div className="relative z-10 h-full w-full">
+        {phase === 'start' && <StartPage />}
+        {phase === 'create' && <CharacterCreate />}
+        {phase === 'game' && <GamePage />}
+      </div>
     </div>
   );
 }

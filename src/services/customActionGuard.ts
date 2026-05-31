@@ -220,6 +220,20 @@ export function validateCustomAction(
     return { allowed: false, mode: 'reject', reason: 'NPC有自己的意志，不能随意命令。', sanitizedText: t, intent: 'invalid_force_result' };
   }
 
+  // === ALLOW: boast / pretend identity as a social action ===
+  // "我向酒馆里的人吹嘘我是剑圣" is social performance, not a real identity rewrite.
+  if (/(吹嘘|吹牛|夸口|自称|假装|伪装|冒充|谎称|声称|装作).{0,24}我是/.test(t) || /我.*说.*我是/.test(t)) {
+    return {
+      allowed: true,
+      mode: 'check',
+      sanitizedText: `尝试用夸口或伪装影响周围人的看法：${t}`,
+      intent: 'social',
+      requiresCheck: true,
+      checkAttribute: 'cha',
+      difficultyClass: 12,
+    };
+  }
+
   // === REJECT: identity claims ===
   if (/我是(?!谁|个)[一-鿿]{2,8}$/.test(t) || /我其实是|我本来就是|我真实身份|我的真正身份/.test(t)) {
     return { allowed: false, mode: 'reject', reason: '不能随意更改角色身份。你的背景已在创建角色时确定。', sanitizedText: t, intent: 'invalid_force_result' };

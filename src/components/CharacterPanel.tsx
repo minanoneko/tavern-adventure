@@ -3,6 +3,7 @@ import { ATTRIBUTE_LABELS, type AttributeKey } from '../types/common';
 import { getEquipmentById } from '../data/equipment';
 import { getTraitById } from '../data/races';
 import { getActiveTraits, getEffectiveAttributes, getEquipmentAttributeBonuses, getEquipmentPenalty } from '../utils/equipmentRules';
+import { getEquipmentQualityColor } from '../utils/rarityColors';
 
 const SAFE_LOCATIONS = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch'];
 const DISPLAY_EQUIPMENT_SLOTS = ['mainWeapon', 'armor', 'head', 'accessory1', 'accessory2'] as const;
@@ -47,14 +48,7 @@ function getClassIcon(classOrigin: string): string {
 }
 
 function getQualityColor(quality?: string): string {
-  const value = String(quality || '').toLowerCase();
-  if (value.includes('优') || value.includes('uncommon')) return '#4aa3ff';
-  if (value.includes('稀') || value.includes('rare')) return '#a66cff';
-  if (value.includes('史') || value.includes('epic')) return '#ff9d2e';
-  if (value.includes('传') || value.includes('legendary')) return '#ffcf4a';
-  if (value.includes('诅') || value.includes('cursed')) return '#ff4a4a';
-  if (value.includes('遗') || value.includes('relic')) return '#ff6b2e';
-  return '#d8d8d8';
+  return getEquipmentQualityColor(quality);
 }
 
 export default function CharacterPanel() {

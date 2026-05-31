@@ -26,9 +26,9 @@ export default function StartPage() {
   }
 
   return (
-    <div className="h-full flex flex-col items-center justify-center">
+    <div className="h-full flex flex-col items-center justify-center fantasy-start-page">
       {/* Title */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-12 fantasy-title-block">
         <h1 className="text-5xl mb-2 tracking-wider" style={{ color: 'var(--color-tavern-accent)', fontFamily: 'var(--font-display)' }}>
           灰鹿酒馆
         </h1>
@@ -38,7 +38,7 @@ export default function StartPage() {
       </div>
 
       {/* Menu buttons */}
-      <div className="flex flex-col gap-4 w-72">
+      <div className="flex flex-col gap-4 w-72 fantasy-start-menu">
         <button className="btn btn-primary text-lg py-4" onClick={newGame}>
           新游戏
         </button>

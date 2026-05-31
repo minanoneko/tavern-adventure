@@ -167,7 +167,7 @@ export function applyAIResponse(
   updatedWorld = applySceneLocation(updatedWorld, response, updatedPlayer, logs, options);
 
   // 10.5 Sync scene time/weather back to worldState
-  updatedWorld = applySceneMeta(updatedWorld, response);
+  updatedWorld = applySceneMeta(updatedWorld, response, logs);
 
   // 11. Apply memory updates
   updatedWorld = applyMemoryUpdate(updatedWorld, response, updatedPlayer, logs, options);
@@ -705,7 +705,7 @@ function applySceneLocation(world: WorldState, response: AIResponse, player: Pla
 }
 
 /** Sync scene.time and scene.weather from AI response back to worldState */
-function applySceneMeta(world: WorldState, response: AIResponse): WorldState {
+function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[]): WorldState {
   const w = { ...world };
 
   // Parse time from scene.time string (e.g. "雾月3日 上午")
@@ -721,7 +721,13 @@ function applySceneMeta(world: WorldState, response: AIResponse): WorldState {
 
   // Parse weather from scene.weather
   if (response.scene.weather) {
-    w.weather = normalizeWeather(response.scene.weather, w.weather);
+    const requestedWeather = normalizeWeather(response.scene.weather, w.weather);
+    const smoothedWeather = smoothWeatherTransition(w.weather, requestedWeather, response.scene.text || '');
+    if (smoothedWeather !== requestedWeather) {
+      logs.push(createLogEntry('world', `天气转折过快，已缓冲为：${smoothedWeather}`));
+      response.scene.weather = smoothedWeather;
+    }
+    w.weather = smoothedWeather;
   }
 
   // Avoid repeated weather (兜底)
@@ -749,6 +755,33 @@ function avoidRepeatedWeather(current: Weather, flags: string[]): Weather {
     }
   }
   return current;
+}
+
+const WEATHER_FLOW: Weather[] = ['晴', '多云', '阴', '雾', '小雨', '雨', '暴风雨'];
+
+function hasWeatherTransitionCue(sceneText: string): boolean {
+  return /乌云|云层|天色|风向|起风|狂风|雷声|闷雷|闪电|雨势|骤然|突然|逼近|压来|转冷|寒意|雪云|风暴/.test(sceneText);
+}
+
+function smoothWeatherTransition(current: Weather, requested: Weather, sceneText: string): Weather {
+  if (current === requested) return requested;
+  if (hasWeatherTransitionCue(sceneText)) return requested;
+
+  if (current === '雪' || requested === '雪') {
+    if (current === '雪' && requested === '晴') return '多云';
+    if (current === '晴' && requested === '雪') return '多云';
+    if (requested === '雪' && current !== '雨' && current !== '小雨' && current !== '雾') return '阴';
+    return requested;
+  }
+
+  const currentIndex = WEATHER_FLOW.indexOf(current);
+  const requestedIndex = WEATHER_FLOW.indexOf(requested);
+  if (currentIndex < 0 || requestedIndex < 0) return requested;
+
+  const delta = requestedIndex - currentIndex;
+  if (Math.abs(delta) <= 2) return requested;
+
+  return WEATHER_FLOW[currentIndex + Math.sign(delta)] || requested;
 }
 
 function applyMemoryUpdate(world: WorldState, response: AIResponse, player: Player, logs: LogEntry[], options: ApplyAIResponseOptions): WorldState {

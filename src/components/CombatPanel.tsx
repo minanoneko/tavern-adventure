@@ -85,9 +85,9 @@ export default function CombatPanel() {
   };
 
   return (
-    <div className="border-2 border-[#c94040] bg-[#1a0a0a] shadow-lg shadow-[#c94040]/20 p-3 space-y-3 overflow-auto max-h-full flex-shrink-0" style={{minHeight: '200px'}}>
+    <div className="combat-panel p-3 space-y-3 overflow-auto max-h-full flex-shrink-0" style={{minHeight: '200px'}}>
       {/* === Turn + Player Bar (compact) === */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="combat-status-strip flex items-center justify-between flex-wrap gap-2">
         <div>
           {phase === 'fighting' && combatState.turn === 'player' && (
             <span className="text-sm lg:text-base font-bold text-info">⚔ 你的回合</span>
@@ -101,7 +101,7 @@ export default function CombatPanel() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 text-xs">
+        <div className="combat-player-stats flex items-center gap-3 text-xs">
           <span>{player.name} Lv.{player.level}</span>
           <span className="text-danger">HP {player.resources.hp}/{player.resources.maxHp}</span>
           <span className="text-info">MP {player.resources.mp}/{player.resources.maxMp}</span>
@@ -113,7 +113,7 @@ export default function CombatPanel() {
 
       {/* Combat formula hint (compact) */}
       {phase === 'fighting' && aliveEnemies.length > 0 && (
-        <div className="text-xs text-muted text-center">
+        <div className="combat-formula text-xs text-muted text-center">
           攻击判定：d20+敏{atkMod>=0?'+':''}{atkMod} vs AC{hitTarget} · 伤害：{weaponDice.count}d{weaponDice.dice}+{strMod>=0?'+':''}{strMod}={dmgMin}~{dmgMax}
         </div>
       )}
@@ -126,7 +126,7 @@ export default function CombatPanel() {
       )}
 
       {/* === Combat Log (primary dice display) === */}
-      <div className="h-32 lg:h-36 overflow-auto p-3 bg-black/60 rounded border border-[#c94040] text-sm lg:text-base space-y-1.5">
+      <div className="combat-log h-32 lg:h-36 overflow-auto p-3 text-sm lg:text-base space-y-1.5">
         {combatState.combatLog.length === 0 && <div className="text-muted text-center">等待战斗开始...</div>}
         {combatState.combatLog.slice(-6).map(log => (
           <div key={log.id} className={`${log.type === 'action' ? 'text-info' : log.type === 'enemy' ? 'text-danger' : log.type === 'reward' ? 'text-success' : 'text-muted'}`}>
@@ -136,15 +136,15 @@ export default function CombatPanel() {
       </div>
 
       {/* === Enemy cards === */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="combat-enemy-grid grid grid-cols-2 gap-2">
         {combatState.enemies.map(enemy => {
           const eHpPct = enemy.maxHp > 0 ? (enemy.hp / enemy.maxHp) * 100 : 0;
           const isSelected = selectedTarget === enemy.id;
           return (
-            <div key={enemy.id} className={`p-2 rounded border text-xs lg:text-sm cursor-pointer transition-all ${
-              enemy.isDefeated ? 'border-gray-700 opacity-40 bg-black/20' :
-              isSelected ? 'border-[#c94040] bg-[#2a0a0a]' :
-              'border-[#c94040]/40 hover:border-[#c94040] bg-black/30'
+            <div key={enemy.id} className={`combat-enemy-card p-2 rounded border text-xs lg:text-sm cursor-pointer transition-all ${
+              enemy.isDefeated ? 'defeated opacity-40' :
+              isSelected ? 'selected' :
+              ''
             }`} onClick={() => !enemy.isDefeated && setSelectedTarget(enemy.id)}>
               <div className="flex justify-between font-bold">
                 <span>{enemy.name}{enemy.isBoss ? <span className="text-danger ml-1">BOSS</span> : ''}</span>
@@ -152,7 +152,7 @@ export default function CombatPanel() {
               </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-danger text-xs">HP</span>
-                <div className="flex-1 h-2 bg-black/50 rounded overflow-hidden">
+                <div className="combat-hp-track flex-1 h-2 rounded overflow-hidden">
                   <div className={`h-full ${enemy.isDefeated ? 'bg-gray-600' : eHpPct<30 ? 'bg-red-600' : 'bg-orange-600'}`} style={{width:`${eHpPct}%`}}/>
                 </div>
                 <span className="text-xs">{enemy.hp}/{enemy.maxHp}</span>
@@ -166,7 +166,7 @@ export default function CombatPanel() {
       {/* === Actions or End Screen === */}
       {phase === 'fighting' ? (
         <>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="combat-actions flex flex-wrap gap-1.5">
             {actions.map((a, i) => {
               let tip = '';
               if (a.type === 'attack') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs AC${hitTarget} · ${weaponDice.count}d${weaponDice.dice}+${strMod>=0?'+':''}${strMod}=${dmgMin}~${dmgMax}伤害`;
@@ -174,7 +174,7 @@ export default function CombatPanel() {
               else if (a.type === 'defend') tip = '本回合伤害减半';
               else if (a.type === 'flee') tip = `d20+敏${atkMod>=0?'+':''}${atkMod} vs DC14 逃跑`;
               return (
-                <button key={i} className={`btn text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' || skillRoll?.rolling ? 'opacity-50' : ''}`}
+                <button key={i} className={`btn combat-action action-${a.type} text-xs lg:text-sm px-2 py-1.5 ${isProcessing || combatState.turn !== 'player' || skillRoll?.rolling ? 'opacity-50' : ''}`}
                   style={{ borderColor: a.type==='attack'?'#c97a30':a.type==='skill'?'#6b8cce':a.type==='item'?'#5a9e6f':a.type==='defend'?'#8a8a8a':a.type==='flee'?'#c94040':'var(--color-tavern-muted)' }}
                   onClick={() => handleAction(a)} disabled={isProcessing || combatState.turn !== 'player' || !!skillRoll?.rolling}
                   title={tip}>
