@@ -1032,8 +1032,39 @@ body {
     display: none !important;
   }
 
-  .fantasy-sky-layer {
+  .fantasy-sky-layer,
+  .fantasy-celestial-layer {
     display: block !important;
+  }
+
+  .fantasy-sun,
+  .fantasy-moon,
+  .fantasy-stars {
+    display: block !important;
+    animation: none !important;
+    filter: none !important;
+  }
+
+  .fantasy-sun {
+    background: radial-gradient(circle at 36% 34%, #fff6bd 0 18%, #ffd75d 44%, rgba(255, 177, 74, 0.42) 68%, transparent 72%);
+    box-shadow: 0 0 34px rgba(255, 220, 120, 0.36);
+  }
+
+  .fantasy-moon {
+    background: radial-gradient(circle at 38% 32%, #f3f0d8, #b8c5dd 62%, transparent 70%);
+    box-shadow: 0 0 28px rgba(164, 190, 238, 0.22);
+  }
+
+  .fantasy-stars {
+    background:
+      radial-gradient(circle at 12% 12%, rgba(255, 255, 235, 0.9) 0 1px, transparent 2px),
+      radial-gradient(circle at 28% 22%, rgba(255, 255, 235, 0.78) 0 1px, transparent 2px),
+      radial-gradient(circle at 46% 14%, rgba(255, 255, 235, 0.72) 0 1px, transparent 2px),
+      radial-gradient(circle at 66% 26%, rgba(255, 255, 235, 0.84) 0 1px, transparent 2px),
+      radial-gradient(circle at 84% 16%, rgba(255, 255, 235, 0.78) 0 1px, transparent 2px);
+  }
+
+  .fantasy-sky-layer {
     background:
       radial-gradient(circle at 26% 14%, var(--sky-glow), transparent 30%),
       linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 52%, var(--sky-low) 100%);
