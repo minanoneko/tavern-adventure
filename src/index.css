@@ -54,6 +54,12 @@ body {
   font-family: var(--font-body);
 }
 
+.app-page-hidden .fantasy-backdrop *,
+.app-page-hidden .fantasy-backdrop *::before,
+.app-page-hidden .fantasy-backdrop *::after {
+  animation-play-state: paused !important;
+}
+
 .fantasy-shell {
   position: relative;
   isolation: isolate;
@@ -999,6 +1005,88 @@ body {
 }
 
 @media (max-width: 1023px) {
+  .fantasy-start-menu,
+  .game-main-panel,
+  .story-page,
+  .panel,
+  .mobile-action-dock,
+  .mobile-bottom-nav {
+    backdrop-filter: none !important;
+  }
+
+  .fantasy-backdrop *,
+  .fantasy-backdrop *::before,
+  .fantasy-backdrop *::after {
+    animation: none !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+  }
+
+  .fantasy-backdrop {
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 52%, var(--sky-low) 100%);
+  }
+
+  .fantasy-sky-layer {
+    background:
+      radial-gradient(circle at 26% 14%, var(--sky-glow), transparent 30%),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 52%, var(--sky-low) 100%);
+  }
+
+  .fantasy-map-layer,
+  .fantasy-rune-layer,
+  .fantasy-atmosphere-layer {
+    display: none;
+  }
+
+  .fantasy-cloud-layer,
+  .weather-cloudy .fantasy-cloud-layer,
+  .weather-fog .fantasy-cloud-layer,
+  .weather-rain .fantasy-cloud-layer,
+  .weather-storm .fantasy-cloud-layer,
+  .weather-snow .fantasy-cloud-layer {
+    opacity: 0.34;
+    transform: none;
+  }
+
+  .fantasy-weather-layer,
+  .weather-clear .fantasy-weather-layer,
+  .weather-cloudy .fantasy-weather-layer,
+  .weather-fog .fantasy-weather-layer,
+  .weather-rain .fantasy-weather-layer,
+  .weather-snow .fantasy-weather-layer,
+  .weather-storm .fantasy-weather-layer,
+  .time-dusk.weather-fog .fantasy-weather-layer {
+    opacity: 0.28;
+    transform: none;
+    background:
+      radial-gradient(circle at 22% 16%, rgba(255, 236, 148, 0.16), transparent 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 62%);
+  }
+
+  .weather-rain .fantasy-weather-layer,
+  .weather-storm .fantasy-weather-layer {
+    opacity: 0.42;
+    background:
+      repeating-linear-gradient(112deg, rgba(160, 190, 205, 0.2) 0 1px, transparent 1px 12px),
+      linear-gradient(180deg, rgba(32, 54, 68, 0.24), transparent 70%);
+  }
+
+  .weather-snow .fantasy-weather-layer {
+    opacity: 0.36;
+    background:
+      radial-gradient(circle, rgba(238, 246, 240, 0.5) 0 1px, transparent 1.5px),
+      linear-gradient(180deg, rgba(187, 210, 220, 0.14), transparent 70%);
+    background-size: 48px 48px, auto;
+  }
+
+  .weather-fog .fantasy-weather-layer,
+  .time-dusk.weather-fog .fantasy-weather-layer {
+    opacity: 0.48;
+    background:
+      linear-gradient(180deg, rgba(230, 236, 220, 0.2), transparent 64%),
+      radial-gradient(ellipse at 42% 38%, rgba(226, 236, 226, 0.22), transparent 46%);
+  }
+
   .game-layout {
     background:
       linear-gradient(180deg, rgba(2, 5, 8, 0.18), rgba(2, 5, 8, 0.34)),
@@ -1011,7 +1099,6 @@ body {
     box-shadow:
       inset 0 0 0 1px rgba(216, 183, 90, 0.12),
       inset 0 0 70px rgba(0, 0, 0, 0.12);
-    backdrop-filter: blur(1px);
   }
 
   .story-page {
@@ -1021,19 +1108,16 @@ body {
       radial-gradient(circle at 0% 100%, rgba(0, 0, 0, 0.5), transparent 30%),
       radial-gradient(circle at 100% 100%, rgba(0, 0, 0, 0.5), transparent 30%),
       linear-gradient(180deg, rgba(20, 18, 15, 0.62), rgba(7, 10, 12, 0.5));
-    backdrop-filter: blur(2px);
   }
 
   .mobile-action-dock {
     background:
       linear-gradient(180deg, rgba(7, 10, 12, 0.26), rgba(18, 12, 7, 0.56));
-    backdrop-filter: blur(3px);
   }
 
   .mobile-bottom-nav {
     background:
       linear-gradient(180deg, rgba(15, 12, 9, 0.72), rgba(8, 9, 10, 0.86));
-    backdrop-filter: blur(4px);
   }
 
   .fantasy-sun {

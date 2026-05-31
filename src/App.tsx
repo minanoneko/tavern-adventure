@@ -12,7 +12,7 @@ function App() {
 
   // Auto-save on page close / mobile browser exit
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const persistCurrentGame = () => {
       const state = useGameStore.getState();
       if (state.phase === 'game' && state.player) {
         const summary = getLongTermSummary();
@@ -23,8 +23,32 @@ function App() {
         );
       }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+
+    const handleVisibilityChange = () => {
+      const hidden = document.visibilityState === 'hidden';
+      document.documentElement.classList.toggle('app-page-hidden', hidden);
+      if (hidden) persistCurrentGame();
+    };
+
+    const handlePageHide = () => {
+      document.documentElement.classList.add('app-page-hidden');
+      persistCurrentGame();
+    };
+
+    const handlePageShow = () => {
+      document.documentElement.classList.remove('app-page-hidden');
+    };
+
+    window.addEventListener('beforeunload', persistCurrentGame);
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      window.removeEventListener('beforeunload', persistCurrentGame);
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pageshow', handlePageShow);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   return (

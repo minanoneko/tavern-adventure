@@ -67,7 +67,7 @@ export async function generateOpeningEvent(
 
   // Ultimate fallback: safe local incident opening
   return {
-    event: getGenericOpening(guardResult.sanitizedOrigin),
+    event: getGenericOpening(player.classOrigin, guardResult.sanitizedOrigin),
     sanitizedOrigin: guardResult.sanitizedOrigin,
     warnings: guardResult.warnings,
     deniedClaims: guardResult.deniedClaims,
@@ -188,9 +188,9 @@ function normalizeOpeningScene(event: AIResponse): AIResponse {
   return event;
 }
 
-function getGenericOpening(sanitizedOrigin: string): AIResponse {
+function getGenericOpening(classId: string, sanitizedOrigin: string): AIResponse {
   if (!sanitizedOrigin.trim()) {
-    return getSafeDefaultOpening();
+    return getSafeDefaultOpening(classId);
   }
 
   const openWeathers: Weather[] = ['晴', '多云', '阴'];

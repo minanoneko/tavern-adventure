@@ -58,6 +58,21 @@ const SAFE_DEFAULT_OPENINGS: AIResponse[] = [
   },
 ];
 
+const SAFE_OPENING_IDS_BY_CLASS: Record<string, string[]> = {
+  mage: ['opening_safe_market', 'opening_safe_blacksmith'],
+  ranger: ['opening_safe_market'],
+  warrior: ['opening_safe_blacksmith', 'opening_safe_market'],
+  thief: ['opening_safe_market', 'opening_safe_blacksmith'],
+  priest: ['opening_safe_chapel', 'opening_safe_market'],
+  barbarian: ['opening_safe_blacksmith', 'opening_safe_market'],
+  alchemist: ['opening_safe_market'],
+  noble: ['opening_safe_blacksmith', 'opening_safe_chapel'],
+  wanderer: ['opening_safe_market', 'opening_safe_chapel'],
+  bard: ['opening_safe_market', 'opening_safe_chapel'],
+  scholar: ['opening_safe_chapel', 'opening_safe_blacksmith'],
+  witch_hunter: ['opening_safe_chapel'],
+};
+
 const CLASS_OPENING_FLAVORS: Record<string, { note: string; actionLabel: string; actionType: AIResponse['actionOptions'][number]['type'] }> = {
   mage: {
     note: '你的魔法笔记和基础感知能帮你判断这件小事里有没有异常魔力，但现在的你仍只是低阶施法者。',
@@ -634,7 +649,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
 ];
 
 export function getOpeningByClass(classId: string, sanitizedOrigin: string): AIResponse | null {
-  const response = getSafeDefaultOpening();
+  const response = getSafeDefaultOpening(classId);
   applyClassFlavor(response, classId);
 
   // If sanitized origin exists, slightly modify the scene text to incorporate it
@@ -670,9 +685,14 @@ function applyClassFlavor(response: AIResponse, classId: string) {
   ];
 }
 
-export function getSafeDefaultOpening(): AIResponse {
-  const idx = Math.floor(Math.random() * SAFE_DEFAULT_OPENINGS.length);
-  return JSON.parse(JSON.stringify(SAFE_DEFAULT_OPENINGS[idx])) as AIResponse;
+export function getSafeDefaultOpening(classId?: string): AIResponse {
+  const allowedIds = classId ? SAFE_OPENING_IDS_BY_CLASS[classId] : undefined;
+  const pool = allowedIds?.length
+    ? SAFE_DEFAULT_OPENINGS.filter(opening => allowedIds.includes(opening.event.id))
+    : SAFE_DEFAULT_OPENINGS;
+  const finalPool = pool.length > 0 ? pool : SAFE_DEFAULT_OPENINGS;
+  const idx = Math.floor(Math.random() * finalPool.length);
+  return JSON.parse(JSON.stringify(finalPool[idx])) as AIResponse;
 }
 
 
