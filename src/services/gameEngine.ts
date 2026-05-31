@@ -826,15 +826,23 @@ function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[
 }
 
 function getForcedTimeFromAction(action?: PlayerAction): TimeOfDay | undefined {
-  const text = `${action?.customText || ''} ${action?.label || ''} ${action?.selectedOptionLabel || ''}`;
+  const text = `${action?.customText || ''} ${action?.label || ''} ${action?.selectedOptionLabel || ''}`.trim();
   if (!text.trim()) return undefined;
-  if (/待到晚上|等到晚上|等到夜晚|等到夜里|等天黑|等到天黑|入夜|等待入夜|守到晚上|守到夜晚|熬到晚上|熬到夜晚/.test(text)) return '夜晚';
-  if (/待到深夜|等到深夜|等到半夜|守到深夜|守到半夜|熬到深夜|子时/.test(text)) return '深夜';
-  if (/待到清晨|等到清晨|等到黎明|等到天亮|睡到天亮|睡到清晨|等到早上|等到早晨/.test(text)) return '清晨';
-  if (/待到上午|等到上午/.test(text)) return '上午';
-  if (/待到中午|等到中午|等到正午/.test(text)) return '中午';
-  if (/待到下午|等到下午/.test(text)) return '下午';
-  if (/待到傍晚|等到傍晚|等到黄昏|等到日落/.test(text)) return '傍晚';
+  if (/^(清晨|黎明|早上|早晨|天亮)$/.test(text)) return '清晨';
+  if (/^上午$/.test(text)) return '上午';
+  if (/^(中午|正午)$/.test(text)) return '中午';
+  if (/^下午$/.test(text)) return '下午';
+  if (/^(傍晚|黄昏|日落)$/.test(text)) return '傍晚';
+  if (/^(晚上|夜晚|夜里|天黑|入夜)$/.test(text)) return '夜晚';
+  if (/^(深夜|半夜|子时)$/.test(text)) return '深夜';
+
+  if (/待到深夜|等到深夜|等到半夜|守到深夜|守到半夜|熬到深夜|待到子时|等到子时|守到子时|熬到子时/.test(text)) return '深夜';
+  if (/待到晚上|等到晚上|等到夜晚|等到夜里|等天黑|等到天黑|等待入夜|守到晚上|守到夜晚|熬到晚上|熬到夜晚|休息到晚上|休息到夜晚|睡到晚上|睡到夜晚|跳过到晚上|跳过到夜晚|时间到晚上|时间到夜晚|直到晚上|直到夜晚|直到天黑|进入夜晚|进入夜里/.test(text)) return '夜晚';
+  if (/待到清晨|等到清晨|等到黎明|等到天亮|睡到天亮|睡到清晨|等到早上|等到早晨|休息到清晨|跳过到清晨/.test(text)) return '清晨';
+  if (/待到上午|等到上午|休息到上午|跳过到上午/.test(text)) return '上午';
+  if (/待到中午|等到中午|等到正午|休息到中午|跳过到中午/.test(text)) return '中午';
+  if (/待到下午|等到下午|休息到下午|跳过到下午/.test(text)) return '下午';
+  if (/待到傍晚|等到傍晚|等到黄昏|等到日落|休息到傍晚|跳过到傍晚/.test(text)) return '傍晚';
   return undefined;
 }
 

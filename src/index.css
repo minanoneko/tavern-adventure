@@ -1045,6 +1045,14 @@ body {
     filter: none !important;
   }
 
+  .fantasy-sun,
+  .fantasy-moon {
+    transition:
+      transform 0.7s ease,
+      opacity 0.45s ease,
+      visibility 0.45s ease;
+  }
+
   .fantasy-sun {
     background: radial-gradient(circle at 36% 34%, #fff6bd 0 18%, #ffd75d 44%, rgba(255, 177, 74, 0.42) 68%, transparent 72%);
     box-shadow: 0 0 34px rgba(255, 220, 120, 0.36);
@@ -1062,6 +1070,30 @@ body {
       radial-gradient(circle at 46% 14%, rgba(255, 255, 235, 0.72) 0 1px, transparent 2px),
       radial-gradient(circle at 66% 26%, rgba(255, 255, 235, 0.84) 0 1px, transparent 2px),
       radial-gradient(circle at 84% 16%, rgba(255, 255, 235, 0.78) 0 1px, transparent 2px);
+  }
+
+  .time-night .fantasy-sun {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    box-shadow: none !important;
+  }
+
+  .time-night .fantasy-moon,
+  .time-night .fantasy-stars {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .time-day .fantasy-moon,
+  .time-morning .fantasy-moon,
+  .time-noon .fantasy-moon,
+  .time-afternoon .fantasy-moon,
+  .time-dawn .fantasy-moon,
+  .time-dusk .fantasy-moon {
+    opacity: 0 !important;
+    visibility: hidden !important;
   }
 
   .fantasy-sky-layer {
