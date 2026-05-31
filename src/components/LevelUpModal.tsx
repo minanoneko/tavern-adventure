@@ -8,6 +8,8 @@ export default function LevelUpModal() {
   const allocateAttribute = useGameStore(s => s.allocateAttribute);
   if (!player) return null;
 
+  const gotLearnToken = (newLevel || player.level) % 3 === 0;
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
       <div className="panel p-6 max-w-sm w-full mx-4">
@@ -19,8 +21,9 @@ export default function LevelUpModal() {
         </div>
         <div className="text-xs space-y-1 mb-4 text-muted">
           <div>获得：属性点 +2</div>
-          <div>获得：技能点 +1</div>
+          {gotLearnToken && <div style={{ color: 'var(--color-tavern-info)' }}>获得：新技能学习机会 +1（每3级）</div>}
           <div>最大 HP 和 MP 已提升</div>
+          <div>HP / MP 完全恢复</div>
         </div>
 
         {/* Quick attribute allocation */}

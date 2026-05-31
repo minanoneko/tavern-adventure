@@ -421,7 +421,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     name: '双持武器',
     type: 'passive', rarity: 'common', slotCost: 1,
     description: '能同时在双手装备武器进行战斗。',
-    learnRequirements: { minLevel: 4, attributes: { dex: 8 } },
+    learnRequirements: { minLevel: 4, attributes: { dex: 14 } },
     castRequirements: {},
   },
   stealth_step: {
@@ -429,7 +429,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     name: '潜行步',
     type: 'active', rarity: 'common', slotCost: 1,
     description: '在阴影中快速移动而不发出声音。',
-    learnRequirements: { minLevel: 2, attributes: { dex: 7 } },
+    learnRequirements: { minLevel: 2, attributes: { dex: 13 } },
     castRequirements: { mpCost: 2 },
   },
   alchemy_craft: {
@@ -437,7 +437,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     name: '炼金合成',
     type: 'active', rarity: 'common', slotCost: 1,
     description: '将材料合成为药剂或炼金道具。需要炼金包和配方。',
-    learnRequirements: { minLevel: 3, attributes: { int: 7 } },
+    learnRequirements: { minLevel: 3, attributes: { int: 13 } },
     castRequirements: { requiresItem: 'alchemy_kit' },
   },
 
@@ -448,7 +448,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'uncommon', slotCost: 1,
     classTags: ['mage'],
     description: '将火焰凝聚成箭矢射出，造成远程火焰伤害。',
-    learnRequirements: { minLevel: 3, attributes: { int: 8 } },
+    learnRequirements: { minLevel: 3, attributes: { int: 15 } },
     castRequirements: { mpCost: 4, requiresWeaponType: 'staff' },
     combatDamage: { useWeaponDice: false, damageDice: '1d6', bonusDice: '1d4', damageAttribute: 'int' },
   },
@@ -458,7 +458,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'uncommon', slotCost: 1,
     classTags: ['mage'],
     description: '用冰霜魔法束缚敌人的双脚，减缓其行动速度。',
-    learnRequirements: { minLevel: 5, attributes: { int: 10 } },
+    learnRequirements: { minLevel: 3, attributes: { int: 15 } },
     castRequirements: { mpCost: 5, requiresWeaponType: 'staff' },
   },
   arcane_lock: {
@@ -467,7 +467,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'uncommon', slotCost: 1,
     classTags: ['mage'],
     description: '以魔法封印一扇门或箱子，只有施法者或特定条件才能打开。',
-    learnRequirements: { minLevel: 5, attributes: { int: 10 }, prerequisiteSkills: ['read_runes'] },
+    learnRequirements: { minLevel: 3, attributes: { int: 15 }, prerequisiteSkills: ['read_runes'] },
     castRequirements: { mpCost: 6, requiresWeaponType: 'staff' },
   },
   mana_shield: {
@@ -476,7 +476,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'reaction', rarity: 'uncommon', slotCost: 1,
     classTags: ['mage'],
     description: '瞬间凝聚魔力形成护盾，吸收一次攻击的部分伤害。',
-    learnRequirements: { minLevel: 7, attributes: { int: 12 } },
+    learnRequirements: { minLevel: 6, attributes: { int: 17 } },
     castRequirements: { mpCost: 8, requiresWeaponType: 'staff' },
   },
   mana_blast: {
@@ -485,7 +485,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'rare', slotCost: 2,
     classTags: ['mage'],
     description: '释放积蓄的魔力对目标区域造成范围伤害。威力强大但消耗极高。',
-    learnRequirements: { minLevel: 12, attributes: { int: 14 }, prerequisiteSkills: ['fire_arrow'] },
+    learnRequirements: { minLevel: 9, attributes: { int: 19 }, prerequisiteSkills: ['fire_arrow'] },
     castRequirements: { mpCost: 15, requiresWeaponType: 'staff', oncePerRest: true },
   },
   spatial_rift: {
@@ -494,7 +494,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'epic', slotCost: 2,
     classTags: ['mage'],
     description: '短暂撕裂空间，创造一条通往附近地点的临时通道。极其危险，使用不当可能导致迷失在裂隙中。',
-    learnRequirements: { minLevel: 18, attributes: { int: 16 }, prerequisiteSkills: ['mana_blast', 'arcane_lock'] },
+    learnRequirements: { minLevel: 12, attributes: { int: 20 }, prerequisiteSkills: ['mana_blast', 'arcane_lock'] },
     castRequirements: { mpCost: 20, maxHpCost: 5, oncePerRest: true },
   },
   grand_prophecy: {
@@ -503,7 +503,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'ritual', rarity: 'legendary', slotCost: 3,
     classTags: ['mage'],
     description: '窥见未来的一条关键线索、灾难预兆或隐藏真相。消耗极大，但可能改变整个故事的走向。',
-    learnRequirements: { minLevel: 21, attributes: { int: 16, wis: 16 }, prerequisiteSkills: ['magic_sense', 'read_runes'] },
+    learnRequirements: { minLevel: 21, attributes: { int: 20, wis: 20 }, prerequisiteSkills: ['magic_sense', 'read_runes'] },
     castRequirements: { mpCost: 20, maxHpCost: 10, oncePerRest: true },
     effectsDescription: 'GM根据当前剧情给出一个关键预兆或隐藏真相，但施法者永久失去10点 HP 上限。',
   },
@@ -515,7 +515,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'combat', rarity: 'uncommon', slotCost: 1,
     classTags: ['warrior'],
     description: '针对敌人的护甲弱点进行精准打击，无视部分护甲。',
-    learnRequirements: { minLevel: 5, attributes: { str: 10 } },
+    learnRequirements: { minLevel: 3, attributes: { str: 15 } },
     castRequirements: { mpCost: 3, requiresWeaponType: 'sword' },
   },
   counter_strike: {
@@ -524,7 +524,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'reaction', rarity: 'uncommon', slotCost: 1,
     classTags: ['warrior'],
     description: '在成功格挡后立即反击，造成额外伤害。',
-    learnRequirements: { minLevel: 7, attributes: { str: 12 }, prerequisiteSkills: ['shield_block'] },
+    learnRequirements: { minLevel: 6, attributes: { str: 16 }, prerequisiteSkills: ['shield_block'] },
     castRequirements: { mpCost: 5, requiresEquipment: 'shield' },
   },
 
@@ -535,7 +535,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'uncommon', slotCost: 1,
     classTags: ['priest'],
     description: '净化目标身上的毒素、诅咒或疾病。对强力诅咒只能部分缓解。',
-    learnRequirements: { minLevel: 5, attributes: { wis: 10 } },
+    learnRequirements: { minLevel: 3, attributes: { wis: 15 } },
     castRequirements: { mpCost: 6, requiresEquipment: 'holy_symbol' },
   },
   holy_shield: {
@@ -544,7 +544,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'magic', rarity: 'uncommon', slotCost: 1,
     classTags: ['priest'],
     description: '以圣光形成护盾，保护目标免受一次伤害。',
-    learnRequirements: { minLevel: 7, attributes: { wis: 12 } },
+    learnRequirements: { minLevel: 6, attributes: { wis: 16 } },
     castRequirements: { mpCost: 8, requiresEquipment: 'holy_symbol' },
   },
 
@@ -555,7 +555,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'active', rarity: 'uncommon', slotCost: 1,
     classTags: ['thief'],
     description: '在阴影中瞬间位移到附近位置，不被敌人察觉。',
-    learnRequirements: { minLevel: 5, attributes: { dex: 10 }, prerequisiteSkills: ['stealth'] },
+    learnRequirements: { minLevel: 3, attributes: { dex: 15 }, prerequisiteSkills: ['stealth'] },
     castRequirements: { mpCost: 4 },
   },
   poison_blade: {
@@ -564,7 +564,7 @@ export const SKILL_LIBRARY: Record<string, Skill> = {
     type: 'combat', rarity: 'uncommon', slotCost: 1,
     classTags: ['thief'],
     description: '在武器上涂毒，命中后使目标中毒。',
-    learnRequirements: { minLevel: 7, attributes: { dex: 12 } },
+    learnRequirements: { minLevel: 6, attributes: { dex: 16 } },
     castRequirements: { mpCost: 3, requiresWeaponType: 'dagger' },
   },
 };

@@ -9,6 +9,9 @@ export default function FixedActions() {
   const isProcessing = useGameStore(s => s.isProcessing);
   const combatActive = useGameStore(s => s.worldState.combatState.active);
   const restAtLocation = useGameStore(s => s.restAtLocation);
+  const resetAttributes = useGameStore(s => s.resetAttributes);
+  const clearCrimeRecord = useGameStore(s => s.clearCrimeRecord);
+  const townCrimeCount = worldState.townCrimeCount || 0;
   const [showShop, setShowShop] = useState(false);
 
   if (!player || combatActive || isProcessing) return null;
@@ -30,6 +33,7 @@ export default function FixedActions() {
     (worldState.currentLocationName || '').includes('集市');
   const locId = worldState.currentLocation || '';
   const locName = worldState.currentLocationName || '';
+  const isChapel = locId.includes('chapel') || locName.includes('礼拜堂');
   const isSafe = ['tavern', 'temple'].includes(locType as string) ||
     locId.includes('inn') || locId.includes('tavern') || locId.includes('chapel') || locId.includes('guild') ||
     locName.includes('酒馆') || locName.includes('旅店') || locName.includes('礼拜堂');
@@ -74,6 +78,18 @@ export default function FixedActions() {
           <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={() => setShowShop(!showShop)}>
             商店
           </button>
+        )}
+        {isChapel && (
+          <>
+            <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={resetAttributes} title="重置为职业初始属性，返还全部已获得属性点">
+              重训(50银)
+            </button>
+            {townCrimeCount > 0 && (
+              <button className="btn text-xs lg:text-sm px-2 lg:px-3 py-1.5" onClick={clearCrimeRecord} title="清除犯罪记录，守卫不再追查你">
+                忏悔(20银)
+              </button>
+            )}
+          </>
         )}
       </div>
       {showShop && <ShopPanel onClose={() => setShowShop(false)} />}

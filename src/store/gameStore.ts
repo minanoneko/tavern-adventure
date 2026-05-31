@@ -66,6 +66,8 @@ export interface GameState {
   clearLockedStoryFacts: () => void;
   dismissCombat: () => void;
   restAtLocation: () => void;
+  resetAttributes: () => void;
+  clearCrimeRecord: () => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -916,6 +918,80 @@ export const useGameStore = create<GameState>((set, get) => ({
       logs.push({ id: `rest_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `野外休息：HP +${hpHealed}，MP +${mpRestored}（今日剩余${2 - (worldState.wildernessRestUsed || 0) - 1}次）。` });
       set({ player: p, worldState: newWorldState, logs, errorMessage: null });
     }
+  },
+
+  resetAttributes: () => {
+    const { player, worldState, logs } = get();
+    if (!player) return;
+    if (worldState.currentLocation !== 'small_chapel') {
+      set({ errorMessage: '只有教堂可以进行属性重训。' });
+      return;
+    }
+    const cost = { gold: 0, silver: 50, copper: 0 };
+    if (!canAfford(player.money, cost)) {
+      set({ errorMessage: '重训需要50银币。' });
+      return;
+    }
+    const classData = getClassById(player.classOrigin);
+    if (!classData) {
+      set({ errorMessage: '职业数据异常，无法重训。' });
+      return;
+    }
+    const resetAttrs = { ...classData.attributes };
+    const totalEarned = (player.level - 1) * 2;
+    const attrMod = (v: number) => Math.floor((v - 10) / 2);
+    const conMod = attrMod(resetAttrs.con);
+    const castMod = Math.max(attrMod(resetAttrs.int), attrMod(resetAttrs.wis), 0);
+    const lvBonus = Math.max(0, player.level - 1);
+    const newMaxHp = Math.max(8, 12 + conMod * 2 + lvBonus * Math.max(2, 5 + conMod));
+    const newMaxMp = Math.max(4, 6 + castMod * 2 + lvBonus * Math.max(1, 2 + Math.floor(castMod / 2)));
+    const updatedPlayer: Player = {
+      ...player,
+      attributes: resetAttrs,
+      attributePoints: totalEarned,
+      resources: {
+        ...player.resources,
+        maxHp: newMaxHp,
+        maxMp: newMaxMp,
+        hp: Math.min(player.resources.hp, newMaxHp),
+        mp: Math.min(player.resources.mp, newMaxMp),
+      },
+      money: subtractMoney(player.money, cost),
+    };
+    const updatedLogs = [...logs, {
+      id: `respec_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'system' as const,
+      text: `在教堂完成了属性重训，恢复为${classData.name}初始属性（剩余${totalEarned}点可分配）。花费50银币。`,
+    }];
+    set({ player: updatedPlayer, logs: updatedLogs.slice(-200), errorMessage: null });
+  },
+
+  clearCrimeRecord: () => {
+    const { player, worldState, logs } = get();
+    if (!player) return;
+    if (worldState.currentLocation !== 'small_chapel') {
+      set({ errorMessage: '只有教堂可以忏悔赎罪。' });
+      return;
+    }
+    if ((worldState.townCrimeCount || 0) <= 0) {
+      set({ errorMessage: '你没有任何恶行需要忏悔。' });
+      return;
+    }
+    const cost = { gold: 0, silver: 20, copper: 0 };
+    if (!canAfford(player.money, cost)) {
+      set({ errorMessage: '忏悔赎罪需要20银币。' });
+      return;
+    }
+    const updatedPlayer = { ...player, money: subtractMoney(player.money, cost) };
+    const updatedWorld = { ...worldState, townCrimeCount: 0, townCrimeClearTurns: 0, townExileActions: 0 };
+    const updatedLogs = [...logs, {
+      id: `clear_crime_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'system' as const,
+      text: '在教堂忏悔赎罪，守卫不会再为之前的事找你麻烦了。花费20银币。',
+    }];
+    set({ player: updatedPlayer, worldState: updatedWorld, logs: updatedLogs.slice(-200), errorMessage: null });
   },
 
   submitCombatAction: async (action) => {
