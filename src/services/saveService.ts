@@ -137,6 +137,15 @@ export function loadGame(): SaveFile | null {
     if (saved.worldState.combatCooldown === undefined) {
       saved.worldState.combatCooldown = 0;
     }
+    if (saved.worldState.townCrimeCount === undefined) {
+      saved.worldState.townCrimeCount = 0;
+    }
+    if (saved.worldState.townExileActions === undefined) {
+      saved.worldState.townExileActions = 0;
+    }
+    if (saved.worldState.townCrimeClearTurns === undefined) {
+      saved.worldState.townCrimeClearTurns = 0;
+    }
     return saved;
   } catch (e) {
     console.error('Failed to load game:', e);

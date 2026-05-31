@@ -57,7 +57,7 @@ export function createEnemiesFromProposal(
 
     // HP: boss gets multiplied by 2.5x, elite 1.5x
     const hpMult = isBoss ? 2.5 : isElite ? 1.5 : 1;
-    const maxHp = Math.min(Math.floor((ep.suggestedHp ?? (5 + con * 2 + level * 2)) * hpMult), 120);
+    const maxHp = Math.min(Math.floor((ep.suggestedHp ?? (4 + con + level * 3)) * hpMult), 120);
 
     return {
       id: `enemy_${Date.now()}_${i}`,

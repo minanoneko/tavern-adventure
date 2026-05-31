@@ -27,6 +27,8 @@ import { canEquipItem } from '../utils/equipmentRules';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
+const SAFE_TOWN = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch', 'market_square', 'whitestone_blacksmith', 'small_chapel'];
+
 export interface GameState {
   phase: GamePhase;
   player: Player | null;
@@ -509,7 +511,57 @@ export const useGameStore = create<GameState>((set, get) => ({
       const pressureValveTrigger = !playerProvokedTrigger && hadHardTrigger && (worldState.threatLevel || 0) >= 75;
       worldState.combatTrigger = undefined;
 
-      // 3.6 Auto-retry FIRST: hard trigger with no combatStart → retry before combat processing
+      // 3.6 Town crime: intercept player-provoked combat in safe town areas
+      const isSafeTown = SAFE_TOWN.includes(worldState.currentLocation);
+      if (playerProvokedTrigger && isSafeTown && !worldState.combatState.active) {
+        const exileLeft = worldState.townExileActions || 0;
+        const crimeCount = worldState.townCrimeCount || 0;
+        if (exileLeft > 0) {
+          logs.push({ id: `crime_ban_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `守卫远远就认出了你——你被禁止进入城镇（还需在外待${exileLeft}次行动）。` });
+          worldState.currentLocation = 'whitestone_outskirts';
+          worldState.currentLocationName = '白石镇郊外';
+          if (aiResult.response) {
+            (aiResult.response as any).combatStart = undefined;
+            (aiResult.response as any).enemy = undefined;
+          }
+        } else if (crimeCount >= 1) {
+          if (worldState.combatCooldown > 0) {
+            logs.push({ id: `crime_cooldown_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '守卫握紧武器盯着你，但周围刚经历过骚动，他们没有立刻上前。' });
+            if (aiResult.response) {
+              (aiResult.response as any).combatStart = undefined;
+              (aiResult.response as any).enemy = undefined;
+            }
+          } else {
+            const gLevel = player.level + 3;
+            (worldState as any)._guardPenaltyLevel = crimeCount;
+            worldState.townCrimeCount = crimeCount + 1;
+            aiResult.response = aiResult.response || {} as any;
+            (aiResult.response as any).combatStart = {
+              enemies: [{
+                name: '城镇守卫',
+                type: 'humanoid',
+                suggestedLevel: gLevel,
+                suggestedStr: Math.max(player.attributes.str + 4, 20),
+                suggestedDex: Math.max(player.attributes.dex + 2, 16),
+                suggestedCon: Math.max(player.attributes.con + 4, 20),
+                suggestedHp: 80 + player.level * 10,
+              }],
+              reason: '你在城镇里连续挑起事端，守卫前来制止。',
+              location: worldState.currentLocationName || worldState.currentLocation,
+            };
+            (aiResult.response as any).enemy = undefined;
+          }
+        } else {
+          worldState.townCrimeCount = 1;
+          logs.push({ id: `crime_warn_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '周围的城镇守卫停下了脚步，锐利的目光落在你身上。在这里挑起事端可不是好主意——下次他们不会只是看着。' });
+          if (aiResult.response) {
+            (aiResult.response as any).combatStart = undefined;
+            (aiResult.response as any).enemy = undefined;
+          }
+        }
+      }
+
+      // 3.7 Auto-retry FIRST: hard trigger with no combatStart → retry before combat processing
       if (hadHardTrigger && aiResult.success && aiResult.response && !aiResult.response.combatStart && !aiResult.response.enemy) {
         logs.push({ id: `retry_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '战斗请求未响应，自动重试...' });
         const retryResult = await sendPlayerAction(
@@ -564,6 +616,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             worldState.combatState = combatResult.combatState;
             worldState.threatLevel = 0;
             worldState.combatTrigger = undefined;
+            // Story/scripted combat clears town crime record
+            if ((combatStart.triggerSource === 'story' || combatStart.triggerSource === 'scripted') && worldState.townCrimeCount > 0) {
+              worldState.townCrimeCount = 0;
+              (worldState as any)._guardPenaltyLevel = 0;
+            }
             if (combatResult.logs.length > 0) {
               logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
             }
@@ -585,6 +642,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           worldState.combatState = combatResult.combatState;
           worldState.threatLevel = 0;
           worldState.combatTrigger = undefined;
+          // Story/scripted combat clears town crime record
+          if ((cs.triggerSource === 'story' || cs.triggerSource === 'scripted') && worldState.townCrimeCount > 0) {
+            worldState.townCrimeCount = 0;
+            (worldState as any)._guardPenaltyLevel = 0;
+          }
           logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${legacyEnemy.name}出现了！` });
           (aiResult.response as any).enemy = undefined;
         }
@@ -607,6 +669,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         // Expire postCombat if past mustRespectUntilTurn
         if (finalWorldState.postCombat && newActionCount >= finalWorldState.postCombat.mustRespectUntilTurn) {
           finalWorldState.postCombat = undefined;
+        }
+
+        // Town crime tick: decrement exile ban, count actions outside town
+        if ((finalWorldState.townExileActions || 0) > 0) {
+          finalWorldState.townExileActions = Math.max(0, finalWorldState.townExileActions - 1);
+        }
+        if ((finalWorldState.townCrimeCount || 0) > 0 && !SAFE_TOWN.includes(finalWorldState.currentLocation)) {
+          finalWorldState.townCrimeClearTurns = (finalWorldState.townCrimeClearTurns || 0) + 1;
+          if (finalWorldState.townCrimeClearTurns >= 8) {
+            finalWorldState.townCrimeCount = 0;
+            finalWorldState.townCrimeClearTurns = 0;
+            finalWorldState.townExileActions = 0;
+            trimmedLogs.push({ id: `crime_clear_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '在镇外待了足够久，守卫应该不会为之前的事找你麻烦了。' });
+          }
+        } else if (SAFE_TOWN.includes(finalWorldState.currentLocation)) {
+          finalWorldState.townCrimeClearTurns = 0;
         }
 
         set({
@@ -747,7 +825,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   dismissCombat: () => {
-    const { worldState } = get();
+    const { worldState, player, logs } = get();
+    const guardLevel = (worldState as any)._guardPenaltyLevel;
+    if (guardLevel && player) {
+      const result = applyGuardPenalty(player, worldState, logs, guardLevel);
+      set({ player: result.player, worldState: result.worldState, logs: result.logs });
+      return;
+    }
     set({
       worldState: {
         ...worldState,
@@ -773,6 +857,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const locId = worldState.currentLocation;
     const isSafe = locId.includes('tavern') || locId.includes('inn') || locId.includes('chapel') || locId.includes('guild');
+
+    // Ban enforcement: can't rest in town during exile
+    if (isSafe && (worldState.townExileActions || 0) > 0) {
+      set({ errorMessage: '你被禁止进入城镇，守卫还在找你。先在镇外待一阵子吧。' });
+      return;
+    }
 
     let hpHealed = 0;
     let mpRestored = 0;
@@ -839,6 +929,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Apply local results to player + combatState immediately
     const updatedPlayer = result.player;
     const updatedCombatState = result.combatState;
+
+    // Guard combat penalty — apply regardless of outcome
+    const guardLevel = (state.worldState as any)._guardPenaltyLevel;
+    if (guardLevel && !updatedCombatState.active) {
+      const penalty = applyGuardPenalty(updatedPlayer, state.worldState, state.logs, guardLevel);
+      set({ player: penalty.player, worldState: penalty.worldState, logs: penalty.logs, isProcessing: false });
+      return;
+    }
 
     // Write postCombat if combat ended (mustRespectUntilTurn set by caller)
     if (result.postCombat && !updatedCombatState.active) {
@@ -933,15 +1031,21 @@ function applyLocalHealEffect(player: Player, action: PlayerAction, logs: LogEnt
     if (hpHealed > 0) logs.push({ id: `heal_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP +${hpHealed}（小治疗术）` });
   }
 
-  // Potion use
-  if (action.type === 'item' || (action.customText && /喝|使用.*药水|治疗药水/.test(action.customText))) {
-    const potion = player.inventory.find(i => i.id === 'healing_potion' && i.quantity > 0);
-    if (potion) {
+  // Potion use (healing / mana)
+  if (action.type === 'item' || (action.customText && /喝|使用.*药水|药水/.test(action.customText))) {
+    const healPotion = player.inventory.find(i => i.id === 'healing_potion' && i.quantity > 0);
+    const manaPotion = player.inventory.find(i => i.id === 'mana_potion' && i.quantity > 0);
+    const wantMana = action.customText && /魔|法力|MP|蓝/.test(action.customText);
+    if (wantMana && manaPotion) {
+      mpRestored = Math.min(3, player.resources.maxMp - player.resources.mp);
+      potionUsed = true;
+      logs.push({ id: `potion_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `MP +${mpRestored}（魔力药水）` });
+    } else if (healPotion) {
       hpHealed = Math.min(5, player.resources.maxHp - player.resources.hp);
       potionUsed = true;
       logs.push({ id: `potion_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `HP +${hpHealed}（治疗药水）` });
     } else if (action.customText && /药水/.test(action.customText)) {
-      logs.push({ id: `no_potion_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '你没有治疗药水。' });
+      logs.push({ id: `no_potion_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: '你没有可用的药水。' });
     }
   }
 
@@ -1098,4 +1202,38 @@ function buildPostCombatEvent(postCombat: PostCombat, worldState: WorldState, pl
     worldBroadcasts: [],
     memoryUpdate: { flags: [`post_combat_${postCombat.outcome}`], currentLocation: worldState.currentLocation, currentLocationId: worldState.currentLocation },
   };
+}
+
+function applyGuardPenalty(player: Player, worldState: WorldState, logs: LogEntry[], penaltyLevel: number): { player: Player; worldState: WorldState; logs: LogEntry[] } {
+  const p = { ...player, resources: { ...player.resources, hp: 1 } };
+  const ws = { ...worldState };
+  const lgs = [...logs];
+  const moneyText = `金${player.money.gold} 银${player.money.silver} 铜${player.money.copper}`;
+
+  if (penaltyLevel <= 1) {
+    p.money = { gold: 0, silver: 0, copper: 0 };
+    ws.currentLocation = 'whitestone_outskirts';
+    ws.currentLocationName = '白石镇郊外';
+    lgs.push({ id: `guard_penalty_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system' as const, text: `守卫将你击倒在地，搜走了你身上所有的钱（${moneyText}），把你扔到了镇外。HP→1。` });
+  } else {
+    const weaponId = p.equipment.mainWeapon;
+    const weaponName = weaponId ? (getEquipmentById(weaponId)?.name || '武器') : '武器';
+    if (weaponId) {
+      p.equipment = { ...p.equipment, mainWeapon: '' };
+      p.inventory = p.inventory.filter(i => i.id !== weaponId);
+    }
+    p.money = { gold: 0, silver: 0, copper: 0 };
+    ws.currentLocation = 'whitestone_outskirts';
+    ws.currentLocationName = '白石镇郊外';
+    ws.townExileActions = 5;
+    lgs.push({ id: `guard_penalty_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system' as const, text: `守卫毫不留情地制服了你。${weaponName}被没收，钱被搜走。HP→1。接下来的5次行动内你无法进入城镇。` });
+  }
+
+  (ws as any)._guardPenaltyLevel = 0;
+  ws.combatState = { active: false, phase: 'fighting', round: 0, turn: 'player', enemies: [], playerBuffs: [], combatLog: [] };
+  ws.combatCooldown = 5;
+  ws.threatLevel = 0;
+  ws.combatTrigger = undefined;
+
+  return { player: p, worldState: ws, logs: lgs };
 }

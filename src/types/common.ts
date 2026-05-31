@@ -184,6 +184,9 @@ export interface WorldState {
   storyHooks: StoryHook[];
   currentGoal?: string;
   paymentCommitments: PaymentCommitment[];
+  townCrimeCount: number;
+  townExileActions: number;
+  townCrimeClearTurns: number;
 }
 
 export function createDefaultWorldState(): WorldState {
@@ -223,6 +226,9 @@ export function createDefaultWorldState(): WorldState {
     storyHooks: [],
     currentGoal: undefined,
     paymentCommitments: [],
+    townCrimeCount: 0,
+    townExileActions: 0,
+    townCrimeClearTurns: 0,
   };
 }
 

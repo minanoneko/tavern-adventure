@@ -26,6 +26,15 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     usable: true,
     effects: { hpHeal: 5 },
   },
+  mana_potion: {
+    id: 'mana_potion',
+    name: '魔力药水',
+    type: 'consumable',
+    description: '恢复3点MP的蓝色药水，喝下后舌尖有微弱的魔力刺痛感',
+    basePrice: { gold: 0, silver: 0, copper: 25 },
+    usable: true,
+    effects: { mpRestore: 3 },
+  },
   fire_bomb: {
     id: 'fire_bomb',
     name: '燃烧瓶',

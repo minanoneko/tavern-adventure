@@ -703,6 +703,13 @@ function applySceneLocation(world: WorldState, response: AIResponse, player: Pla
 
   const knownTarget = resolveKnownMapTarget(locId, locName);
   if (knownTarget) {
+    // Ban enforcement: blocked from entering safe town during exile
+    const SAFE_TOWN_IDS = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch', 'market_square', 'whitestone_blacksmith', 'small_chapel'];
+    const isEnteringTown = SAFE_TOWN_IDS.includes(knownTarget.id) || SAFE_TOWN_IDS.includes(locId);
+    if (isEnteringTown && (world.townExileActions || 0) > 0) {
+      logs.push(createLogEntry('world', `守卫拦住了你——你被禁止进入${knownTarget.name}（还需在镇外待${world.townExileActions}次行动）。`));
+      return world;
+    }
     const isSamePlace = knownTarget.id === world.currentLocation;
     if (!isSamePlace && !allowsMapTransition(options)) {
       logs.push(createLogEntry('world', `地图过渡被延后：${knownTarget.name}。需要玩家选择旅行或明确移动后才能抵达。`));
