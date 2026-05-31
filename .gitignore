@@ -29,7 +29,7 @@ dist-ssr
 *.sw?
 
 #agent
-AGENTS
-CLAUDE
+AGENTS.md
 CLAUDE.md
+
 
