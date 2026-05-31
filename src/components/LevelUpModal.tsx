@@ -32,7 +32,7 @@ export default function LevelUpModal() {
                 <button
                   key={key}
                   className="btn text-xs py-1"
-                  disabled={player.attributePoints <= 0}
+                  disabled={player.attributePoints <= 0 || player.attributes[key as AttributeKey] >= 21}
                   onClick={() => allocateAttribute(key)}
                 >
                   {label} +1

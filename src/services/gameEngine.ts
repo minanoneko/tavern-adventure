@@ -1063,7 +1063,6 @@ export function processLevelUp(player: Player, logs: LogEntry[]): { player: Play
     p.exp -= p.nextExp;
     p.nextExp = Math.floor(p.nextExp * 1.5);
     p.attributePoints += 2;
-    p.skillPoints += 1;
 
     const conMod = Math.floor((p.attributes.con - 10) / 2);
     const castingMod = Math.max(Math.floor((p.attributes.int - 10) / 2), Math.floor((p.attributes.wis - 10) / 2), 0);
@@ -1084,7 +1083,7 @@ export function processLevelUp(player: Player, logs: LogEntry[]): { player: Play
       logs.push(createLogEntry('system', `Lv.${newLevel}！获得新技能学习机会+1。`));
     }
 
-    logs.push(createLogEntry('system', `升级！Lv.${newLevel}。HP/MP回满。属性点+2，技能点+1。`));
+    logs.push(createLogEntry('system', `升级！Lv.${newLevel}。HP/MP回满。属性点+2。`));
   }
 
   if (newLevel >= maxLevel && p.exp >= p.nextExp) {
@@ -1097,7 +1096,9 @@ export function processLevelUp(player: Player, logs: LogEntry[]): { player: Play
 
 export function addAttributePoint(player: Player, attr: string): Player {
   const p = { ...player, attributes: { ...player.attributes } };
-  (p.attributes as any)[attr] = Math.min(21, (p.attributes as any)[attr] + 1);
+  const current = (p.attributes as any)[attr];
+  if (typeof current !== 'number' || current >= 21) return p;
+  (p.attributes as any)[attr] = Math.min(21, current + 1);
   p.attributePoints -= 1;
   return p;
 }

@@ -17,10 +17,6 @@ export default function SkillPanel() {
 
   return (
     <div className="p-3 space-y-2">
-      {player.skillPoints > 0 && (
-        <div className="text-sm text-success mb-2">未分配技能点：{player.skillPoints}</div>
-      )}
-
       {allSkillIds.length === 0 && (
         <div className="text-sm text-muted p-3">尚未发现任何技能。冒险中可能会学到新的技能。</div>
       )}

@@ -128,6 +128,7 @@ export function loadGame(): SaveFile | null {
     if (saved.player.skills.learnTokens === undefined) {
       (saved.player.skills as any).learnTokens = 0;
     }
+    saved.player.skillPoints = 0;
     migratePlayerAttributesToDndScale(saved.player);
     return saved;
   } catch (e) {

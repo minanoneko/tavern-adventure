@@ -23,6 +23,7 @@ import type { CombatEnemy } from '../types/ai';
 import type { CombatAction } from '../types/combat';
 import { submitCombatAction as runCombatAction, startCombatFromAI, startCombatFromLegacyEnemy } from '../services/combat/combatEngine';
 import { validateCustomAction } from '../services/customActionGuard';
+import { canEquipItem } from '../utils/equipmentRules';
 
 export type GamePhase = 'start' | 'create' | 'game';
 
@@ -56,6 +57,7 @@ export interface GameState {
   exportCurrentSave: () => string;
   dismissLevelUp: () => void;
   allocateAttribute: (attr: string) => void;
+  equipInventoryItem: (itemId: string) => { success: boolean; reason?: string };
   clearError: () => void;
   addLockedStoryFact: (fact: string) => void;
   removeLockedStoryFact: (index: number) => void;
@@ -676,13 +678,40 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   allocateAttribute: (attr: string) => {
-    const { player, worldState } = get();
+    const { player } = get();
     if (!player || player.attributePoints <= 0) return;
-    // Only allow allocation in safe locations
-    const safeLocations = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch'];
-    if (!safeLocations.includes(worldState.currentLocation)) return;
     const updated = addAttributePoint(player, attr);
     set({ player: updated });
+  },
+
+  equipInventoryItem: (itemId: string) => {
+    const { player, worldState, logs } = get();
+    if (!player) return { success: false, reason: '没有角色' };
+    if (worldState.combatState.active) return { success: false, reason: '战斗中不能更换装备' };
+    if (!player.inventory.some(i => i.id === itemId)) return { success: false, reason: '背包中没有这件装备' };
+
+    const equip = getEquipmentById(itemId);
+    if (!equip) return { success: false, reason: '这件物品不能装备' };
+
+    const check = canEquipItem(equip, player);
+    if (!check.canEquip) return { success: false, reason: check.warnings.join('；') || '无法装备' };
+
+    const updatedPlayer = {
+      ...player,
+      equipment: {
+        ...player.equipment,
+        [equip.slot]: itemId,
+      },
+    };
+    const warningText = check.warnings.length ? `（${check.warnings.join('；')}）` : '';
+    const updatedLogs = [...logs, {
+      id: `equip_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'system' as const,
+      text: `已装备：${equip.name}${warningText}`,
+    }].slice(-200);
+    set({ player: updatedPlayer, logs: updatedLogs });
+    return { success: true, reason: warningText || undefined };
   },
 
   clearError: () => set({ errorMessage: null, lastAIResult: null }),

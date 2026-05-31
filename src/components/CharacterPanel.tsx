@@ -5,7 +5,6 @@ import { getTraitById } from '../data/races';
 import { getActiveTraits, getEffectiveAttributes, getEquipmentAttributeBonuses, getEquipmentPenalty } from '../utils/equipmentRules';
 import { getEquipmentQualityColor } from '../utils/rarityColors';
 
-const SAFE_LOCATIONS = ['gray_deer_tavern', 'whitestone_inn', 'adventurers_guild_branch'];
 const DISPLAY_EQUIPMENT_SLOTS = ['mainWeapon', 'armor', 'head', 'accessory1', 'accessory2'] as const;
 
 function getAgeProfile(age: number): string {
@@ -53,12 +52,10 @@ function getQualityColor(quality?: string): string {
 
 export default function CharacterPanel() {
   const player = useGameStore(s => s.player);
-  const worldState = useGameStore(s => s.worldState);
   const allocateAttribute = useGameStore(s => s.allocateAttribute);
   if (!player) return null;
 
-  const isSafeLocation = SAFE_LOCATIONS.includes(worldState.currentLocation);
-  const canAllocate = player.attributePoints > 0 && isSafeLocation;
+  const canAllocate = player.attributePoints > 0;
   const effectiveAttributes = getEffectiveAttributes(player);
   const equipmentAttributeBonuses = getEquipmentAttributeBonuses(player);
 
@@ -98,9 +95,9 @@ export default function CharacterPanel() {
                   </span>
                 </div>
                 <div className="mt-1 h-2 bar-bg">
-                  <div className="h-full rounded-sm" style={{ background: 'linear-gradient(to right, var(--color-tavern-accent), #8a6a30)', width: `${val * 10}%` }} />
+                  <div className="h-full rounded-sm" style={{ background: 'linear-gradient(to right, var(--color-tavern-accent), #8a6a30)', width: `${Math.min(100, (val / 21) * 100)}%` }} />
                 </div>
-                {canAllocate && (
+                {canAllocate && val < 21 && (
                   <button
                     className="mt-2 w-full h-7 flex items-center justify-center rounded text-sm font-bold"
                     style={{ background: 'rgba(90,143,74,0.2)', color: 'var(--color-tavern-success)', border: '1px solid var(--color-tavern-success)' }}
@@ -115,12 +112,6 @@ export default function CharacterPanel() {
         </div>
         {canAllocate && (
           <div className="px-3 pb-2 text-xs text-success">剩余属性点：{player.attributePoints}</div>
-        )}
-        {player.attributePoints > 0 && !isSafeLocation && (
-          <div className="px-3 pb-2 text-xs text-muted">有 {player.attributePoints} 点未分配，需要在酒馆或旅店休息时分配。</div>
-        )}
-        {player.skillPoints > 0 && (
-          <div className="px-3 pb-2 text-xs text-info">未分配技能点：{player.skillPoints}</div>
         )}
       </div>
 

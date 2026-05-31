@@ -93,8 +93,7 @@ function buildPlayerBrief(player: Player): string {
     `装备: ${gear || '无'} | ` +
     `可用技能: ${usable.join(', ') || '无'}` +
     (status.length ? ` | 状态: ${status.join(',')}` : '') +
-    (player.attributePoints > 0 ? ` | 未分配属性点: ${player.attributePoints}` : '') +
-    (player.skillPoints > 0 ? ` | 未分配技能点: ${player.skillPoints}` : ''),
+    (player.attributePoints > 0 ? ` | 未分配属性点: ${player.attributePoints}` : ''),
     BUDGET.playerBrief
   );
 }

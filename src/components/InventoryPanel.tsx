@@ -2,6 +2,8 @@ import { useGameStore } from '../store/gameStore';
 import { formatMoney } from '../types/common';
 import { useState } from 'react';
 import { getInventoryRarityColor, normalizeRarity } from '../utils/rarityColors';
+import { getEquipmentById } from '../data/equipment';
+import { EQUIPMENT_SLOT_LABELS } from '../types/equipment';
 
 const TYPE_FILTERS = ['全部', '武器', '防具', '饰品', '消耗品', '材料', '任务物品', '技能书'];
 
@@ -25,9 +27,11 @@ function normalizeType(type: string): string {
 
 export default function InventoryPanel() {
   const player = useGameStore(s => s.player);
+  const equipInventoryItem = useGameStore(s => s.equipInventoryItem);
   if (!player) return null;
 
   const [filter, setFilter] = useState('全部');
+  const [message, setMessage] = useState<string | null>(null);
   const items = player.inventory;
 
   const filtered = filter === '全部' ? items : items.filter(i => {
@@ -53,6 +57,8 @@ export default function InventoryPanel() {
         ))}
       </div>
 
+      {message && <div className="text-xs text-info mb-2">{message}</div>}
+
       {filtered.length === 0 ? (
         <div className="text-sm text-muted p-3">背包空空如也。</div>
       ) : (
@@ -60,6 +66,8 @@ export default function InventoryPanel() {
           {filtered.map(item => {
             const rarity = normalizeRarity(item.rarity);
             const rarityColor = getInventoryRarityColor(item.rarity, item.type);
+            const equipment = getEquipmentById(item.id);
+            const equipped = Object.values(player.equipment).includes(item.id);
             return (
             <div key={item.id} className="panel p-3 text-sm">
               <div className="flex items-center justify-between mb-1">
@@ -75,6 +83,24 @@ export default function InventoryPanel() {
               {item.description && <div className="text-muted mt-1 text-xs">{item.description.slice(0, 60)}</div>}
               {item.effects && item.effects.length > 0 && (
                 <div className="text-info mt-1 text-xs">{item.effects.join('，')}</div>
+              )}
+              {equipment && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="text-xs text-muted">
+                    槽位：{EQUIPMENT_SLOT_LABELS[equipment.slot]}
+                  </div>
+                  <button
+                    className={`btn text-xs px-2 py-1 ${equipped ? 'opacity-60' : ''}`}
+                    disabled={equipped}
+                    onClick={() => {
+                      const result = equipInventoryItem(item.id);
+                      setMessage(result.success ? `已装备：${item.name}` : (result.reason || '无法装备'));
+                      window.setTimeout(() => setMessage(null), 2200);
+                    }}
+                  >
+                    {equipped ? '装备中' : '装备'}
+                  </button>
+                </div>
               )}
             </div>
           )})}
