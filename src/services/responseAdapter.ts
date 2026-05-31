@@ -86,6 +86,9 @@ const MinimalRelationshipUpdateSchema = z.object({
   change: z.number().default(0),
   reason: z.string().default(''),
   type: z.enum(['npc', 'faction']).optional(),
+  race: z.string().optional(),
+  occupation: z.string().optional(),
+  description: z.string().optional(),
 });
 
 const MinimalMapUpdateSchema = z.object({

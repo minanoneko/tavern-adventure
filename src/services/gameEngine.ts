@@ -1,5 +1,5 @@
 import type { Player, WorldState, AIResponse, LogEntry, ItemType, ItemRarity, PlayerAction, ActionOption } from '../types';
-import type { Weather } from '../types/common';
+import type { TimeOfDay, Weather } from '../types/common';
 import { clampResource, normalizeWeather, normalizeTimeOfDay, advanceTime, nextWeatherInCycle } from '../types/common';
 import { addMoney as addMoneyUtil } from '../utils/moneyUtils';
 import { createLogEntry } from '../types/log';
@@ -172,13 +172,17 @@ export function applyAIResponse(
   // 11. Apply memory updates
   updatedWorld = applyMemoryUpdate(updatedWorld, response, updatedPlayer, logs, options);
 
-  // 11.5 Validate and merge lockedFacts from AI
-  if (response.memoryUpdate.lockedFacts?.length) {
-    const validation = validateAgainstLockedFacts(updatedWorld.lockedStoryFacts, response.memoryUpdate.lockedFacts);
+  // 11.5 Validate and merge lockedFacts from AI and local continuity facts
+  const continuityFacts = deriveContinuityFacts(response, updatedPlayer);
+  const incomingFacts = [...(response.memoryUpdate.lockedFacts || []), ...continuityFacts]
+    .map(f => f.trim())
+    .filter(f => f && !updatedWorld.lockedStoryFacts.includes(f));
+  if (incomingFacts.length) {
+    const validation = validateAgainstLockedFacts(updatedWorld.lockedStoryFacts, incomingFacts);
     if (validation.accepted.length) {
       updatedWorld = {
         ...updatedWorld,
-        lockedStoryFacts: [...updatedWorld.lockedStoryFacts, ...validation.accepted],
+        lockedStoryFacts: [...updatedWorld.lockedStoryFacts, ...validation.accepted].slice(-60),
       };
     }
     for (const rejected of validation.rejected) {
@@ -207,6 +211,44 @@ export function applyAIResponse(
     didLevelUp,
     newLevel,
   };
+}
+
+function deriveContinuityFacts(response: AIResponse, player: Player): string[] {
+  const facts: string[] = [];
+  const npcUpdates = response.relationshipUpdate.filter(u => (u.type || 'npc') === 'npc' && u.name);
+
+  for (const u of npcUpdates) {
+    const profile = [u.race, u.occupation].filter(Boolean).join('/');
+    if (profile) facts.push(`NPC档案：${u.name} 是 ${profile}。`);
+    const reason = (u.description || u.reason || '').trim();
+    if (reason && /介绍|提到|告诉|指向|委托|线索|小道|失踪|见过|知道/.test(reason)) {
+      facts.push(`NPC线索：${u.name} ${reason.slice(0, 80)}。`);
+    }
+  }
+
+  const sceneText = response.scene.text || '';
+  const knownNames = [
+    ...player.relationships.filter(r => r.type === 'npc').map(r => r.name),
+    ...npcUpdates.map(u => u.name),
+  ].filter(Boolean);
+  const uniqueNames = [...new Set(knownNames)].filter(n => n.length >= 2);
+
+  for (const source of uniqueNames) {
+    if (!sceneText.includes(source)) continue;
+    for (const target of uniqueNames) {
+      if (source === target || !sceneText.includes(target)) continue;
+      const sourceIndex = sceneText.indexOf(source);
+      const targetIndex = sceneText.indexOf(target);
+      const between = sourceIndex < targetIndex
+        ? sceneText.slice(sourceIndex, targetIndex)
+        : sceneText.slice(targetIndex, sourceIndex);
+      if (/提到|告诉|说|介绍|指向|建议|让你找|去找|问问|质问|知道|见过/.test(between)) {
+        facts.push(`线索来源：${source} 与 ${target} 在当前剧情中有关联；不要混淆谁提供线索、谁是被提到的人。`);
+      }
+    }
+  }
+
+  return [...new Set(facts)].slice(0, 6);
 }
 
 function applyPlayerUpdate(player: Player, response: AIResponse, logs: LogEntry[]): Player {
@@ -359,6 +401,7 @@ function applyStoryHookUpdate(world: WorldState, response: AIResponse, logs: Log
   if (!updates.length) return world;
 
   const hooks = [...world.storyHooks];
+  let currentGoal = world.currentGoal;
   const actionCount = (world.storyHooks.length > 0
     ? Math.max(...world.storyHooks.map(h => h.updatedAtTurn), 0)
     : 0) + 1;
@@ -378,22 +421,27 @@ function applyStoryHookUpdate(world: WorldState, response: AIResponse, logs: Log
         updatedAtTurn: actionCount,
       });
       logs.push(createLogEntry('world', `【新线索】${u.title || u.summary.slice(0, 20)}`));
+      currentGoal = u.summary;
     } else if (u.action === 'update' && existingIdx >= 0) {
       hooks[existingIdx] = { ...hooks[existingIdx], summary: u.summary, updatedAtTurn: actionCount };
       if (u.title) hooks[existingIdx].title = u.title;
       if (u.type) hooks[existingIdx].type = u.type;
+      currentGoal = u.summary;
     } else if (u.action === 'resolve' && existingIdx >= 0) {
       hooks[existingIdx] = { ...hooks[existingIdx], status: 'resolved', summary: u.summary, updatedAtTurn: actionCount };
       logs.push(createLogEntry('world', `【线索解决】${hooks[existingIdx].title}`));
+      if (currentGoal === hooks[existingIdx].summary) currentGoal = undefined;
     } else if (u.action === 'abandon' && existingIdx >= 0) {
       hooks[existingIdx] = { ...hooks[existingIdx], status: 'abandoned', summary: u.summary, updatedAtTurn: actionCount };
       logs.push(createLogEntry('world', `【线索放弃】${hooks[existingIdx].title}`));
+      if (currentGoal === hooks[existingIdx].summary) currentGoal = undefined;
     } else if (u.action === 'add' && existingIdx >= 0) {
       hooks[existingIdx] = { ...hooks[existingIdx], summary: u.summary, updatedAtTurn: actionCount };
+      currentGoal = u.summary;
     }
   }
 
-  return { ...world, storyHooks: hooks };
+  return { ...world, storyHooks: hooks, currentGoal };
 }
 
 /** Legacy quest compat: keep player.quests updated for save compatibility, no rewards */
@@ -452,7 +500,7 @@ function applyRelationshipUpdate(player: Player, response: AIResponse, logs: Log
     const existing = p.relationships.find(r => r.targetId === update.targetId);
     if (existing) {
       existing.standing += update.change;
-      existing.description = update.reason;
+      existing.description = update.description || update.reason || existing.description;
       if (update.race) existing.race = update.race;
       if (update.occupation) existing.occupation = update.occupation;
     } else {
@@ -461,7 +509,7 @@ function applyRelationshipUpdate(player: Player, response: AIResponse, logs: Log
         name: update.name,
         type: update.type || 'npc',
         standing: update.change,
-        description: update.reason,
+        description: update.description || update.reason,
         race: update.race,
         occupation: update.occupation,
       });
@@ -710,12 +758,17 @@ function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[
 
   // Parse time from scene.time string (e.g. "雾月3日 上午")
   if (response.scene.time) {
-    const newTime = normalizeTimeOfDay(response.scene.time, w.timeOfDay);
+    const requestedTime = normalizeTimeOfDay(response.scene.time, w.timeOfDay);
+    const newTime = smoothTimeTransition(w.timeOfDay, requestedTime, response.scene.text || '');
     if (newTime === w.timeOfDay && /稍后|一会|片刻|不久/.test(response.scene.time)) {
       // Vague time → advance by one step
       w.timeOfDay = advanceTime(w.timeOfDay);
     } else {
       w.timeOfDay = newTime;
+    }
+    if (newTime !== requestedTime) {
+      logs.push(createLogEntry('world', `时间转折过快，已缓冲为：${newTime}`));
+      response.scene.time = `${w.date} ${newTime}`;
     }
   }
 
@@ -730,14 +783,32 @@ function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[
     w.weather = smoothedWeather;
   }
 
-  // Avoid repeated weather (兜底)
+  // Avoid repeated weather/time (兜底)
+  const weatherBeforeDiversity = w.weather;
+  const timeBeforeDiversity = w.timeOfDay;
   w.weather = avoidRepeatedWeather(w.weather, w.worldFlags);
+  w.timeOfDay = avoidRepeatedNight(w.timeOfDay, w.worldFlags);
+  if (w.weather !== weatherBeforeDiversity) {
+    logs.push(createLogEntry('world', `天气重复过多，已调整为：${w.weather}`));
+    response.scene.weather = w.weather;
+  }
+  if (w.timeOfDay !== timeBeforeDiversity) {
+    logs.push(createLogEntry('world', `夜晚重复过多，已推进到：${w.timeOfDay}`));
+    response.scene.time = `${w.date} ${w.timeOfDay}`;
+  }
 
   // Track last 3 weather values in flags for repetition detection
   const weatherFlags = w.worldFlags.filter(f => f.startsWith('weather_'));
   weatherFlags.push(`weather_${w.weather}`);
   const trimmed = weatherFlags.slice(-3);
-  w.worldFlags = [...w.worldFlags.filter(f => !f.startsWith('weather_')), ...trimmed];
+  const timeFlags = w.worldFlags.filter(f => f.startsWith('time_'));
+  timeFlags.push(`time_${w.timeOfDay}`);
+  const trimmedTime = timeFlags.slice(-3);
+  w.worldFlags = [
+    ...w.worldFlags.filter(f => !f.startsWith('weather_') && !f.startsWith('time_')),
+    ...trimmed,
+    ...trimmedTime,
+  ];
 
   return w;
 }
@@ -751,13 +822,44 @@ function avoidRepeatedWeather(current: Weather, flags: string[]): Weather {
   if (weatherFlags.length >= 2) {
     const last2 = weatherFlags.slice(-2);
     if (last2.every(w => w === current) && last2[0] === current) {
+      if (current === '雨' || current === '小雨' || current === '雾') return '多云';
+      if (current === '阴') return '晴';
       return nextWeatherInCycle(current);
     }
   }
   return current;
 }
 
+function avoidRepeatedNight(current: TimeOfDay, flags: string[]): TimeOfDay {
+  const timeFlags = flags.filter(f => f.startsWith('time_')).map(f => f.replace('time_', ''));
+  if (timeFlags.length >= 2) {
+    const last2 = timeFlags.slice(-2);
+    const allNight = last2.every(t => t === '夜晚' || t === '深夜') && (current === '夜晚' || current === '深夜');
+    if (allNight) return '清晨';
+  }
+  return current;
+}
+
 const WEATHER_FLOW: Weather[] = ['晴', '多云', '阴', '雾', '小雨', '雨', '暴风雨'];
+const TIME_FLOW: TimeOfDay[] = ['清晨', '上午', '中午', '下午', '傍晚', '夜晚', '深夜'];
+
+function hasTimeTransitionCue(sceneText: string): boolean {
+  return /过了很久|一夜|整夜|天亮|黎明|日出|日落|入夜|夜幕|半夜|子时|睡到|休息到|等到|守到|熬到/.test(sceneText);
+}
+
+function smoothTimeTransition(current: TimeOfDay, requested: TimeOfDay, sceneText: string): TimeOfDay {
+  if (current === requested) return requested;
+  if (hasTimeTransitionCue(sceneText)) return requested;
+
+  const currentIndex = TIME_FLOW.indexOf(current);
+  const requestedIndex = TIME_FLOW.indexOf(requested);
+  if (currentIndex < 0 || requestedIndex < 0) return requested;
+
+  const delta = requestedIndex - currentIndex;
+  if (Math.abs(delta) <= 1) return requested;
+
+  return TIME_FLOW[currentIndex + Math.sign(delta)] || requested;
+}
 
 function hasWeatherTransitionCue(sceneText: string): boolean {
   return /乌云|云层|天色|风向|起风|狂风|雷声|闷雷|闪电|雨势|骤然|突然|逼近|压来|转冷|寒意|雪云|风暴/.test(sceneText);

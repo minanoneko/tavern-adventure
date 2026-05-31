@@ -7,7 +7,7 @@ export const REGIONS: Region[] = [
     description: '人类主国度，商业、港口、酒馆、冒险者公会、教会、贵族政治集中地。',
     dangerLevel: 1,
     recommendedLevel: 1,
-    currentSituation: '表面平静，但旧矿洞的传闻和周边的商队失踪事件令人不安。',
+    currentSituation: '表面平静，但港口延误、集市纠纷和林地边界的怪事让委托不断。',
   },
   {
     id: 'elf_forest',
@@ -24,7 +24,7 @@ export const REGIONS: Region[] = [
     description: '地下世界，暗精灵、蛛后神殿、毒药市场、黑曜石城、地底商道。',
     dangerLevel: 6,
     recommendedLevel: 12,
-    currentSituation: '传闻旧矿洞深处有通往地底的裂隙。',
+    currentSituation: '地底商道最近出现陌生毒药和消失的信使。',
     unlockCondition: { type: 'flag', flag: 'found_deep_rift' },
   },
   {
@@ -115,13 +115,13 @@ export const SUBREGIONS: Subregion[] = [
   { id: 'silver_sail_port', regionId: 'human_federation', name: '银帆港', description: '繁华的港口城市，船来船往。', dangerLevel: 2, recommendedLevel: 3 },
   { id: 'royal_capital', regionId: 'human_federation', name: '王都', description: '人类联邦的政治中心。', dangerLevel: 2, recommendedLevel: 5 },
   { id: 'north_border', regionId: 'human_federation', name: '北境边防线', description: '连接北境的前哨。', dangerLevel: 4, recommendedLevel: 7 },
-  { id: 'old_mine_area', regionId: 'human_federation', name: '旧矿区', description: '废弃的矿洞区域，传闻有奇怪动静。', dangerLevel: 3, recommendedLevel: 3 },
+  { id: 'old_mine_area', regionId: 'human_federation', name: '旧采石场', description: '废弃的采石场和塌陷洞穴，偶尔有拾荒者经过。', dangerLevel: 3, recommendedLevel: 3 },
   { id: 'forest_road', regionId: 'human_federation', name: '林道与村落', description: '连接白石镇和周边森林的乡野地带。', dangerLevel: 2, recommendedLevel: 2 },
   { id: 'forest_border', regionId: 'elf_forest', name: '森林边境', description: '精灵森林外缘，人类与精灵的交界地。', dangerLevel: 3, recommendedLevel: 5 },
   { id: 'moon_lake', regionId: 'elf_forest', name: '月湖', description: '圣湖，月神殿所在地。', dangerLevel: 4, recommendedLevel: 7 },
   { id: 'starleaf_city', regionId: 'elf_forest', name: '星叶城', description: '精灵的主城，建在巨树之间。', dangerLevel: 3, recommendedLevel: 6 },
   { id: 'forbidden_forest', regionId: 'elf_forest', name: '禁忌林深处', description: '被污染的古老森林，危险而黑暗。', dangerLevel: 7, recommendedLevel: 12 },
-  { id: 'underground_rift', regionId: 'dark_elf_kingdom', name: '地底裂隙', description: '旧矿洞深处延伸至地底的裂隙。', dangerLevel: 5, recommendedLevel: 10 },
+  { id: 'underground_rift', regionId: 'dark_elf_kingdom', name: '地底裂隙', description: '深层洞窟中延伸至地底世界的裂隙。', dangerLevel: 5, recommendedLevel: 10 },
   { id: 'dark_elf_border_city', regionId: 'dark_elf_kingdom', name: '暗精灵边境城', description: '暗精灵在地底的前哨城市。', dangerLevel: 6, recommendedLevel: 12 },
   { id: 'spider_temple', regionId: 'dark_elf_kingdom', name: '蛛后神殿', description: '暗精灵信仰的中心。', dangerLevel: 8, recommendedLevel: 16 },
   { id: 'underground_trade_route', regionId: 'dark_elf_kingdom', name: '地底商道', description: '连接地底各城市的隐秘商路。', dangerLevel: 6, recommendedLevel: 13 },
@@ -138,8 +138,8 @@ export const LOCATIONS: Location[] = [
   { id: 'whitestone_inn', subregionId: 'whitestone_town', name: '旅店', type: 'other', description: '供旅人过夜的地方。', dangerLevel: 1 },
   { id: 'potion_shop', subregionId: 'whitestone_town', name: '药剂店', type: 'shop', description: '售卖药水和炼金材料的铺子。', dangerLevel: 1 },
   // 旧矿区
-  { id: 'old_mine_entrance', subregionId: 'old_mine_area', name: '旧矿洞入口', type: 'dungeon', description: '废弃矿洞的入口，被木栅栏半掩着。', dangerLevel: 3 },
-  { id: 'deep_mine_shaft', subregionId: 'old_mine_area', name: '矿洞深处', type: 'dungeon', description: '矿洞的深层，空气中有淡淡的硫磺味。', dangerLevel: 5 },
+  { id: 'old_mine_entrance', subregionId: 'old_mine_area', name: '采石场塌洞', type: 'dungeon', description: '采石场边缘塌出的洞口，被旧木架半掩着。', dangerLevel: 3 },
+  { id: 'deep_mine_shaft', subregionId: 'old_mine_area', name: '塌陷洞穴深处', type: 'dungeon', description: '洞穴深层潮湿狭窄，石壁上留着旧工具痕迹。', dangerLevel: 5 },
   { id: 'underground_rift_location', subregionId: 'underground_rift', name: '地底裂隙', type: 'dungeon', description: '一条天然的深裂隙，通往地底世界。', dangerLevel: 7 },
   // 银帆港
   { id: 'port_docks', subregionId: 'silver_sail_port', name: '港口码头', type: 'port', description: '停满大小船只的繁忙码头。', dangerLevel: 2 },
@@ -154,9 +154,9 @@ export const LOCATIONS: Location[] = [
 
 export const CONNECTIONS: Connection[] = [
   { id: 'whitestone_to_forest_road', fromId: 'whitestone_town', toId: 'forest_road', type: 'land', name: '林道', description: '连接白石镇和林区的道路。', },
-  { id: 'whitestone_to_old_mine', fromId: 'whitestone_town', toId: 'old_mine_area', type: 'land', name: '矿道', description: '通往旧矿区的土路。', },
+  { id: 'whitestone_to_old_mine', fromId: 'whitestone_town', toId: 'old_mine_area', type: 'land', name: '采石场土路', description: '通往旧采石场的荒草土路。', },
   { id: 'whitestone_to_port', fromId: 'whitestone_town', toId: 'silver_sail_port', type: 'land', name: '官道', description: '通往银帆港的大路。', },
-  { id: 'old_mine_to_rift', fromId: 'old_mine_area', toId: 'underground_rift', type: 'underground', name: '地底裂隙', description: '矿洞深处延伸的地底裂隙。', requirements: { type: 'flag', flag: 'found_deep_rift' } },
+  { id: 'old_mine_to_rift', fromId: 'old_mine_area', toId: 'underground_rift', type: 'underground', name: '地底裂隙', description: '塌陷洞穴深处延伸的地底裂隙。', requirements: { type: 'flag', flag: 'found_deep_rift' } },
   { id: 'port_to_islands', fromId: 'silver_sail_port', toId: 'island_sea', type: 'sea', name: '远洋航线', description: '从银帆港出发的远洋航线。', requirements: { type: 'flag', flag: 'has_ship_ticket' } },
   { id: 'forest_road_to_border', fromId: 'forest_road', toId: 'forest_border', type: 'land', name: '林间小路', description: '通往森林边境的小路。', requirements: { type: 'faction', factionId: 'elf_forest', minStanding: 10 } },
 ];

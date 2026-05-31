@@ -1,4 +1,4 @@
-import type { AIResponse, PlayerAction, JudgeResult, Player, WorldState } from '../types';
+﻿import type { AIResponse, PlayerAction, JudgeResult, Player, WorldState } from '../types';
 
 interface Ctx { player: Player; worldState: WorldState; }
 
@@ -45,27 +45,27 @@ function handleQuestAction(action: PlayerAction, ws: WorldState): AIResponse | n
 
   if (isAcceptAction) {
     return {
-      scene: { title: '接受了委托', text: '"很好。"陌生人微微点头，将银币推到你面前。"三天前矿洞深处有动静。不是塌方——是某种呼吸。带上这枚银币，蓝光亮起时它会发烫。"\n\n他把一张皱巴巴的地图放在桌上，上面标记了旧矿洞入口的位置。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 深夜', weather: '雨' },
+      scene: { title: '接受了委托', text: '"很好。"陌生人微微点头，将银币推到你面前。"三天前塌陷洞穴深处有动静。不是塌方——是某种呼吸。带上这枚银币，冷光亮起时它会发烫。"\n\n他把一张皱巴巴的地图放在桌上，上面标记了旧采石场入口的位置。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
       event: { id: 'quest_accepted', type: 'dialogue_event', urgency: 'normal', riskLevel: 'medium' },
-      systemEvents: [{ type: 'info', text: '任务「子时的旧矿洞」已接受。矿洞入口已在地图上标记。' }],
+      systemEvents: [{ type: 'info', text: '任务「子时的旧采石场」已接受。塌洞入口已在地图上标记。' }],
       actionOptions: [
-        { id: 'go_mine_now', label: '连夜赶往旧矿洞', type: 'travel', risk: 'high' },
+        { id: 'go_mine_now', label: '连夜赶往旧采石场', type: 'travel', risk: 'high' },
         { id: 'rest_first', label: '先在酒馆休息，天亮再出发', type: 'cautious', risk: 'low' },
-        { id: 'ask_more_details', label: '追问更多矿洞的细节', type: 'dialogue', risk: 'low' },
+        { id: 'ask_more_details', label: '追问更多采石场的细节', type: 'dialogue', risk: 'low' },
         { id: 'prepare_supplies', label: '去市集买些补给再出发', type: 'travel', risk: 'low' },
       ],
       customActionEnabled: true,
       playerUpdate: { hpChange: 0, mpChange: 0, expChange: 5, moneyChange: {} },
       inventoryUpdate: [],
       questUpdate: [{
-        id: 'old_mine', name: '子时的旧矿洞', status: 'active',
-        description: '调查旧矿洞深处的异常动静。报酬5银币。', giver: '染血的陌生人',
-        objectives: [{ id: 'o1', description: '前往旧矿洞入口', completed: false }, { id: 'o2', description: '调查矿洞深处的异常', completed: false }],
+        id: 'old_mine', name: '子时的旧采石场', status: 'active',
+        description: '调查旧采石场深处的异常动静。报酬5银币。', giver: '染血的陌生人',
+        objectives: [{ id: 'o1', description: '前往旧采石场入口', completed: false }, { id: 'o2', description: '调查塌陷洞穴深处的异常', completed: false }],
         rewards: { exp: 50, money: { silver: 5 } },
       }],
       skillStateUpdate: [], equipmentUpdate: [],
       relationshipUpdate: [{ targetId: 'stranger', name: '染血的陌生人', change: 5, type: 'npc', reason: '你接下了委托。' }],
-      mapUpdate: [{ targetId: 'old_mine_entrance', targetType: 'location', name: '旧矿洞入口', status: 'discovered' }],
+      mapUpdate: [{ targetId: 'old_mine_entrance', targetType: 'location', name: '旧采石场入口', status: 'discovered' }],
       worldBroadcasts: [],
       memoryUpdate: { flags: ['quest_accepted'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern', 'old_mine_entrance'] },
     };
@@ -104,7 +104,7 @@ function handleQuestAction(action: PlayerAction, ws: WorldState): AIResponse | n
 
 function openingScene(): AIResponse {
   return {
-    scene: { title: '陌生人的委托', text: '灰鹿酒馆的木门被推开，冷雨随风灌入。一个披着湿斗篷的男人环顾四周，然后径直朝你走来。他把一枚沾着泥的银币推到桌上。\n\n"我需要一个信得过的人去旧矿洞。报酬……等你活着回来再说。"\n\n窗外旧矿洞的方向隐约闪过蓝光。他袖口有一小片暗红色血迹——不像是他的。', location: '灰鹿酒馆', time: '雾月3日 夜晚', weather: '雨' },
+    scene: { title: '陌生人的委托', text: '灰鹿酒馆的木门被推开，晚风随风灌入。一个披着湿斗篷的男人环顾四周，然后径直朝你走来。他把一枚沾着泥的银币推到桌上。\n\n"我需要一个信得过的人去旧采石场。报酬……等你活着回来再说。"\n\n窗外旧采石场的方向隐约闪过冷光。他袖口有一小片暗红色血迹——不像是他的。', location: '灰鹿酒馆', time: '雾月3日 傍晚', weather: '多云' },
     event: { id: 'opening', type: 'dialogue_event', urgency: 'normal', riskLevel: 'medium' },
     systemEvents: [{ type: 'info', text: '你注意到袖口的血迹和斗篷下做工精致的匕首。' }],
     actionOptions: [
@@ -117,11 +117,11 @@ function openingScene(): AIResponse {
     customActionEnabled: true,
     playerUpdate: { hpChange: 0, mpChange: 0, expChange: 5, moneyChange: {} },
     inventoryUpdate: [{ action: 'add', itemId: 'muddy_silver_coin', name: '沾泥的银币', quantity: 1, type: 'quest_item', description: '陌生人推到桌上的银币，隐约有魔力残留', rarity: 'common' }],
-    questUpdate: [{ id: 'old_mine', name: '子时的旧矿洞', status: 'available', description: '调查旧矿洞深夜出现的蓝光。报酬5银币。', giver: '染血的陌生人', objectives: [{ id: 'o1', description: '前往旧矿洞入口', completed: false }], rewards: { exp: 50, money: { silver: 5 } } }],
+    questUpdate: [{ id: 'old_mine', name: '子时的旧采石场', status: 'available', description: '调查旧采石场傍晚出现的冷光。报酬5银币。', giver: '染血的陌生人', objectives: [{ id: 'o1', description: '前往旧采石场入口', completed: false }], rewards: { exp: 50, money: { silver: 5 } } }],
     skillStateUpdate: [], equipmentUpdate: [],
     relationshipUpdate: [{ targetId: 'stranger', name: '染血的陌生人', change: 0, type: 'npc', reason: '刚刚见面。' }],
-    mapUpdate: [{ targetId: 'old_mine_entrance', targetType: 'location', name: '旧矿洞入口', status: 'discovered' }],
-    worldBroadcasts: [{ type: 'rumor', region: '人类联邦', text: '有人说旧矿洞今晚出现了蓝色火光。' }],
+    mapUpdate: [{ targetId: 'old_mine_entrance', targetType: 'location', name: '旧采石场入口', status: 'discovered' }],
+    worldBroadcasts: [{ type: 'rumor', region: '人类联邦', text: '有人说旧采石场今晚出现了异常冷光。' }],
     memoryUpdate: { flags: ['game_started', 'met_stranger', 'has_quest_mine'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern', 'old_mine_entrance'] },
   };
 }
@@ -146,7 +146,7 @@ function tavernResponse(action: PlayerAction, p: Player, ws: WorldState, judge: 
       event: { id: 'rest', type: 'rest_event', urgency: 'low', riskLevel: 'low' },
       systemEvents: [{ type: 'reward', text: `HP +${healHp}  MP +${healMp}` }],
       actionOptions: [
-        { id: 'go_mine', label: '前往旧矿洞调查', type: 'travel', risk: 'medium' },
+        { id: 'go_mine', label: '前往旧采石场调查', type: 'travel', risk: 'medium' },
         { id: 'talk_boss', label: '跟酒馆老板聊聊', type: 'dialogue', risk: 'low' },
         { id: 'check_board', label: '查看委托板', type: 'exploration', risk: 'low' },
         { id: 'go_blacksmith', label: '去铁匠铺', type: 'travel', risk: 'low' },
@@ -164,12 +164,12 @@ function tavernResponse(action: PlayerAction, p: Player, ws: WorldState, judge: 
   if (action.id.includes('talk') || action.id.includes('boss') || action.id.includes('ask')) {
     const dialogues = hasQuest
       ? [
-        { text: '老板一边擦杯子一边压低声音："矿洞的事？这两天来了好几拨人问。有个王都的魔法检察官昨天也来打听过。"他顿了顿，"那人不对劲。他的眼睛……一只是蓝的，一只不是。"', hint: '新情报：王都魔法检察官也在调查矿洞' },
-        { text: '"矿洞啊。"老板叹了口气，"二十年前塌过一次，埋了好几个矿工。那之后就荒了。最近又有人进去，但出来的不多。"他把杯子放下，"你要是去，多带点绳子。里面比看起来深得多。"', hint: '矿洞比看上去更深，带绳子' },
+        { text: '老板一边擦杯子一边压低声音："采石场的事？这两天来了好几拨人问。有个王都的魔法检察官昨天也来打听过。"他顿了顿，"那人不对劲。他的眼睛……一只是蓝的，一只不是。"', hint: '新情报：王都魔法检察官也在调查采石场' },
+        { text: '"采石场啊。"老板叹了口气，"二十年前塌过一次，埋了好几个采石工。那之后就荒了。最近又有人进去，但出来的不多。"他把杯子放下，"你要是去，多带点绳子。里面比看起来深得多。"', hint: '采石场比看上去更深，带绳子' },
         { text: '老板给你倒了杯麦酒，没收钱。"那个委托你接了就小心点。来找你的人——"他压低了声音，"不是本地人。他的靴子是王都样式，但旧得厉害。像是走了很久的路。"', hint: '委托人的身份有疑点' },
       ]
       : [
-        { text: '老板是个话不多的人，但你多问了几句后，指了指壁炉上方的木板。"新贴了几张委托。矿洞和商队的事似乎有关联。"', hint: '委托板上有新任务' },
+        { text: '老板是个话不多的人，但你多问了几句后，指了指壁炉上方的木板。"新贴了几张委托。采石场和商队的事似乎有关联。"', hint: '委托板上有新任务' },
         { text: '"最近生意不错。"老板擦着吧台，"冒险者多了，麻烦也多了。你看着是个能打的——公会那边应该欢迎你。"', hint: '可以加入冒险者公会' },
       ];
     const d = pick(dialogues);
@@ -178,7 +178,7 @@ function tavernResponse(action: PlayerAction, p: Player, ws: WorldState, judge: 
       event: { id: 'tavern_talk', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
       systemEvents: [{ type: 'info', text: d.hint }],
       actionOptions: [
-        { id: 'go_mine', label: '前往旧矿洞', type: 'travel', risk: 'medium' },
+        { id: 'go_mine', label: '前往旧采石场', type: 'travel', risk: 'medium' },
         { id: 'check_board', label: '查看委托板', type: 'exploration', risk: 'low' },
         { id: 'rest_inn', label: '在旅店休息', type: 'cautious', risk: 'low' },
         { id: 'go_blacksmith', label: '去铁匠铺', type: 'travel', risk: 'low' },
@@ -198,13 +198,13 @@ function tavernResponse(action: PlayerAction, p: Player, ws: WorldState, judge: 
     return {
       scene: { title: '委托板', text: pick([
         '板上贴了几张委托：护送商队到银帆港（2银）、调查北边林道狼群（1银）、还有一张写着"急寻旧王国遗物鉴别师"的纸条——报酬面议。',
-        '公会委托更新了。最显眼的是用红蜡封着的紧急任务：旧矿洞深处出现不明魔力波动，需要至少Lv.3以上的冒险者前往调查。旁边还有几张护送和采集的普通委托。',
+        '公会委托更新了。最显眼的是用红蜡封着的紧急任务：旧采石场深处出现不明魔力波动，需要至少Lv.3以上的冒险者前往调查。旁边还有几张护送和采集的普通委托。',
       ]), location: '灰鹿酒馆', time: '傍晚', weather: '晴' },
       event: { id: 'board', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
       systemEvents: [{ type: 'info', text: '可接取委托赚取金钱和经验。部分委托有等级要求。' }],
       actionOptions: [
         { id: 'accept_board', label: '接下护送商队的委托', type: 'dialogue', risk: 'low' },
-        { id: 'go_mine', label: '前往旧矿洞', type: 'travel', risk: 'medium' },
+        { id: 'go_mine', label: '前往旧采石场', type: 'travel', risk: 'medium' },
         { id: 'talk_boss', label: '跟老板聊聊', type: 'dialogue', risk: 'low' },
         { id: 'rest_inn', label: '在旅店休息', type: 'cautious', risk: 'low' },
         { id: 'go_port', label: '去银帆港看看', type: 'travel', risk: 'medium' },
@@ -230,7 +230,7 @@ function tavernResponse(action: PlayerAction, p: Player, ws: WorldState, judge: 
     actionOptions: [
       { id: 'talk_boss', label: '跟酒馆老板打听消息', type: 'dialogue', risk: 'low' },
       { id: 'check_board', label: '查看公会委托板', type: 'exploration', risk: 'low' },
-      { id: 'go_mine', label: '前往旧矿洞', type: 'travel', risk: 'medium' },
+      { id: 'go_mine', label: '前往旧采石场', type: 'travel', risk: 'medium' },
       { id: 'go_blacksmith', label: '去铁匠铺', type: 'travel', risk: 'low' },
       { id: 'go_market', label: '去市集', type: 'travel', risk: 'low' },
       { id: 'rest_inn', label: '在旅店休息', type: 'cautious', risk: 'low' },
@@ -254,7 +254,7 @@ function innResponse(action: PlayerAction, p: Player, _ws: WorldState): AIRespon
     systemEvents: [{ type: 'reward', text: `充分休息：HP +${healHp}  MP +${healMp}` }],
     actionOptions: [
       { id: 'go_tavern', label: '回灰鹿酒馆', type: 'travel', risk: 'low' },
-      { id: 'go_mine', label: '前往旧矿洞', type: 'travel', risk: 'medium' },
+      { id: 'go_mine', label: '前往旧采石场', type: 'travel', risk: 'medium' },
       { id: 'go_blacksmith', label: '去铁匠铺', type: 'travel', risk: 'low' },
     ],
     customActionEnabled: true,
@@ -328,7 +328,7 @@ function guildResponse(action: PlayerAction, _p: Player, _ws: WorldState): AIRes
     actionOptions: [
       { id: 'go_tavern', label: '回酒馆', type: 'travel', risk: 'low' },
       { id: 'go_port', label: '前往银帆港', type: 'travel', risk: 'medium' },
-      { id: 'go_mine', label: '去旧矿洞', type: 'travel', risk: 'medium' },
+      { id: 'go_mine', label: '去旧采石场', type: 'travel', risk: 'medium' },
       { id: 'go_blacksmith', label: '去铁匠铺', type: 'travel', risk: 'low' },
     ],
     customActionEnabled: true,
@@ -346,7 +346,7 @@ function marketResponse(_action: PlayerAction, _p: Player, _ws: WorldState): AIR
   return {
     scene: { title: '市集', text: pick([
       '市集上摊贩的吆喝声此起彼伏。药草摊前围了几个妇女，旁边铁器摊在卖一些看起来不太靠谱的"幸运护符"。药剂店的招牌在不远处晃着。',
-      '市集比平时冷清。药草商说他最近不敢去北边林道进货——狼群比以前多了。问他认不认识旧矿洞的路，他摇了摇头："那边更不好走。"',
+      '市集比平时冷清。药草商说他最近不敢去北边林道进货——狼群比以前多了。问他认不认识旧采石场的路，他摇了摇头："那边更不好走。"',
     ]), location: '市集', time: '上午', weather: '晴' },
     event: { id: 'market', type: 'shop_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [{ type: 'info', text: '可购买消耗品和材料。药剂店有治疗药水出售（2银/瓶）。' }],
@@ -354,7 +354,7 @@ function marketResponse(_action: PlayerAction, _p: Player, _ws: WorldState): AIR
       { id: 'buy_potion', label: '购买治疗药水（2银）', type: 'trade', risk: 'low' },
       { id: 'go_tavern', label: '回酒馆', type: 'travel', risk: 'low' },
       { id: 'go_blacksmith', label: '去铁匠铺', type: 'travel', risk: 'low' },
-      { id: 'go_mine', label: '去旧矿洞', type: 'travel', risk: 'medium' },
+      { id: 'go_mine', label: '去旧采石场', type: 'travel', risk: 'medium' },
     ],
     customActionEnabled: true,
     playerUpdate: { hpChange: 0, mpChange: 0, expChange: 0, moneyChange: {} },
@@ -376,11 +376,11 @@ function forestRoadResponse(action: PlayerAction, p: Player, ws: WorldState, jud
       scene: { title: '林道遇袭', text: pick([
         '夜雾笼罩着林道。左侧灌木突然剧烈晃动——两只瘦骨嶙峋的灰狼扑了出来。一番搏斗后，你击退了它们。手臂上多了几道抓痕，但不算严重。',
         '你听见灌木丛中有动静。还没来得及拔剑，两只灰狼已经冲了出来。好在你反应够快，一番缠斗后它们夹着尾巴逃回了林子。',
-      ]), location: '林道', time: '深夜', weather: '雾' },
+      ]), location: '林道', time: '傍晚', weather: '雾' },
       event: { id: 'wolf_ambush', type: 'combat_event', urgency: 'high', riskLevel: 'medium' },
       systemEvents: [{ type: 'penalty', text: `击退狼群，HP -${hpLoss}。经验 +20。` }],
       actionOptions: [
-        { id: 'continue_mine', label: '继续前往矿洞', type: 'travel', risk: 'medium' },
+        { id: 'continue_mine', label: '继续前往采石场', type: 'travel', risk: 'medium' },
         { id: 'loot_wolves', label: '检查狼的尸体', type: 'exploration', risk: 'low' },
         { id: 'go_back', label: '返回酒馆', type: 'travel', risk: 'low' },
       ],
@@ -396,11 +396,11 @@ function forestRoadResponse(action: PlayerAction, p: Player, ws: WorldState, jud
 
   // Already fought wolves, just passing through
   return {
-    scene: { title: '林道', text: '你又来到了这条林道。上次遇到狼群的地方还留着几根白骨。雾比上次淡了些，旧矿洞的方向隐约能看到。', location: '林道', time: '清晨', weather: '雾' },
+    scene: { title: '林道', text: '你又来到了这条林道。上次遇到狼群的地方还留着几根白骨。雾比上次淡了些，旧采石场的方向隐约能看到。', location: '林道', time: '清晨', weather: '雾' },
     event: { id: 'forest_pass', type: 'travel_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [],
     actionOptions: [
-      { id: 'continue_mine', label: '前往矿洞', type: 'travel', risk: 'low' },
+      { id: 'continue_mine', label: '前往采石场', type: 'travel', risk: 'low' },
       { id: 'explore_forest', label: '在林中探索', type: 'exploration', risk: 'medium' },
       { id: 'go_back', label: '返回酒馆', type: 'travel', risk: 'low' },
     ],
@@ -421,23 +421,23 @@ function mineEntranceResponse(action: PlayerAction, p: Player, ws: WorldState, j
   // First time
   if (!entered) {
     const baseOptions: Array<{ id: string; label: string; type: string; risk: 'low' | 'medium' | 'high' | 'extreme'; relatedAttribute?: string; relatedSkill?: string | null; mpCost?: number }> = [
-      { id: 'enter_mine', label: '小心进入矿洞', type: 'exploration', risk: 'medium' },
+      { id: 'enter_mine', label: '小心进入采石场', type: 'exploration', risk: 'medium' },
       { id: 'check_tracks', label: '仔细检查脚印', type: 'check', risk: 'low', relatedAttribute: 'wis' },
     ];
     if (hasMagicSense) {
-      baseOptions.push({ id: 'detect_magic', label: '使用【魔力感知】探测蓝光', type: 'skill', risk: 'low', relatedSkill: 'magic_sense', mpCost: 1, relatedAttribute: 'int' });
+      baseOptions.push({ id: 'detect_magic', label: '使用【魔力感知】探测冷光', type: 'skill', risk: 'low', relatedSkill: 'magic_sense', mpCost: 1, relatedAttribute: 'int' });
     }
     baseOptions.push({ id: 'go_back', label: '返回酒馆', type: 'travel', risk: 'low' });
 
     return {
-      scene: { title: '旧矿洞入口', text: '矿洞口被几根松散的横木半掩着。地面上有三四个人的新鲜脚印——不是矿工的靴子。入口深处透出微弱的蓝光，空气中弥漫着硫磺味。', location: '旧矿洞入口', time: '凌晨', weather: '雾' },
+      scene: { title: '旧采石场入口', text: '采石场口被几根松散的横木半掩着。地面上有三四个人的新鲜脚印——不是采石工的靴子。入口深处透出微弱的冷光，空气中弥漫着硫磺味。', location: '旧采石场入口', time: '凌晨', weather: '雾' },
       event: { id: 'mine_entrance', type: 'exploration_event', urgency: 'normal', riskLevel: 'medium' },
-      systemEvents: [{ type: 'info', text: '脚印是软底皮靴——有人比你先来。蓝光在深处一明一灭。' }],
+      systemEvents: [{ type: 'info', text: '脚印是软底皮靴——有人比你先来。冷光在深处一明一灭。' }],
       actionOptions: baseOptions as any,
       customActionEnabled: true,
       playerUpdate: { hpChange: 0, mpChange: 0, expChange: 5, moneyChange: {} },
       inventoryUpdate: [], questUpdate: [], skillStateUpdate: [], equipmentUpdate: [], relationshipUpdate: [],
-      mapUpdate: [{ targetId: 'deep_mine_shaft', name: '矿洞深处', targetType: 'location', status: 'discovered' }],
+      mapUpdate: [{ targetId: 'deep_mine_shaft', name: '塌陷洞穴深处', targetType: 'location', status: 'discovered' }],
       worldBroadcasts: [],
       memoryUpdate: { flags: ['entered_mine'], currentLocation: 'old_mine_entrance', knownLocations: ['old_mine_entrance', 'deep_mine_shaft'] },
     };
@@ -445,11 +445,11 @@ function mineEntranceResponse(action: PlayerAction, p: Player, ws: WorldState, j
 
   // Returning
   return {
-    scene: { title: '旧矿洞入口', text: '你再次站在矿洞口。横木还在，蓝光还在，硫磺味也还在。', location: '旧矿洞入口', time: '傍晚', weather: '雾' },
+    scene: { title: '旧采石场入口', text: '你再次站在采石场口。横木还在，冷光还在，硫磺味也还在。', location: '旧采石场入口', time: '傍晚', weather: '雾' },
     event: { id: 'mine_return', type: 'exploration_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [],
     actionOptions: [
-      { id: 'enter_mine', label: '进入矿洞', type: 'exploration', risk: 'medium' },
+      { id: 'enter_mine', label: '进入采石场', type: 'exploration', risk: 'medium' },
       { id: 'go_back', label: '返回酒馆', type: 'travel', risk: 'low' },
       { id: 'go_port', label: '前往银帆港', type: 'travel', risk: 'medium' },
     ],
@@ -471,15 +471,15 @@ function deepMineResponse(action: PlayerAction, p: Player, ws: WorldState, judge
   if (!foundBook) {
     return {
       scene: { title: '废弃侧室', text: pick([
-        '矿洞侧室堆满了腐朽的木箱。在角落，一本皮面笔记本出奇地完好——《火焰箭术入门》· 魔法学院初级教程。书中夹着一张便条："如果我不回来了，把笔记带给学院。"落款是两年前。',
+        '采石场侧室堆满了腐朽的木箱。在角落，一本皮面笔记本出奇地完好——《火焰箭术入门》· 魔法学院初级教程。书中夹着一张便条："如果我不回来了，把笔记带给学院。"落款是两年前。',
         '你在废弃的工具箱里找到一本旧笔记。封面上写着"火焰箭术入门"。纸页已经泛黄但字迹清晰。看起来是某个魔法学徒留下的。',
-      ]), location: '矿洞深处', time: '上午', weather: '未知' },
+      ]), location: '塌陷洞穴深处', time: '上午', weather: '未知' },
       event: { id: 'skill_book', type: 'discovery_event', urgency: 'low', riskLevel: 'low' },
       systemEvents: [{ type: 'reward', text: '获得《火焰箭术入门》！经验 +15。' }],
       actionOptions: [
         { id: 'go_deeper', label: '收起书，继续深入', type: 'exploration', risk: 'medium' },
         { id: 'study_book', label: '翻阅技能书', type: 'item', risk: 'low' },
-        { id: 'go_back', label: '返回矿洞口', type: 'travel', risk: 'low' },
+        { id: 'go_back', label: '返回采石场口', type: 'travel', risk: 'low' },
       ],
       customActionEnabled: true,
       playerUpdate: { hpChange: 0, mpChange: 0, expChange: 15, moneyChange: {} },
@@ -494,9 +494,9 @@ function deepMineResponse(action: PlayerAction, p: Player, ws: WorldState, judge
   if (!foundRift && (action.id.includes('deep') || action.id.includes('continue') || action.id.includes('explore'))) {
     return {
       scene: { title: '地底裂隙', text: pick([
-        '矿洞最深处，岩壁塌了一大块。一条天然裂隙向下延伸，边缘有被人为凿开的痕迹。从深处涌上的空气带着陌生的气味——香料、铁锈、蛇的气息。\n\n你听到了。很轻的，像在交谈的低语。不是人类的语言。',
+        '塌陷洞穴最深处，岩壁塌了一大块。一条天然裂隙向下延伸，边缘有被人为凿开的痕迹。从深处涌上的空气带着陌生的气味——香料、铁锈、蛇的气息。\n\n你听到了。很轻的，像在交谈的低语。不是人类的语言。',
         '脚下突然一空——你差点踩进一条深不见底的裂隙。稳住身形后你仔细打量：裂隙的人工凿痕说明有人刻意扩大了这条通道。风吹上来的气味不属于你认识的任何地方。',
-      ]), location: '矿洞最深处', time: '中午', weather: '未知' },
+      ]), location: '塌陷洞穴最深处', time: '中午', weather: '未知' },
       event: { id: 'deep_rift', type: 'discovery_event', urgency: 'normal', riskLevel: 'high' },
       systemEvents: [{ type: 'warning', text: '裂隙下方不是人类世界。推荐等级 12+。低语的语言不属于任何已知种族。' }],
       actionOptions: [
@@ -515,9 +515,9 @@ function deepMineResponse(action: PlayerAction, p: Player, ws: WorldState, judge
 
   // Return visit
   return {
-    scene: { title: '矿洞深处', text: foundRift
+    scene: { title: '塌陷洞穴深处', text: foundRift
       ? '你再次来到裂隙前。低语声还在。这下面一定有什么……但不是现在。你还需要更强的实力。'
-      : '矿道在黑暗中延伸。你还能继续深入——或者返回地面。', location: '矿洞深处', time: '未知', weather: '未知' },
+      : '采石场土路在黑暗中延伸。你还能继续深入——或者返回地面。', location: '塌陷洞穴深处', time: '未知', weather: '未知' },
     event: { id: 'mine_deep', type: 'exploration_event', urgency: 'low', riskLevel: foundRift ? 'high' : 'medium' },
     systemEvents: [],
     actionOptions: foundRift
@@ -527,7 +527,7 @@ function deepMineResponse(action: PlayerAction, p: Player, ws: WorldState, judge
       ]
       : [
         { id: 'go_deeper', label: '继续深入', type: 'exploration', risk: 'medium' },
-        { id: 'go_back', label: '返回矿洞口', type: 'travel', risk: 'low' },
+        { id: 'go_back', label: '返回采石场口', type: 'travel', risk: 'low' },
       ],
     customActionEnabled: true,
     playerUpdate: { hpChange: 0, mpChange: 0, expChange: 0, moneyChange: {} },
@@ -609,7 +609,7 @@ function travelToForest(action: PlayerAction, p: Player, ws: WorldState, judge: 
 function travelResponse(action: PlayerAction, p: Player, ws: WorldState, judge: JudgeResult): AIResponse {
   // Detect "go to X" from custom input
   const text = action.customText?.toLowerCase() || action.label?.toLowerCase() || '';
-  if (text.includes('矿洞') || text.includes('mine')) return travelToForest(action, p, ws, judge);
+  if (text.includes('采石场') || text.includes('mine')) return travelToForest(action, p, ws, judge);
   if (text.includes('酒馆') || text.includes('tavern')) {
     return { ...tavernResponse(action, p, ws, judge), memoryUpdate: { flags: [], currentLocation: 'gray_deer_tavern' } };
   }
@@ -619,14 +619,14 @@ function travelResponse(action: PlayerAction, p: Player, ws: WorldState, judge: 
   // Generic travel
   return {
     scene: { title: '旅途中', text: pick([
-      '你沿着土路前行。远处能看到白石镇的炊烟，另一边是黑黢黢的旧矿区。去哪边？',
-      '岔路口的风吹得路牌嘎吱作响。左边是回白石镇的方向，右边通往旧矿区，往南走是银帆港。',
+      '你沿着土路前行。远处能看到白石镇的炊烟，另一边是黑黢黢的旧采石场。去哪边？',
+      '岔路口的风吹得路牌嘎吱作响。左边是回白石镇的方向，右边通往旧采石场，往南走是银帆港。',
     ]), location: '野外', time: '午后', weather: '晴' },
     event: { id: 'travel', type: 'travel_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [],
     actionOptions: [
       { id: 'go_tavern', label: '回灰鹿酒馆', type: 'travel', risk: 'low' },
-      { id: 'go_mine', label: '去旧矿洞', type: 'travel', risk: 'medium' },
+      { id: 'go_mine', label: '去旧采石场', type: 'travel', risk: 'medium' },
       { id: 'go_port', label: '前往银帆港', type: 'travel', risk: 'medium' },
       { id: 'rest_here', label: '就地休息', type: 'cautious', risk: 'low' },
     ],
@@ -674,3 +674,6 @@ export function getFallbackAIResponse(locationId: string, _player: Player): AIRe
     memoryUpdate: { flags: [], currentLocation: locationId, currentLocationId: locationId },
   };
 }
+
+
+

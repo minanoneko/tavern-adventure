@@ -82,14 +82,17 @@ export function updateLongTermSummary(
 export function getRecentImportantLogs(logs: LogEntry[], limit: number = 8): LogEntry[] {
   // Prioritize narrative, quest, world, and judge logs over item/system logs
   const priorityOrder = ['narrative', 'quest', 'world', 'judge', 'combat', 'relationship', 'item', 'system'];
-  const sorted = [...logs].sort((a, b) => {
+  const recent = logs.slice(-24);
+  const selected = [...recent].sort((a, b) => {
     const aIdx = priorityOrder.indexOf(a.type);
     const bIdx = priorityOrder.indexOf(b.type);
     if (aIdx === -1) return 1;
     if (bIdx === -1) return -1;
-    return aIdx - bIdx;
-  });
-  return sorted.slice(-limit);
+    if (aIdx !== bIdx) return aIdx - bIdx;
+    return logs.indexOf(b) - logs.indexOf(a);
+  }).slice(0, limit);
+
+  return selected.sort((a, b) => logs.indexOf(a) - logs.indexOf(b));
 }
 
 // ========== extractImportantFacts ==========

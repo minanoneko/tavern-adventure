@@ -1,4 +1,4 @@
-import type { AIResponse } from '../types';
+﻿import type { AIResponse } from '../types';
 
 interface OpeningTemplate {
   classId: string;
@@ -15,7 +15,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'mage',
     responses: [
       {
-        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的木门，雨水顺着学徒长袍滴落。怀里的破旧魔法笔记还带着学院图书馆的霉味——那是你退学前偷带出来的唯一东西。\n\n酒馆里的火光让你眯了眯眼。几个常客扫了你一眼，继续喝酒。角落一个戴着兜帽的人似乎多看了你两秒。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的木门，路尘顺着学徒长袍滴落。怀里的破旧魔法笔记还带着学院图书馆的霉味——那是你退学前偷带出来的唯一东西。\n\n酒馆里的火光让你眯了眯眼。几个常客扫了你一眼，继续喝酒。角落一个戴着兜帽的人似乎多看了你两秒。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_mage_1', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '你的魔力感知隐约察觉到——角落里那个人身上有微弱的魔力残留。' }],
         actionOptions: [
@@ -54,7 +54,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'ranger',
     responses: [
       {
-        scene: { title: '林道幸存者', text: '你带着松针和泥水的气味站在灰鹿酒馆门口。三天前护送的商队在林道失散，你是唯一的幸存者——至少你认为自己是。\n\n商队的货物散落在林子里，而你的同伴不知所踪。你回镇上是为了找人帮忙，或者至少买点补给。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '林道幸存者', text: '你带着松针和泥水的气味站在灰鹿酒馆门口。三天前护送的商队在林道失散，你是唯一的幸存者——至少你认为自己是。\n\n商队的货物散落在林子里，而你的同伴不知所踪。你回镇上是为了找人帮忙，或者至少买点补给。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_ranger_1', type: 'dialogue_event', urgency: 'normal', riskLevel: 'medium' },
         systemEvents: [{ type: 'info', text: '你手臂上还有林道里的擦伤。商队失散的线索不多——但你记得袭击前闻到了一股奇怪的焦味。' }],
         actionOptions: [
@@ -97,7 +97,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'warrior',
     responses: [
       {
-        scene: { title: '灰鹿酒馆', text: '你的铁剑靠在桌腿上，剑刃还沾着前几日的旅尘。佣兵团解散了——队长说接不到足够的活，大家各奔东西。\n\n这是你第一次独自走进灰鹿酒馆。以前都是跟团友们一起，点上几杯最便宜的麦酒，聊着下一个委托。现在只剩你一个人了。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '多云' },
+        scene: { title: '灰鹿酒馆', text: '你的铁剑靠在桌腿上，剑刃还沾着前几日的旅尘。佣兵团解散了——队长说接不到足够的活，大家各奔东西。\n\n这是你第一次独自走进灰鹿酒馆。以前都是跟团友们一起，点上几杯最便宜的麦酒，聊着下一个委托。现在只剩你一个人了。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_warrior_1', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '吧台后面贴了几张新的委托单。公会最近似乎缺人手。' }],
         actionOptions: [
@@ -114,12 +114,12 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'gray_deer_tavern', currentLocationId: 'gray_deer_tavern', knownLocations: ['gray_deer_tavern'] },
       },
       {
-        scene: { title: '白石镇城门', text: '你靠在白石镇的城门边，看着陆续进出的马车和旅人。佣兵团的旗子已经收起来了——队长说至少三个月内不会有新合同。\n\n城门口有两个城卫兵在闲聊。其中一个提到"矿洞那边又出事了"，另一个让他别多管闲事。\n\n你需要新的收入来源。灰鹿酒馆是个开始的好地方。', location: '白石镇城门', locationId: 'whitestone_gate', time: '雾月3日 下午', weather: '阴' },
+        scene: { title: '白石镇城门', text: '你靠在白石镇的城门边，看着陆续进出的马车和旅人。佣兵团的旗子已经收起来了——队长说至少三个月内不会有新合同。\n\n城门口有两个城卫兵在闲聊。其中一个提到"采石场那边又出事了"，另一个让他别多管闲事。\n\n你需要新的收入来源。灰鹿酒馆是个开始的好地方。', location: '白石镇城门', locationId: 'whitestone_gate', time: '雾月3日 下午', weather: '阴' },
         event: { id: 'opening_warrior_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
-        systemEvents: [{ type: 'info', text: '你听到城卫兵提到了矿洞。但你不一定非得去——酒馆里的委托板选择更多。' }],
+        systemEvents: [{ type: 'info', text: '你听到城卫兵提到了采石场。但你不一定非得去——酒馆里的委托板选择更多。' }],
         actionOptions: [
           { id: 'go_tavern', label: '去灰鹿酒馆找新委托', type: 'travel', risk: 'low' },
-          { id: 'ask_guards', label: '向城卫兵打听矿洞的事', type: 'dialogue', risk: 'low' },
+          { id: 'ask_guards', label: '向城卫兵打听采石场的事', type: 'dialogue', risk: 'low' },
           { id: 'go_blacksmith', label: '先去铁匠铺磨磨剑', type: 'travel', risk: 'low' },
         ],
         customActionEnabled: true,
@@ -136,7 +136,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'thief',
     responses: [
       {
-        scene: { title: '灰鹿酒馆后巷', text: '你从后门溜进灰鹿酒馆，黑色斗篷还滴着雨水。后巷里没有人——你确认过了。\n\n你欠黑市一笔钱，数目不大但利息在涨。今晚你需要一个能快速赚钱的委托，或者至少找到一个愿意赊账的雇主。酒馆里的委托板是你的第一站。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 深夜', weather: '雨' },
+        scene: { title: '灰鹿酒馆后巷', text: '你从后门溜进灰鹿酒馆，黑色斗篷还滴着路尘。后巷里没有人——你确认过了。\n\n你欠黑市一笔钱，数目不大但利息在涨。今晚你需要一个能快速赚钱的委托，或者至少找到一个愿意赊账的雇主。酒馆里的委托板是你的第一站。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_thief_1', type: 'dialogue_event', urgency: 'normal', riskLevel: 'medium' },
         systemEvents: [{ type: 'info', text: '黑市的债主给了你一周的宽限。时间不多了——但也不算太紧。' }],
         actionOptions: [
@@ -180,7 +180,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
       {
         scene: { title: '小礼拜堂', text: '小礼拜堂的石墙上爬满了青苔。你是奉教会命令来到边境的——上面说最近乡镇周边的"邪祟"事件增多，需要一个低级牧师去做初步调查。\n\n说实话，你觉得上面只是想把你打发到远离圣都的地方。但无论如何，礼拜堂里已经没人了——上一任牧师上个月就调走了。\n\n你需要找个地方住。灰鹿酒馆是镇上唯一的选择。', location: '小礼拜堂', locationId: 'small_chapel', time: '雾月3日 傍晚', weather: '阴' },
         event: { id: 'opening_priest_1', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
-        systemEvents: [{ type: 'info', text: '礼拜堂的访客登记簿上，最后一条是上个月的。"矿工家属来祈祷"——然后就没了。' }],
+        systemEvents: [{ type: 'info', text: '礼拜堂的访客登记簿上，最后一条是上个月的。"采石工家属来祈祷"——然后就没了。' }],
         actionOptions: [
           { id: 'go_tavern', label: '去灰鹿酒馆找住处', type: 'travel', risk: 'low' },
           { id: 'pray_here', label: '在礼拜堂做一次祝祷', type: 'skill', risk: 'low', relatedSkill: 'blessing', mpCost: 3 },
@@ -198,7 +198,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'small_chapel', currentLocationId: 'small_chapel', knownLocations: ['small_chapel', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你推门走进灰鹿酒馆。老板娘看了你一眼——准确说，看了你胸前的圣徽一眼。"教会的人？好久没见过了。"\n\n你要了一杯热水——酒馆里没有——然后在角落坐下。边境的生活比圣都简陋得多。但这也是你申请调来这里的原因：离那些政治斗争远一点。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '阴' },
+        scene: { title: '灰鹿酒馆', text: '你推门走进灰鹿酒馆。老板娘看了你一眼——准确说，看了你胸前的圣徽一眼。"教会的人？好久没见过了。"\n\n你要了一杯热水——酒馆里没有——然后在角落坐下。边境的生活比圣都简陋得多。但这也是你申请调来这里的原因：离那些政治斗争远一点。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '阴' },
         event: { id: 'opening_priest_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '酒馆里有几个人注意到了你的圣徽。大部分只是好奇，但角落一个男人似乎刻意避开了目光。' }],
         actionOptions: [
@@ -221,7 +221,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'barbarian',
     responses: [
       {
-        scene: { title: '林道路边', text: '你坐在路边一块石头上，粗制战斧插在身旁的泥地里。走了三天，脚底的水泡已经麻木了。\n\n有人告诉你南边有活干——没说具体是什么——所以你就来了。灰鹿酒馆的灯光在前方几百步外闪动。那意味着麦酒、热食和可能打架。', location: '林道', locationId: 'forest_road', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '林道路边', text: '你坐在路边一块石头上，粗制战斧插在身旁的泥地里。走了三天，脚底的水泡已经麻木了。\n\n有人告诉你南边有活干——没说具体是什么——所以你就来了。灰鹿酒馆的灯光在前方几百步外闪动。那意味着麦酒、热食和可能打架。', location: '林道', locationId: 'forest_road', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_barbarian_1', type: 'travel_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '你饿得前胸贴后背。身上只剩几块肉干和十枚铜币。' }],
         actionOptions: [
@@ -240,7 +240,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'forest_road', currentLocationId: 'forest_road', knownLocations: ['forest_road', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的门，力道没控制好——门撞在墙上发出巨响。酒馆里静了两秒。\n\n"抱歉。"你吼了一声。酒客们纷纷转回去继续喝酒。老板娘摇了摇头，但嘴角似乎有一丝笑意。\n\n你需要工作。而且说实话——你需要有人告诉你去哪打。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的门，力道没控制好——门撞在墙上发出巨响。酒馆里静了两秒。\n\n"抱歉。"你吼了一声。酒客们纷纷转回去继续喝酒。老板娘摇了摇头，但嘴角似乎有一丝笑意。\n\n你需要工作。而且说实话——你需要有人告诉你去哪打。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_barbarian_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '酒馆里几个冒险者偷偷打量你——但不是敌意，更像是评估你能扛几拳。' }],
         actionOptions: [
@@ -283,9 +283,9 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'potion_shop', currentLocationId: 'potion_shop', knownLocations: ['potion_shop', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你需要一个安静角落整理你的炼金包。灰鹿酒馆最里面的桌子光线不好，但没人打扰——正合适。\n\n你铺开材料清单：银叶草、月光菇、火石粉。缺的比有的多。\n\n酒馆里有人在讨论最近的传闻，或许能打听到一些采购线索。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你需要一个安静角落整理你的炼金包。灰鹿酒馆最里面的桌子光线不好，但没人打扰——正合适。\n\n你铺开材料清单：银叶草、月光菇、火石粉。缺的比有的多。\n\n酒馆里有人在讨论最近的传闻，或许能打听到一些采购线索。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_alchemist_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
-        systemEvents: [{ type: 'info', text: '一旁的桌上传来了"稀罕材料"和"旧矿区"的字眼。不过也可能是吹牛的。' }],
+        systemEvents: [{ type: 'info', text: '一旁的桌上传来了"稀罕材料"和"旧采石场"的字眼。不过也可能是吹牛的。' }],
         actionOptions: [
           { id: 'eavesdrop_next_table', label: '偷听隔壁桌的对话', type: 'check', risk: 'low', relatedAttribute: 'wis' },
           { id: 'check_board', label: '看看委托板', type: 'exploration', risk: 'low' },
@@ -306,7 +306,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'noble',
     responses: [
       {
-        scene: { title: '旅店房间', text: '旅店老板娘刚刚离开，带走了你最后的两枚银币。这间房能住三晚。三晚之后，你只剩下手指上这枚家族旧戒。\n\n你从王都逃出来已经两周了。不是为了逃避什么人——是为了逃避那种一眼能望到头的生活。可是现在窗外雨声淅沥，你又觉得那种生活至少不会让你在旅店里啃干面包。', location: '旅店', locationId: 'whitestone_inn', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '旅店房间', text: '旅店老板娘刚刚离开，带走了你最后的两枚银币。这间房能住三晚。三晚之后，你只剩下手指上这枚家族旧戒。\n\n你从王都逃出来已经两周了。不是为了逃避什么人——是为了逃避那种一眼能望到头的生活。可是现在窗外街声淅沥，你又觉得那种生活至少不会让你在旅店里啃干面包。', location: '旅店', locationId: 'whitestone_inn', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_noble_1', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '你的家族旧戒值不少钱，但你现在还不想卖掉它。那是你唯一的身份证明。' }],
         actionOptions: [
@@ -326,7 +326,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'whitestone_inn', currentLocationId: 'whitestone_inn', knownLocations: ['whitestone_inn', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的门，尽量让自己看起来不像第一次进这种地方。礼服外套被雨淋湿了一半，但站姿仍然是老样子——脊背挺直，下巴微抬。\n\n酒馆老板看了你一眼，没有多说什么。你注意到有人偷瞄你的细剑——那可不是便宜货。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的门，尽量让自己看起来不像第一次进这种地方。礼服外套被风吹乱了一半，但站姿仍然是老样子——脊背挺直，下巴微抬。\n\n酒馆老板看了你一眼，没有多说什么。你注意到有人偷瞄你的细剑——那可不是便宜货。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_noble_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '你注意到委托板上有一张写着"急寻旧王国遗物鉴别师"的纸条。' }],
         actionOptions: [
@@ -369,7 +369,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'forest_road', currentLocationId: 'forest_road', knownLocations: ['forest_road', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你不知道下一顿饭在哪里。但你知道——每个镇子的酒馆里总有需要帮手的人。\n\n你推开灰鹿酒馆的门，找了个靠火的位置坐下。衣服慢慢干了。你没有急着去问委托——在这里坐一会儿，听一听，看一看，机会自己会浮出来。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你不知道下一顿饭在哪里。但你知道——每个镇子的酒馆里总有需要帮手的人。\n\n你推开灰鹿酒馆的门，找了个靠火的位置坐下。衣服慢慢干了。你没有急着去问委托——在这里坐一会儿，听一听，看一看，机会自己会浮出来。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_wanderer_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '你注意到委托板上有几张新帖的纸，一个猎人在角落擦弓，老板娘在吧台后面忙活。' }],
         actionOptions: [
@@ -411,7 +411,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'market_square', currentLocationId: 'market_square', knownLocations: ['market_square', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的门，扫了一圈酒客。今晚人不多——但有一群商人在角落喝酒，他们总有故事。\n\n你把琴靠在桌边，打算先叫一杯麦酒。老板娘看到你的琴，眼睛亮了一下——看来今晚有免费表演的需求。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你推开灰鹿酒馆的门，扫了一圈酒客。今晚人不多——但有一群商人在角落喝酒，他们总有故事。\n\n你把琴靠在桌边，打算先叫一杯麦酒。老板娘看到你的琴，眼睛亮了一下——看来今晚有免费表演的需求。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_bard_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '老板娘朝你使了个眼色——如果你愿意弹两首，她愿意请你喝一杯。' }],
         actionOptions: [
@@ -434,7 +434,7 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
     classId: 'scholar',
     responses: [
       {
-        scene: { title: '旅店房间', text: '你趴在旅店房间的小桌上，厚典籍摊开在烛光下。古籍提到白石镇附近某处有旧王国时期的遗迹——但位置模糊，只说"矿区以北，松木间"。\n\n窗外雨声不断。你的旅费快用完了。你需要找到那个遗迹，或者至少找到一个愿意资助你研究的人。', location: '旅店', locationId: 'whitestone_inn', time: '雾月3日 深夜', weather: '雨' },
+        scene: { title: '旅店房间', text: '你趴在旅店房间的小桌上，厚典籍摊开在烛光下。古籍提到白石镇附近某处有旧王国时期的遗迹——但位置模糊，只说"采石场以北，松木间"。\n\n窗外街声不断。你的旅费快用完了。你需要找到那个遗迹，或者至少找到一个愿意资助你研究的人。', location: '旅店', locationId: 'whitestone_inn', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_scholar_1', type: 'exploration_event', urgency: 'low', riskLevel: 'low' },
         systemEvents: [{ type: 'info', text: '古籍上的坐标信息残缺不全，但隐约提到了白石镇周边的几个地名。' }],
         actionOptions: [
@@ -454,9 +454,9 @@ export const OPENING_TEMPLATES: OpeningTemplate[] = [
         memoryUpdate: { flags: ['game_started'], currentLocation: 'whitestone_inn', currentLocationId: 'whitestone_inn', knownLocations: ['whitestone_inn', 'gray_deer_tavern'] },
       },
       {
-        scene: { title: '灰鹿酒馆', text: '你带着笔记本走进灰鹿酒馆。有人在喝酒，有人在吹牛，但你的兴趣在别处——酒馆老板据说收藏了几份旧地图，从老矿工手里收来的。\n\n你找到一个靠角落的位子，点了杯热茶。希望能找到愿意跟你聊聊本地史料的人。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather: '雨' },
+        scene: { title: '灰鹿酒馆', text: '你带着笔记本走进灰鹿酒馆。有人在喝酒，有人在吹牛，但你的兴趣在别处——酒馆老板据说收藏了几份旧地图，从老采石工手里收来的。\n\n你找到一个靠角落的位子，点了杯热茶。希望能找到愿意跟你聊聊本地史料的人。', location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 傍晚', weather: '多云' },
         event: { id: 'opening_scholar_2', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
-        systemEvents: [{ type: 'info', text: '你听说酒馆老板有几份老矿工留下的旧地图——或许跟古籍里的坐标有关。' }],
+        systemEvents: [{ type: 'info', text: '你听说酒馆老板有几份老采石工留下的旧地图——或许跟古籍里的坐标有关。' }],
         actionOptions: [
           { id: 'ask_boss_maps', label: '请老板给你看旧地图', type: 'dialogue', risk: 'low' },
           { id: 'check_board', label: '扫一眼委托板上有无考古相关任务', type: 'exploration', risk: 'low' },
@@ -536,3 +536,6 @@ export function getOpeningByClass(classId: string, sanitizedOrigin: string): AIR
 
   return response;
 }
+
+
+

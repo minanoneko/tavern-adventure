@@ -47,7 +47,7 @@ export function buildAIContext(
   // Delegate to contextBuilder for detailed, budget-capped context
   const dummyAction: PlayerAction = { id: 'context_only', type: 'other', risk: 'low', mpCost: 0, isCustom: false };
   const dummyJudge: JudgeResult = { outcome: '成功', roll: 0, dc: 0, modifier: 0, notes: '' };
-  const ctx = buildDetailedContext(player, worldState, dummyAction, dummyJudge, recentLogs, lastEvent, selectedOption);
+  const ctx = buildDetailedContext(player, worldState, dummyAction, dummyJudge, recentLogs, lastEvent, selectedOption, eventHistory);
   const contextText = formatAIContext(ctx);
 
   return {

@@ -10,7 +10,7 @@ export const BROADCAST_POOL: WorldBroadcast[] = [
   {
     type: 'rumor',
     region: '人类联邦',
-    text: '有人说旧矿洞今晚出现了蓝色火光。',
+    text: '白石镇集市有人高价收购一批来历不明的古铜齿轮。',
   },
   {
     type: 'rumor',
@@ -20,7 +20,7 @@ export const BROADCAST_POOL: WorldBroadcast[] = [
   {
     type: 'important',
     region: '人类联邦',
-    text: '冒险者公会发布公告，招募矿洞调查员。',
+    text: '冒险者公会发布公告，招募码头货栈夜间巡守。',
   },
   {
     type: 'rumor',
@@ -35,7 +35,7 @@ export const BROADCAST_POOL: WorldBroadcast[] = [
   {
     type: 'quest',
     region: '人类联邦',
-    text: '失踪药草商的尸体在北边林道被发现，城卫队正在调查。',
+    text: '药草商和城卫队因禁售药材账本起了争执，正在找见证人。',
   },
   {
     type: 'faction',
@@ -69,7 +69,7 @@ export const BROADCAST_POOL: WorldBroadcast[] = [
   {
     type: 'rumor',
     region: '地底暗精灵王国',
-    text: '有人在旧矿洞深处听见陌生语言。',
+    text: '有人在地底商道听见陌生语言，还看见带毒的银针被暗中交易。',
   },
   {
     type: 'hidden',
@@ -96,7 +96,7 @@ export const BROADCAST_POOL: WorldBroadcast[] = [
   {
     type: 'rumor',
     region: '矮人山脉',
-    text: '矮人在旧矿脉深处发掘出古代机械残骸。',
+    text: '矮人在黑铁熔炉旁修复出一台会自己计数的古代机械。',
   },
   {
     type: 'rumor',

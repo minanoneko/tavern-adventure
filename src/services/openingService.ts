@@ -1,5 +1,5 @@
 import type { Player, WorldState, AIResponse } from '../types';
-import type { Weather } from '../types/common';
+import type { TimeOfDay, Weather } from '../types/common';
 import type { OpeningMode } from '../types/settings';
 import type { AISettings } from '../store/settingsStore';
 import { sanitizeOrigin } from './backgroundGuard';
@@ -56,7 +56,7 @@ export async function generateOpeningEvent(
   const mockEvent = getOpeningByClass(player.classOrigin, guardResult.sanitizedOrigin);
   if (mockEvent) {
     return {
-      event: mockEvent,
+      event: normalizeOpeningScene(mockEvent),
       sanitizedOrigin: guardResult.sanitizedOrigin,
       warnings: guardResult.warnings,
       deniedClaims: guardResult.deniedClaims,
@@ -114,7 +114,7 @@ async function generateWithAI(
     if (!content) return null;
 
     const result = normalizeAndComplete(content);
-    if (result.success) return result.response;
+    if (result.success) return normalizeOpeningScene(result.response);
 
     console.warn('Opening AI response failed:', result.errors);
     return null;
@@ -154,9 +154,25 @@ function buildOpeningContext(player: Player, worldState: WorldState, sanitizedOr
   };
 }
 
+function normalizeOpeningScene(event: AIResponse): AIResponse {
+  const commonOpeningTimes: TimeOfDay[] = ['清晨', '上午', '下午', '傍晚'];
+  const commonOpeningWeathers: Weather[] = ['晴', '多云', '阴'];
+  const needsTimeNudge = /深夜|夜晚|半夜|午夜/.test(event.scene.time || '');
+  const needsWeatherNudge = /雨|暴风雨|雾/.test(event.scene.weather || '');
+  if (needsTimeNudge) {
+    event.scene.time = `雾月3日 ${commonOpeningTimes[Math.floor(Math.random() * commonOpeningTimes.length)]}`;
+  }
+  if (needsWeatherNudge) {
+    event.scene.weather = commonOpeningWeathers[Math.floor(Math.random() * commonOpeningWeathers.length)];
+  }
+  return event;
+}
+
 function getGenericOpening(player: Player, sanitizedOrigin: string): AIResponse {
-  const openWeathers: Weather[] = ['晴', '多云', '阴', '小雨', '雨'];
+  const openWeathers: Weather[] = ['晴', '多云', '阴'];
+  const openTimes: TimeOfDay[] = ['清晨', '上午', '下午', '傍晚'];
   const weather = openWeathers[Math.floor(Math.random() * openWeathers.length)];
+  const time = openTimes[Math.floor(Math.random() * openTimes.length)];
   let text = `你推开了灰鹿酒馆的门。火光、麦酒的气味和低沉的谈话声扑面而来。`;
   if (sanitizedOrigin.trim()) {
     text += `\n\n${sanitizedOrigin}`;
@@ -164,7 +180,7 @@ function getGenericOpening(player: Player, sanitizedOrigin: string): AIResponse 
   text += `\n\n酒馆里有几个常客在喝酒，委托板上贴了几张纸。接下来做什么，取决于你。`;
 
   return {
-    scene: { title: '灰鹿酒馆', text, location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: '雾月3日 夜晚', weather },
+    scene: { title: '灰鹿酒馆', text, location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: `雾月3日 ${time}`, weather },
     event: { id: 'generic_opening', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [],
     actionOptions: [
