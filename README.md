@@ -96,14 +96,13 @@ src/
 
 ## 配置
 
-复制 `.env.example` 为 `.env`：
+复制 `.env.example` 为 `.env`，填入 API 地址、模型、Key 即可使用。
 
 ```
-VITE_USE_MOCK_AI=true    # 本地模拟，不开战
 VITE_DEBUG_PROMPT=false
+VITE_DEFAULT_AI_BASE_URL=https://api.openai.com/v1
+VITE_DEFAULT_AI_MODEL=gpt-4o
 ```
-
-如需 AI：设为 `false`，填入 API 地址、模型、Key。
 
 ### API Key 安全说明
 
