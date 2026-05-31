@@ -133,7 +133,7 @@ export function loadGame(): SaveFile | null {
     // Combat tension is transient — must not persist across sessions
     saved.worldState.threatLevel = 0;
     saved.worldState.combatTrigger = undefined;
-    saved.worldState.postCombat = null;
+    saved.worldState.postCombat = undefined;
     if (saved.worldState.combatCooldown === undefined) {
       saved.worldState.combatCooldown = 0;
     }
