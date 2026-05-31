@@ -992,14 +992,16 @@ function buildPostCombatEvent(postCombat: PostCombat, worldState: WorldState, pl
       },
       {
         id: `post_combat_continue_${Date.now()}`,
-        label: '继续当前线索',
+        label: postCombat.outcome === 'victory' ? '逼出下一步' : '脱离险地',
         type: 'exploration',
         risk: postCombat.outcome === 'defeat' ? 'medium' : 'low',
         relatedAttribute: 'none',
         relatedSkill: null,
         mpCost: 0,
         difficultyPreview: postCombat.outcome === 'defeat' ? '谨慎' : '简单',
-        intent: '让AI严格承接刚刚的战斗结果继续当前事件',
+        intent: postCombat.outcome === 'victory'
+          ? '承接刚刚的战斗结果，把当前事件推进到明确后果、NPC反应或下一阶段入口'
+          : '承接刚刚的战斗结果，优先寻找安全落点或撤离路线',
         contextNote: postCombat.summary,
         requiresCheck: false,
       },

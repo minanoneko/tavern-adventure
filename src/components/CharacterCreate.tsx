@@ -100,7 +100,7 @@ export default function CharacterCreate() {
       raceId,
       classId,
       personalityTraits: traits,
-      customOrigin: customOrigin.trim() || `${fullName}来到了灰鹿酒馆，开始了一段新的冒险。`,
+      customOrigin: customOrigin.trim(),
       attributes: attrs,
       remainingAttributePoints: availablePoints,
     };
@@ -110,7 +110,7 @@ export default function CharacterCreate() {
   const genderOptions = ['男', '女'];
 
   return (
-    <div className="h-full flex justify-center py-6 lg:py-10 px-3 lg:px-6 overflow-y-auto">
+    <div className="character-create-page h-full flex justify-center py-6 lg:py-10 px-3 lg:px-6 overflow-y-auto">
       <div className="w-full max-w-3xl pb-20">
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-8">

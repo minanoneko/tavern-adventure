@@ -51,6 +51,7 @@ export interface Resources {
 // ========== Time & Weather ==========
 export type TimeOfDay = '清晨' | '上午' | '中午' | '下午' | '傍晚' | '夜晚' | '深夜';
 export type Weather = '晴' | '多云' | '阴' | '雾' | '小雨' | '雨' | '雪' | '暴风雨';
+export type WeatherTrend = 'stable' | 'clearing' | 'worsening' | 'foggy' | 'storm_building';
 
 export const TIME_NAMES: TimeOfDay[] = ['清晨', '上午', '中午', '下午', '傍晚', '夜晚', '深夜'];
 export const WEATHER_NAMES: Weather[] = ['晴', '多云', '阴', '雾', '小雨', '雨', '雪', '暴风雨'];
@@ -151,6 +152,8 @@ export interface WorldState {
   date: string;
   timeOfDay: TimeOfDay;
   weather: Weather;
+  weatherTrend: WeatherTrend;
+  weatherStableTurns: number;
   discoveredRegions: string[];
   discoveredLocations: string[];
   unlockedRoutes: string[];
@@ -176,6 +179,8 @@ export function createDefaultWorldState(): WorldState {
     date: '雾月3日',
     timeOfDay: '傍晚',
     weather: '多云',
+    weatherTrend: 'stable',
+    weatherStableTurns: 0,
     discoveredRegions: ['human_federation'],
     discoveredLocations: ['gray_deer_tavern'],
     unlockedRoutes: [],

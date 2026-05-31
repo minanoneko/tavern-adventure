@@ -3,10 +3,12 @@ import type { TimeOfDay, Weather } from '../types/common';
 import type { OpeningMode } from '../types/settings';
 import type { AISettings } from '../store/settingsStore';
 import { sanitizeOrigin } from './backgroundGuard';
-import { getOpeningByClass } from '../data/openingTemplates';
+import { getOpeningByClass, getSafeDefaultOpening } from '../data/openingTemplates';
 import { buildOpeningPrompt } from '../prompts/openingPrompt';
 import { buildSystemMessages } from './promptService';
 import { normalizeAndComplete } from './responseAdapter';
+
+const STALE_OPENING_TROPE_PATTERN = /矿|采石|洞穴|塌洞|塌陷|商队|护送商路|失踪|失散|不知所踪|森林小道|符文|羊皮纸|蓝光|黑袍|兜帽/;
 
 export interface OpeningResult {
   event: AIResponse;
@@ -63,9 +65,9 @@ export async function generateOpeningEvent(
     };
   }
 
-  // Ultimate fallback: generic tavern opening
+  // Ultimate fallback: safe local incident opening
   return {
-    event: getGenericOpening(player, guardResult.sanitizedOrigin),
+    event: getGenericOpening(guardResult.sanitizedOrigin),
     sanitizedOrigin: guardResult.sanitizedOrigin,
     warnings: guardResult.warnings,
     deniedClaims: guardResult.deniedClaims,
@@ -114,7 +116,14 @@ async function generateWithAI(
     if (!content) return null;
 
     const result = normalizeAndComplete(content);
-    if (result.success) return normalizeOpeningScene(result.response);
+    if (result.success) {
+      const event = normalizeOpeningScene(result.response);
+      if (!sanitizedOrigin.trim() && hasStaleOpeningTrope(event)) {
+        console.warn('Opening AI response used stale default trope, falling back to safe template.');
+        return null;
+      }
+      return event;
+    }
 
     console.warn('Opening AI response failed:', result.errors);
     return null;
@@ -154,6 +163,17 @@ function buildOpeningContext(player: Player, worldState: WorldState, sanitizedOr
   };
 }
 
+function hasStaleOpeningTrope(event: AIResponse): boolean {
+  const searchable = [
+    event.scene.title,
+    event.scene.text,
+    event.scene.location,
+    ...event.systemEvents.map(e => e.text),
+    ...event.actionOptions.map(o => o.label),
+  ].join(' ');
+  return STALE_OPENING_TROPE_PATTERN.test(searchable);
+}
+
 function normalizeOpeningScene(event: AIResponse): AIResponse {
   const commonOpeningTimes: TimeOfDay[] = ['清晨', '上午', '下午', '傍晚'];
   const commonOpeningWeathers: Weather[] = ['晴', '多云', '阴'];
@@ -168,27 +188,30 @@ function normalizeOpeningScene(event: AIResponse): AIResponse {
   return event;
 }
 
-function getGenericOpening(player: Player, sanitizedOrigin: string): AIResponse {
+function getGenericOpening(sanitizedOrigin: string): AIResponse {
+  if (!sanitizedOrigin.trim()) {
+    return getSafeDefaultOpening();
+  }
+
   const openWeathers: Weather[] = ['晴', '多云', '阴'];
   const openTimes: TimeOfDay[] = ['清晨', '上午', '下午', '傍晚'];
   const weather = openWeathers[Math.floor(Math.random() * openWeathers.length)];
   const time = openTimes[Math.floor(Math.random() * openTimes.length)];
-  let text = `你推开了灰鹿酒馆的门。火光、麦酒的气味和低沉的谈话声扑面而来。`;
+  let text = `你来到灰鹿酒馆外的长桌旁。老板娘正和一个送货人核对账本，桌上摆着两枚成色不对的铜币和一小袋被退回的香料。`;
   if (sanitizedOrigin.trim()) {
     text += `\n\n${sanitizedOrigin}`;
   }
-  text += `\n\n酒馆里有几个常客在喝酒，委托板上贴了几张纸。接下来做什么，取决于你。`;
+  text += `\n\n送货人坚持自己没动过货，老板娘却说账目昨晚就对不上。事情不大，但周围已经有人开始看热闹。你可以插手，也可以把这当成进镇后的第一段闲事。`;
 
   return {
     scene: { title: '灰鹿酒馆', text, location: '灰鹿酒馆', locationId: 'gray_deer_tavern', time: `雾月3日 ${time}`, weather },
     event: { id: 'generic_opening', type: 'dialogue_event', urgency: 'low', riskLevel: 'low' },
     systemEvents: [],
     actionOptions: [
-      { id: 'look_around', label: '环顾四周，观察环境', type: 'check', risk: 'low', relatedAttribute: 'wis' },
-      { id: 'check_board', label: '看看委托板', type: 'exploration', risk: 'low' },
-      { id: 'talk_boss', label: '跟酒馆老板聊聊', type: 'dialogue', risk: 'low' },
-      { id: 'sit_down', label: '找个位子坐下，想想接下来的打算', type: 'cautious', risk: 'low' },
-      { id: 'go_outside', label: '离开酒馆，去镇上转转', type: 'travel', risk: 'low' },
+      { id: 'ask_ledger', label: '问老板娘账目', type: 'dialogue', risk: 'low' },
+      { id: 'inspect_coins', label: '辨认异常铜币', type: 'check', risk: 'low', relatedAttribute: 'int' },
+      { id: 'talk_courier', label: '安抚送货人', type: 'social', risk: 'low', relatedAttribute: 'cha' },
+      { id: 'follow_spice_smell', label: '追香料味来源', type: 'check', risk: 'medium', relatedAttribute: 'wis' },
     ],
     customActionEnabled: true,
     playerUpdate: { hpChange: 0, mpChange: 0, expChange: 3, moneyChange: {} },

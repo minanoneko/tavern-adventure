@@ -1,6 +1,6 @@
 import type { Player, WorldState, AIResponse, LogEntry, ItemType, ItemRarity, PlayerAction, ActionOption } from '../types';
-import type { TimeOfDay, Weather } from '../types/common';
-import { clampResource, normalizeWeather, normalizeTimeOfDay, advanceTime, nextWeatherInCycle } from '../types/common';
+import type { TimeOfDay, Weather, WeatherTrend } from '../types/common';
+import { clampResource, normalizeWeather, normalizeTimeOfDay, advanceTime } from '../types/common';
 import { addMoney as addMoneyUtil } from '../utils/moneyUtils';
 import { createLogEntry } from '../types/log';
 import { SKILL_LIBRARY } from '../data/skills';
@@ -167,7 +167,7 @@ export function applyAIResponse(
   updatedWorld = applySceneLocation(updatedWorld, response, updatedPlayer, logs, options);
 
   // 10.5 Sync scene time/weather back to worldState
-  updatedWorld = applySceneMeta(updatedWorld, response, logs);
+  updatedWorld = applySceneMeta(updatedWorld, response, logs, options.playerAction);
 
   // 11. Apply memory updates
   updatedWorld = applyMemoryUpdate(updatedWorld, response, updatedPlayer, logs, options);
@@ -753,11 +753,17 @@ function applySceneLocation(world: WorldState, response: AIResponse, player: Pla
 }
 
 /** Sync scene.time and scene.weather from AI response back to worldState */
-function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[]): WorldState {
+function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[], playerAction?: PlayerAction): WorldState {
   const w = { ...world };
+  const timeBeforeMeta = w.timeOfDay;
+  const forcedTime = getForcedTimeFromAction(playerAction);
 
   // Parse time from scene.time string (e.g. "雾月3日 上午")
-  if (response.scene.time) {
+  if (forcedTime) {
+    w.timeOfDay = forcedTime;
+    response.scene.time = `${w.date} ${forcedTime}`;
+    logs.push(createLogEntry('world', `按玩家等待意图，时间推进到：${forcedTime}`));
+  } else if (response.scene.time) {
     const requestedTime = normalizeTimeOfDay(response.scene.time, w.timeOfDay);
     const newTime = smoothTimeTransition(w.timeOfDay, requestedTime, response.scene.text || '');
     if (newTime === w.timeOfDay && /稍后|一会|片刻|不久/.test(response.scene.time)) {
@@ -774,27 +780,33 @@ function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[
 
   // Parse weather from scene.weather
   if (response.scene.weather) {
-    const requestedWeather = normalizeWeather(response.scene.weather, w.weather);
-    const smoothedWeather = smoothWeatherTransition(w.weather, requestedWeather, response.scene.text || '');
+    const forcedWeather = getForcedWeatherFromAction(playerAction);
+    const requestedWeather = forcedWeather || normalizeWeather(response.scene.weather, w.weather);
+    const weatherState = forcedWeather
+      ? { weather: forcedWeather, trend: 'stable' as WeatherTrend, stableTurns: 0 }
+      : resolveWeatherState(w, requestedWeather, response.scene.text || '', timeBeforeMeta !== w.timeOfDay);
+    const smoothedWeather = weatherState.weather;
     if (smoothedWeather !== requestedWeather) {
       logs.push(createLogEntry('world', `天气转折过快，已缓冲为：${smoothedWeather}`));
       response.scene.weather = smoothedWeather;
+    } else if (forcedWeather) {
+      response.scene.weather = forcedWeather;
+      logs.push(createLogEntry('world', `按玩家天气意图，天气变为：${forcedWeather}`));
     }
     w.weather = smoothedWeather;
+    w.weatherTrend = weatherState.trend;
+    w.weatherStableTurns = weatherState.stableTurns;
   }
 
-  // Avoid repeated weather/time (兜底)
+  // Ordinary weather and time may persist for many turns. Time only changes via AI,
+  // player wait intent, or explicit transition cues.
   const weatherBeforeDiversity = w.weather;
-  const timeBeforeDiversity = w.timeOfDay;
   w.weather = avoidRepeatedWeather(w.weather, w.worldFlags);
-  w.timeOfDay = avoidRepeatedNight(w.timeOfDay, w.worldFlags);
   if (w.weather !== weatherBeforeDiversity) {
     logs.push(createLogEntry('world', `天气重复过多，已调整为：${w.weather}`));
     response.scene.weather = w.weather;
-  }
-  if (w.timeOfDay !== timeBeforeDiversity) {
-    logs.push(createLogEntry('world', `夜晚重复过多，已推进到：${w.timeOfDay}`));
-    response.scene.time = `${w.date} ${w.timeOfDay}`;
+    w.weatherTrend = 'clearing';
+    w.weatherStableTurns = 0;
   }
 
   // Track last 3 weather values in flags for repetition detection
@@ -813,38 +825,59 @@ function applySceneMeta(world: WorldState, response: AIResponse, logs: LogEntry[
   return w;
 }
 
-/** If same weather for 3+ rounds and not a story-forced weather, rotate */
-function avoidRepeatedWeather(current: Weather, flags: string[]): Weather {
-  const storyForced: Weather[] = ['暴风雨', '雪'];
-  if (storyForced.includes(current)) return current;
-
-  const weatherFlags = flags.filter(f => f.startsWith('weather_')).map(f => f.replace('weather_', ''));
-  if (weatherFlags.length >= 2) {
-    const last2 = weatherFlags.slice(-2);
-    if (last2.every(w => w === current) && last2[0] === current) {
-      if (current === '雨' || current === '小雨' || current === '雾') return '多云';
-      if (current === '阴') return '晴';
-      return nextWeatherInCycle(current);
-    }
-  }
-  return current;
+function getForcedTimeFromAction(action?: PlayerAction): TimeOfDay | undefined {
+  const text = `${action?.customText || ''} ${action?.label || ''} ${action?.selectedOptionLabel || ''}`;
+  if (!text.trim()) return undefined;
+  if (/待到晚上|等到晚上|等到夜晚|等到夜里|等天黑|等到天黑|入夜|等待入夜|守到晚上|守到夜晚|熬到晚上|熬到夜晚/.test(text)) return '夜晚';
+  if (/待到深夜|等到深夜|等到半夜|守到深夜|守到半夜|熬到深夜|子时/.test(text)) return '深夜';
+  if (/待到清晨|等到清晨|等到黎明|等到天亮|睡到天亮|睡到清晨|等到早上|等到早晨/.test(text)) return '清晨';
+  if (/待到上午|等到上午/.test(text)) return '上午';
+  if (/待到中午|等到中午|等到正午/.test(text)) return '中午';
+  if (/待到下午|等到下午/.test(text)) return '下午';
+  if (/待到傍晚|等到傍晚|等到黄昏|等到日落/.test(text)) return '傍晚';
+  return undefined;
 }
 
-function avoidRepeatedNight(current: TimeOfDay, flags: string[]): TimeOfDay {
-  const timeFlags = flags.filter(f => f.startsWith('time_')).map(f => f.replace('time_', ''));
-  if (timeFlags.length >= 2) {
-    const last2 = timeFlags.slice(-2);
-    const allNight = last2.every(t => t === '夜晚' || t === '深夜') && (current === '夜晚' || current === '深夜');
-    if (allNight) return '清晨';
+function getForcedWeatherFromAction(action?: PlayerAction): Weather | undefined {
+  const text = `${action?.customText || ''} ${action?.label || ''} ${action?.selectedOptionLabel || ''}`;
+  if (!text.trim()) return undefined;
+
+  const hasWeatherIntent = /等到|待到|直到|天气|下|起|转为|变成|变为|进入|测试/.test(text);
+  if (!hasWeatherIntent) return undefined;
+
+  if (/暴风雨|雷雨|暴雨|风暴/.test(text)) return '暴风雨';
+  if (/大雨|下雨|雨天|雨势|雨/.test(text)) return '雨';
+  if (/小雨|细雨|毛毛雨/.test(text)) return '小雨';
+  if (/大雪|下雪|雪天|雪/.test(text)) return '雪';
+  if (/大雾|浓雾|薄雾|起雾|雾天|雾/.test(text)) return '雾';
+  if (/阴天|转阴|阴/.test(text)) return '阴';
+  if (/多云|云多|云层/.test(text)) return '多云';
+  if (/晴天|放晴|晴朗|晴/.test(text)) return '晴';
+  return undefined;
+}
+
+/** Weather can persist. Only soften repeated harsh weather after several turns. */
+function avoidRepeatedWeather(current: Weather, flags: string[]): Weather {
+  const harshWeather: Weather[] = ['雨', '小雨', '雾'];
+  if (!harshWeather.includes(current)) return current;
+
+  const weatherFlags = flags.filter(f => f.startsWith('weather_')).map(f => f.replace('weather_', ''));
+  if (weatherFlags.length >= 3) {
+    const last3 = weatherFlags.slice(-3);
+    if (last3.every(w => w === current)) {
+      return current === '雾' ? '阴' : '多云';
+    }
   }
   return current;
 }
 
 const WEATHER_FLOW: Weather[] = ['晴', '多云', '阴', '雾', '小雨', '雨', '暴风雨'];
 const TIME_FLOW: TimeOfDay[] = ['清晨', '上午', '中午', '下午', '傍晚', '夜晚', '深夜'];
+const WORSENING_FLOW: Weather[] = ['晴', '多云', '阴', '小雨', '雨', '暴风雨'];
+const CLEARING_FLOW: Weather[] = ['暴风雨', '雨', '小雨', '阴', '多云', '晴'];
 
 function hasTimeTransitionCue(sceneText: string): boolean {
-  return /过了很久|一夜|整夜|天亮|黎明|日出|日落|入夜|夜幕|半夜|子时|睡到|休息到|等到|守到|熬到/.test(sceneText);
+  return /过了很久|一夜|整夜|天亮|黎明|日出|日落|入夜|夜幕|夜色|天黑|天色暗|到了夜晚|到夜晚|等到晚上|等到夜里|半夜|子时|睡到|休息到|等到|守到|熬到/.test(sceneText);
 }
 
 function smoothTimeTransition(current: TimeOfDay, requested: TimeOfDay, sceneText: string): TimeOfDay {
@@ -862,12 +895,67 @@ function smoothTimeTransition(current: TimeOfDay, requested: TimeOfDay, sceneTex
 }
 
 function hasWeatherTransitionCue(sceneText: string): boolean {
-  return /乌云|云层|天色|风向|起风|狂风|雷声|闷雷|闪电|雨势|骤然|突然|逼近|压来|转冷|寒意|雪云|风暴/.test(sceneText);
+  return /乌云|云层散开|云层压低|风向变了|起风|狂风|雷声|闷雷|闪电|雨势|雨停|放晴|骤然|突然|逼近|压来|转冷|寒意|雪云|风暴/.test(sceneText);
 }
 
-function smoothWeatherTransition(current: Weather, requested: Weather, sceneText: string): Weather {
+function deriveWeatherTrend(current: Weather, requested: Weather, sceneText: string): WeatherTrend {
+  if (/雷声|闷雷|闪电|风暴|暴风|狂风/.test(sceneText) || requested === '暴风雨') return 'storm_building';
+  if (/雾|薄雾|浓雾|水汽/.test(sceneText) || requested === '雾') return 'foggy';
+  const currentSeverity = weatherSeverity(current);
+  const requestedSeverity = weatherSeverity(requested);
+  if (requestedSeverity > currentSeverity) return 'worsening';
+  if (requestedSeverity < currentSeverity) return 'clearing';
+  return 'stable';
+}
+
+function weatherSeverity(weather: Weather): number {
+  const severity: Record<Weather, number> = {
+    '晴': 0,
+    '多云': 1,
+    '阴': 2,
+    '雾': 2,
+    '小雨': 3,
+    '雨': 4,
+    '雪': 4,
+    '暴风雨': 5,
+  };
+  return severity[weather] ?? 1;
+}
+
+function stepAlong(flow: Weather[], current: Weather): Weather {
+  const idx = flow.indexOf(current);
+  if (idx < 0 || idx >= flow.length - 1) return current;
+  return flow[idx + 1];
+}
+
+function stepWeatherByTrend(current: Weather, trend: WeatherTrend): Weather {
+  if (trend === 'clearing') {
+    if (current === '雪') return '阴';
+    if (current === '雾') return '阴';
+    return stepAlong(CLEARING_FLOW, current);
+  }
+  if (trend === 'worsening') {
+    if (current === '雾') return '小雨';
+    if (current === '雪') return '雪';
+    return stepAlong(WORSENING_FLOW, current);
+  }
+  if (trend === 'foggy') {
+    if (current === '雾') return current;
+    if (current === '小雨' || current === '雨' || current === '暴风雨' || current === '雪') return current;
+    return '雾';
+  }
+  if (trend === 'storm_building') {
+    if (current === '雪') return '雪';
+    return stepAlong(WORSENING_FLOW, current);
+  }
+  return current;
+}
+
+function smoothWeatherTransition(current: Weather, requested: Weather, sceneText: string, timeChanged: boolean, trend: WeatherTrend, stableTurns: number): Weather {
   if (current === requested) return requested;
-  if (hasWeatherTransitionCue(sceneText)) return requested;
+  const hasCue = hasWeatherTransitionCue(sceneText);
+
+  if (!hasCue && !timeChanged && stableTurns < 2) return current;
 
   if (current === '雪' || requested === '雪') {
     if (current === '雪' && requested === '晴') return '多云';
@@ -881,9 +969,30 @@ function smoothWeatherTransition(current: Weather, requested: Weather, sceneText
   if (currentIndex < 0 || requestedIndex < 0) return requested;
 
   const delta = requestedIndex - currentIndex;
-  if (Math.abs(delta) <= 2) return requested;
+  if (hasCue && Math.abs(delta) <= 2) return requested;
+  if (timeChanged && Math.abs(delta) <= 1) return requested;
 
+  const trendStep = stepWeatherByTrend(current, trend);
+  if (trendStep !== current) return trendStep;
   return WEATHER_FLOW[currentIndex + Math.sign(delta)] || requested;
+}
+
+function resolveWeatherState(
+  world: WorldState,
+  requestedWeather: Weather,
+  sceneText: string,
+  timeChanged: boolean,
+): { weather: Weather; trend: WeatherTrend; stableTurns: number } {
+  const current = world.weather;
+  const requestedTrend = deriveWeatherTrend(current, requestedWeather, sceneText);
+  const nextTrend = requestedTrend === 'stable' ? (world.weatherTrend || 'stable') : requestedTrend;
+  const stableTurns = world.weatherStableTurns || 0;
+  const nextWeather = smoothWeatherTransition(current, requestedWeather, sceneText, timeChanged, nextTrend, stableTurns);
+  return {
+    weather: nextWeather,
+    trend: nextWeather === requestedWeather && requestedTrend !== 'stable' ? 'stable' : nextTrend,
+    stableTurns: nextWeather === current ? stableTurns + 1 : 0,
+  };
 }
 
 function applyMemoryUpdate(world: WorldState, response: AIResponse, player: Player, logs: LogEntry[], options: ApplyAIResponseOptions): WorldState {

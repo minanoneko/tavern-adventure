@@ -14,7 +14,7 @@
 10. .env 文件、API 调用代码（aiService.ts、promptService.ts）、prompt 模板（src/prompts/）、API Key 配置不得上传到 GitHub。git push 前检查是否已被 .gitignore 覆盖。
 11. 每次新增存档字段，必须更新 migrateSave。
 12. 修 bug 优先最小改动，不要大范围重构无关文件。
-13. 修改后必须运行 npm run build；如果没有运行，必须明确说明。
+13. 项目修改先不要立即运行 npm run build；可能会连续修改多处，等用户明确要求、准备提交前、或本轮工作收尾时再统一 build。如果本轮没有运行 build，必须明确说明。
 14. keyStorage 默认只能是 'session' 或 'none'，不能默认 'local'。
 
 ## 架构核心规则

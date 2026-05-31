@@ -88,7 +88,7 @@ export default function GamePage() {
       </div>
 
       {/* Mobile Bottom Nav */}
-      <div className="lg:hidden grid grid-cols-5 border-t border-[var(--color-tavern-border)] bg-[var(--color-tavern-panel)]">
+      <div className="mobile-bottom-nav lg:hidden grid grid-cols-5 border-t border-[var(--color-tavern-border)] bg-[var(--color-tavern-panel)]">
         <button
           className={`py-2.5 text-sm flex items-center justify-center ${mobilePanel === 'character' ? 'text-[var(--color-tavern-accent)]' : 'text-muted'}`}
           onClick={() => setMobilePanel(mobilePanel === 'character' ? 'none' : 'character')}

@@ -81,6 +81,12 @@ export function loadGame(): SaveFile | null {
     if (!saved.worldState.lockedStoryFacts) {
       saved.worldState.lockedStoryFacts = [];
     }
+    if (!(saved.worldState as any).weatherTrend) {
+      (saved.worldState as any).weatherTrend = 'stable';
+    }
+    if ((saved.worldState as any).weatherStableTurns === undefined) {
+      (saved.worldState as any).weatherStableTurns = 0;
+    }
     // Migrate old combatState { active, enemy? } to new CombatState
     const cs = saved.worldState.combatState as any;
     if (cs && !('phase' in cs)) {

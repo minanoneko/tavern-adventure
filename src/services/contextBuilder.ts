@@ -25,6 +25,7 @@ const BUDGET = {
   lockedStoryFacts: 600,
   continuity: 800,
   diversity: 700,
+  pacing: 650,
 };
 
 // ========== AIContext type ==========
@@ -47,6 +48,7 @@ export interface AIContext {
   mapLeads: string;
   continuityBrief: string;
   diversityBrief: string;
+  pacingBrief: string;
 }
 
 function trunc(text: string, max: number): string {
@@ -108,7 +110,7 @@ function buildCurrentScene(worldState: WorldState, currentEvent: AIResponse | nu
 
   const sceneParts = [
     `位置: ${locName}`,
-    `${worldState.date} ${worldState.timeOfDay} ${worldState.weather}`,
+    `${worldState.date} ${worldState.timeOfDay} ${worldState.weather}，天气趋势:${worldState.weatherTrend || 'stable'}，已稳定:${worldState.weatherStableTurns || 0}轮`,
   ];
   if (nearby.length) sceneParts.push(`附近: ${nearby.join(', ')}`);
   if (currentEvent) {
@@ -118,7 +120,7 @@ function buildCurrentScene(worldState: WorldState, currentEvent: AIResponse | nu
       .filter(Boolean)
       .join(' / ');
     sceneParts.push(`当前事件标题: ${currentEvent.scene.title}`);
-    sceneParts.push(`当前事件正文: ${currentEvent.scene.text.slice(-420)}`);
+    sceneParts.push(`已发生正文(只用于承接，不得复述或改写进下一段): ${currentEvent.scene.text.slice(-420)}`);
     if (optionHints) sceneParts.push(`当前可延展方向: ${optionHints}`);
   }
 
@@ -179,6 +181,7 @@ function buildContinuityBrief(
 
   if (currentEvent) {
     parts.push(`承接要求: 自定义输入若问"痕迹/线索/谁是真的/再找找"，默认是在当前地点复核已知矛盾或已追踪到的线索；不要重置为第一次发现，也不要把刚在场NPC挪走。`);
+    parts.push(`去重要求: 上一段scene.text是已发生事实，只能写“之后发生的新变化”。不得用同义句复述上一段的动作、环境描写、NPC台词或已揭示信息。`);
   }
 
   return trunc(parts.join('\n'), BUDGET.continuity);
@@ -380,6 +383,42 @@ function buildDiversityBrief(worldState: WorldState, currentEvent: AIResponse | 
   return trunc(parts.join('\n'), BUDGET.diversity);
 }
 
+function buildPacingBrief(currentEvent: AIResponse | null, eventHistory: AIResponse[], logs: LogEntry[]): string {
+  const recentScenes = [
+    ...eventHistory.slice(-6),
+    ...(currentEvent && !eventHistory.includes(currentEvent) ? [currentEvent] : []),
+  ];
+  const recentText = recentScenes
+    .map(e => `${e.scene.title} ${e.scene.text} ${e.actionOptions.map(o => `${o.label} ${o.intent || ''}`).join(' ')}`)
+    .join('\n');
+  const recentLogText = logs.slice(-10).map(l => l.text).join('\n');
+  const allRecent = `${recentText}\n${recentLogText}`;
+
+  const investigationHits = (allRecent.match(/调查|线索|痕迹|继续|深入|搜索|搜寻|观察|查看|核查|追踪|发现/g) || []).length;
+  const actionHits = (allRecent.match(/摊牌|交易|威胁|说服|潜入|追逐|伏击|护送|撤离|战斗|冲突|付钱|求援|转场|前往|离开|打开|破门/g) || []).length;
+  const resolvedHits = (allRecent.match(/解决|确认|排除|真相|完成|到手|离开|抵达|击败|达成|失败|代价/g) || []).length;
+  const lastOptions = recentScenes
+    .slice(-2)
+    .flatMap(e => e.actionOptions.map(o => o.label))
+    .filter(Boolean);
+
+  const needsBreak = investigationHits >= 6 && actionHits <= 2;
+  const parts = [
+    `近期调查词密度: ${investigationHits}；行动/冲突词密度: ${actionHits}；收束词密度: ${resolvedHits}。`,
+    needsBreak
+      ? '节奏判断: 已接近“调查-发现线索”循环。本轮必须给实质推进，不要再只新增线索。'
+      : '节奏判断: 可以承接当前行动，但仍要避免空泛地继续找线索。',
+    '本轮优先推进方式: 确认一个结论、让NPC主动反应、暴露代价、触发对抗、提供转场机会、解决/升级当前线索、或把风险摆到玩家面前。',
+    '如果玩家选择调查，可以得到明确判断或代价；不要把结果写成“还有更深线索，需要继续调查”。',
+  ];
+
+  if (lastOptions.length) {
+    parts.push(`最近按钮: ${lastOptions.join('、')}。本轮不要复用同类空泛按钮。`);
+  }
+
+  return trunc(parts.join('\n'), BUDGET.pacing);
+}
+
 function meetsUnlockForContext(condition: { type: string; minLevel?: number; factionId?: string; minStanding?: number; flag?: string } | undefined, player: Player, worldState: WorldState): boolean {
   if (!condition) return true;
   if (condition.type === 'level') return player.level >= (condition.minLevel ?? 1);
@@ -540,6 +579,7 @@ export function buildAIContext(
     currentSceneBrief: buildCurrentScene(worldState, currentEvent),
     continuityBrief: buildContinuityBrief(player, worldState, currentEvent, eventHistory, recentLogs),
     diversityBrief: buildDiversityBrief(worldState, currentEvent, eventHistory, recentLogs),
+    pacingBrief: buildPacingBrief(currentEvent, eventHistory, recentLogs),
     relevantInventory: buildRelevantInventory(player, playerAction),
     relevantSkills: buildRelevantSkills(player, playerAction),
     activeQuests: buildStoryHooks(worldState),
@@ -566,6 +606,7 @@ export function formatAIContext(ctx: AIContext): string {
     `[场景] ${ctx.currentSceneBrief}`,
     `[近况锚点]\n${ctx.continuityBrief}`,
     `[多样性要求]\n${ctx.diversityBrief}`,
+    `[节奏要求]\n${ctx.pacingBrief}`,
     `[物品] ${ctx.relevantInventory}`,
     `[技能] ${ctx.relevantSkills}`,
     `[任务] ${ctx.activeQuests}`,
