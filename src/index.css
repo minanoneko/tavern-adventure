@@ -1037,6 +1037,48 @@ body {
     display: block !important;
   }
 
+  .phase-game.weather-rain .fantasy-weather-layer,
+  .phase-game.weather-storm .fantasy-weather-layer,
+  .phase-game.weather-snow .fantasy-weather-layer,
+  .phase-game.weather-fog .fantasy-weather-layer {
+    display: block !important;
+    animation: none !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+  }
+
+  .phase-game.weather-rain .fantasy-weather-layer {
+    opacity: 0.42;
+    background:
+      repeating-linear-gradient(112deg, rgba(168, 198, 212, 0.2) 0 1px, transparent 1px 14px),
+      linear-gradient(180deg, rgba(28, 45, 57, 0.18), rgba(5, 8, 12, 0.04));
+    background-size: 150px 150px, auto;
+  }
+
+  .phase-game.weather-storm .fantasy-weather-layer {
+    opacity: 0.5;
+    background:
+      repeating-linear-gradient(112deg, rgba(169, 202, 220, 0.24) 0 1px, transparent 1px 11px),
+      linear-gradient(180deg, rgba(13, 25, 41, 0.34), rgba(4, 5, 8, 0.08));
+    background-size: 140px 140px, auto;
+  }
+
+  .phase-game.weather-snow .fantasy-weather-layer {
+    opacity: 0.45;
+    background:
+      radial-gradient(circle, rgba(238, 246, 240, 0.46) 0 1px, transparent 1.5px),
+      radial-gradient(circle, rgba(238, 246, 240, 0.26) 0 1px, transparent 1.5px);
+    background-size: 44px 44px, 76px 76px;
+  }
+
+  .phase-game.weather-fog .fantasy-weather-layer {
+    opacity: 0.48;
+    background:
+      repeating-linear-gradient(2deg, rgba(230, 236, 220, 0.1) 0 18px, transparent 18px 66px),
+      linear-gradient(90deg, transparent, rgba(230, 236, 220, 0.12), transparent);
+    background-size: auto;
+  }
+
   .fantasy-sun,
   .fantasy-moon,
   .fantasy-stars {
