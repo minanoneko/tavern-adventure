@@ -1,5 +1,4 @@
 import { useGameStore } from '../store/gameStore';
-import { useSettingsStore } from '../store/settingsStore';
 import type { AIError } from '../types';
 
 const errorMessages: Record<string, string> = {
@@ -15,8 +14,8 @@ const errorSuggestions: Record<string, string> = {
   cors: '请检查 API 服务商是否支持浏览器端调用。',
   http_error_401: '请检查 API Key 是否正确。',
   http_error_429: '等待几秒后重试。',
-  parse_error: '可重试或切换到 Mock 模式。',
-  validation_error: '可重试或切换到 Mock 模式。',
+  parse_error: '可重试，或更换更稳定遵守 JSON 的模型。',
+  validation_error: '可重试，或检查当前模型是否按要求返回完整 JSON。',
 };
 
 export default function ErrorCard({ error, validationErrors }: { error?: AIError; validationErrors?: string[] }) {
@@ -27,11 +26,6 @@ export default function ErrorCard({ error, validationErrors }: { error?: AIError
   const key = errorType === 'http_error' ? `http_error_${error?.statusCode}` : errorType;
   const message = error?.message || errorMessages[key] || '未知错误';
   const suggestion = errorSuggestions[key] || '';
-
-  const handleSwitchToMock = () => {
-    clearError();
-    useSettingsStore.getState().setMode('mock');
-  };
 
   return (
     <div className="panel p-4 border-[var(--color-tavern-danger)]">
@@ -60,7 +54,6 @@ export default function ErrorCard({ error, validationErrors }: { error?: AIError
         </div>
       )}
       <div className="flex gap-2">
-        <button className="btn text-xs" onClick={handleSwitchToMock}>切回 Mock 模式</button>
         <button className="btn text-xs" onClick={clearError}>关闭</button>
       </div>
     </div>

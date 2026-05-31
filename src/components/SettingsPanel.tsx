@@ -1,4 +1,4 @@
-import { useSettingsStore, type AIMode, type KeyStorage } from '../store/settingsStore';
+import { useSettingsStore, type KeyStorage } from '../store/settingsStore';
 import { useGameStore } from '../store/gameStore';
 import { maskApiKey } from '../utils/maskApiKey';
 import { GM_PRESETS } from '../services/customPromptGuard';
@@ -48,86 +48,57 @@ export default function SettingsPanel({ inGame, onBack }: { inGame?: boolean; on
         </div>
       </div>
 
-      {/* AI Mode */}
-      <div className="panel p-3">
-        <div className="panel-header">AI 模式</div>
-        <div className="flex gap-3 mt-2">
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="radio" name="aiMode" checked={settings.aiMode === 'mock'} onChange={() => settings.setMode('mock')} />
-            Mock AI（本地模拟，无需 API Key）
-          </label>
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input type="radio" name="aiMode" checked={settings.aiMode === 'custom_api'} onChange={() => settings.setMode('custom_api')} />
-            自定义 API
-          </label>
+      {/* API Settings */}
+      <div className="panel p-3 space-y-3">
+        <div className="panel-header">API 设置</div>
+        <div>
+          <label className="block text-xs text-muted mb-1">API Base URL</label>
+          <input className="input text-sm" value={settings.apiBaseUrl} onChange={e => settings.setApiBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
+        </div>
+        <div>
+          <label className="block text-xs text-muted mb-1">Model Name</label>
+          <input className="input text-sm" value={settings.apiModel} onChange={e => settings.setApiModel(e.target.value)} placeholder="gpt-4o" />
+        </div>
+        <div>
+          <label className="block text-xs text-muted mb-1">API Key</label>
+          <div className="flex gap-2">
+            {showKeyInput ? (
+              <input className="input text-sm flex-1" type="password" value={settings.apiKey} onChange={e => settings.setApiKey(e.target.value)} placeholder="sk-..." />
+            ) : (
+              <input className="input text-sm flex-1" type="password" value={settings.apiKey} onChange={e => settings.setApiKey(e.target.value)} placeholder={settings.apiKey ? maskApiKey(settings.apiKey) : 'sk-...'} />
+            )}
+            <button className="btn text-xs" onClick={() => setShowKeyInput(!showKeyInput)}>
+              {showKeyInput ? '隐藏' : '显示'}
+            </button>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-muted mb-1">Key 保存方式</label>
+          <select className="input text-sm" value={settings.keyStorage} onChange={e => settings.setKeyStorage(e.target.value as KeyStorage)}>
+            <option value="none">none — 仅内存，刷新后丢失</option>
+            <option value="session">session — sessionStorage，关浏览器清空</option>
+            <option value="local">local — localStorage（泄露风险）</option>
+          </select>
+          {settings.keyStorage === 'local' && (
+            <div className="text-xs text-danger mt-1">当前使用 local 模式，API Key 将持久保存在浏览器中。</div>
+          )}
+        </div>
+
+        <div>
+          <button className="btn text-sm" onClick={settings.testConnection} disabled={settings.isTesting || !settings.apiKey}>
+            {settings.isTesting ? '测试中...' : '测试连接'}
+          </button>
+          {settings.testResult && (
+            <div className={`text-xs mt-1 ${settings.testResult.ok ? 'text-success' : 'text-danger'}`}>
+              {settings.testResult.ok ? '✓' : '✗'} {settings.testResult.message}
+            </div>
+          )}
         </div>
       </div>
-
-      {/* API Settings (when custom_api) */}
-      {settings.aiMode === 'custom_api' && (
-        <div className="panel p-3 space-y-3">
-          <div className="panel-header">API 设置</div>
-          <div>
-            <label className="block text-xs text-muted mb-1">API Base URL</label>
-            <input className="input text-sm" value={settings.apiBaseUrl} onChange={e => settings.setApiBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1">Model Name</label>
-            <input className="input text-sm" value={settings.apiModel} onChange={e => settings.setApiModel(e.target.value)} placeholder="gpt-4o" />
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1">API Key</label>
-            <div className="flex gap-2">
-              {showKeyInput ? (
-                <input className="input text-sm flex-1" type="password" value={settings.apiKey} onChange={e => settings.setApiKey(e.target.value)} placeholder="sk-..." />
-              ) : (
-                <input className="input text-sm flex-1" type="password" value={settings.apiKey} onChange={e => settings.setApiKey(e.target.value)} placeholder={settings.apiKey ? maskApiKey(settings.apiKey) : 'sk-...'} />
-              )}
-              <button className="btn text-xs" onClick={() => setShowKeyInput(!showKeyInput)}>
-                {showKeyInput ? '隐藏' : '显示'}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs text-muted mb-1">Key 保存方式</label>
-            <select className="input text-sm" value={settings.keyStorage} onChange={e => settings.setKeyStorage(e.target.value as KeyStorage)}>
-              <option value="none">none — 仅内存，刷新后丢失</option>
-              <option value="session">session — sessionStorage，关浏览器清空</option>
-              <option value="local">local — localStorage（泄露风险）</option>
-            </select>
-            {settings.keyStorage === 'local' && (
-              <div className="text-xs text-danger mt-1">当前使用 local 模式，API Key 将持久保存在浏览器中。</div>
-            )}
-          </div>
-
-          {/* Test connection */}
-          <div>
-            <button className="btn text-sm" onClick={settings.testConnection} disabled={settings.isTesting || !settings.apiKey}>
-              {settings.isTesting ? '测试中...' : '测试连接'}
-            </button>
-            {settings.testResult && (
-              <div className={`text-xs mt-1 ${settings.testResult.ok ? 'text-success' : 'text-danger'}`}>
-                {settings.testResult.ok ? '✓' : '✗'} {settings.testResult.message}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Gameplay Settings */}
       <div className="panel p-3 space-y-3">
         <div className="panel-header">游戏设置</div>
-
-        <div>
-          <label className="block text-xs text-muted mb-1">开局模式（Opening Mode）</label>
-          <select className="input text-sm" value={settings.openingMode || 'mock_template'} onChange={e => settings.setOpeningMode(e.target.value as any)}>
-            <option value="mock_template">Mock 职业模板生成</option>
-            <option value="ai_generated" disabled={settings.aiMode !== 'custom_api'}>AI 根据角色卡生成（需 custom_api 模式）</option>
-          </select>
-          <div className="text-xs text-muted mt-1">
-            {settings.aiMode !== 'custom_api' ? '自定义 API 模式下可选 AI 开局。' : 'AI 根据你的角色卡和自定义开端生成第一幕。'}
-          </div>
-        </div>
 
         <div>
           <label className="block text-xs text-muted mb-1">选项模式（Option Mode）</label>

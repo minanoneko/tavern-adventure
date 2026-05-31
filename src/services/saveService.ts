@@ -17,7 +17,7 @@ export interface SaveFile {
   gameFlags: string[];
   lastPlayerAction?: PlayerAction;
   lastJudgeResult?: JudgeResult;
-  // Explicitly NO: apiKey, apiBaseUrl, apiModel, keyStorage, aiMode
+  // Explicitly NO: apiKey, apiBaseUrl, apiModel, keyStorage
 }
 
 export function saveGame(
@@ -80,6 +80,9 @@ export function loadGame(): SaveFile | null {
     }
     if (!saved.worldState.lockedStoryFacts) {
       saved.worldState.lockedStoryFacts = [];
+    }
+    if (!(saved.worldState as any).paymentCommitments) {
+      (saved.worldState as any).paymentCommitments = [];
     }
     if (!(saved.worldState as any).weatherTrend) {
       (saved.worldState as any).weatherTrend = 'stable';

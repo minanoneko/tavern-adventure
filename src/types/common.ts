@@ -15,6 +15,20 @@ export function formatMoney(m: Money): string {
 
 export const EMPTY_MONEY: Money = { gold: 0, silver: 0, copper: 0 };
 
+// ========== Local Commitments ==========
+export interface PaymentCommitment {
+  id: string;
+  type: 'payment';
+  payerName: string;
+  payee: 'player';
+  amount: Money;
+  reason: string;
+  status: 'requested' | 'promised' | 'paid' | 'refused' | 'void';
+  createdAtTurn: number;
+  updatedAtTurn: number;
+  source: 'player_quote' | 'npc_offer' | 'local_rule';
+}
+
 // ========== Attributes ==========
 export interface Attributes {
   str: number; // 力量
@@ -169,6 +183,7 @@ export interface WorldState {
   postCombat?: PostCombat;
   storyHooks: StoryHook[];
   currentGoal?: string;
+  paymentCommitments: PaymentCommitment[];
 }
 
 export function createDefaultWorldState(): WorldState {
@@ -207,6 +222,7 @@ export function createDefaultWorldState(): WorldState {
     lockedStoryFacts: [],
     storyHooks: [],
     currentGoal: undefined,
+    paymentCommitments: [],
   };
 }
 

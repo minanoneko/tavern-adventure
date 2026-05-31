@@ -1,6 +1,5 @@
 import type { Player, WorldState, AIResponse } from '../types';
 import type { TimeOfDay, Weather } from '../types/common';
-import type { OpeningMode } from '../types/settings';
 import type { AISettings } from '../store/settingsStore';
 import { sanitizeOrigin } from './backgroundGuard';
 import { getOpeningByClass, getSafeDefaultOpening } from '../data/openingTemplates';
@@ -21,44 +20,31 @@ export async function generateOpeningEvent(
   player: Player,
   worldState: WorldState,
   settings: AISettings,
-  openingMode: OpeningMode
 ): Promise<OpeningResult> {
   // Step 1: Sanitize custom origin
   const guardResult = sanitizeOrigin(player.customOrigin, player);
 
-  // Step 2: Determine actual mode
-  // mock aiMode → force mock_template
-  // custom_api + ai_generated → call AI
-  // custom_api + mock_template or any failure → mock_template
-  const useAI = settings.aiMode === 'custom_api' && openingMode === 'ai_generated';
-
-  if (settings.aiMode !== 'custom_api' && openingMode === 'ai_generated') {
-    guardResult.warnings.push('当前为 Mock AI 模式，开局使用职业模板。切换到自定义 API 模式并填写 API Key 后，AI 才能根据开端生成第一幕。');
-  }
-
-  if (useAI) {
-    try {
-      const aiEvent = await generateWithAI(player, worldState, settings, guardResult.sanitizedOrigin);
-      if (aiEvent) {
-        return {
-          event: aiEvent,
-          sanitizedOrigin: guardResult.sanitizedOrigin,
-          warnings: guardResult.warnings,
-          deniedClaims: guardResult.deniedClaims,
-        };
-      }
-    } catch (e) {
-      // Fall through to mock
+  // Step 2: Generate opening with the configured AI. If the API fails, use the safe local opening only as error fallback.
+  try {
+    const aiEvent = await generateWithAI(player, worldState, settings, guardResult.sanitizedOrigin);
+    if (aiEvent) {
+      return {
+        event: aiEvent,
+        sanitizedOrigin: guardResult.sanitizedOrigin,
+        warnings: guardResult.warnings,
+        deniedClaims: guardResult.deniedClaims,
+      };
     }
-    // AI failed, add fallback warning
-    guardResult.warnings.push('AI 开局生成失败，已降级为职业模板开局。请检查 API 设置是否正确。');
+  } catch {
+    // Fall through to safe local fallback.
   }
+  guardResult.warnings.push('AI 开局生成失败，已使用安全本地开局兜底。请检查 API 设置是否正确。');
 
-  // Step 3: Mock template fallback
-  const mockEvent = getOpeningByClass(player.classOrigin, guardResult.sanitizedOrigin);
-  if (mockEvent) {
+  // Step 3: Safe local fallback
+  const fallbackEvent = getOpeningByClass(player.classOrigin, guardResult.sanitizedOrigin);
+  if (fallbackEvent) {
     return {
-      event: normalizeOpeningScene(mockEvent),
+      event: normalizeOpeningScene(fallbackEvent),
       sanitizedOrigin: guardResult.sanitizedOrigin,
       warnings: guardResult.warnings,
       deniedClaims: guardResult.deniedClaims,

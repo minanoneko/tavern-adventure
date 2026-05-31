@@ -7,6 +7,7 @@ import { getTraitById } from '../data/races';
 import { getSkillLockReasons, canCastSkill } from '../utils/skillRules';
 import { getActiveTraits, getEquipmentPenalty } from '../utils/equipmentRules';
 import { getLongTermSummary, formatSummaryForAI, getRecentImportantLogs, getGameFlags } from './memoryService';
+import { formatPendingCommitments } from './commitmentService';
 
 // ========== Budget limits (character counts) ==========
 const BUDGET = {
@@ -46,6 +47,7 @@ export interface AIContext {
   combatRequest?: string;
   threatLevel?: number;
   mapLeads: string;
+  commitmentBrief: string;
   continuityBrief: string;
   diversityBrief: string;
   pacingBrief: string;
@@ -311,6 +313,10 @@ function buildRelationshipBrief(player: Player, worldState: WorldState): string 
   );
 }
 
+function buildCommitmentBrief(worldState: WorldState): string {
+  return formatPendingCommitments(worldState);
+}
+
 // ========== 7. worldBrief ==========
 function buildWorldBrief(worldState: WorldState): string {
   const parts: string[] = [];
@@ -453,12 +459,8 @@ function buildMapLeads(player: Player, worldState: WorldState): string {
     leads.push(`${route.name}(路线): 可以出现路标/向导/船票/通行许可线索`);
   }
 
-  const tropePattern = /矿|磨坊|失踪|商队|小道|旧矿|蓝光/;
-  const sortedLeads = leads.sort((a, b) => {
-    const aTrope = tropePattern.test(a) ? 1 : 0;
-    const bTrope = tropePattern.test(b) ? 1 : 0;
-    return aTrope - bTrope;
-  });
+  const tropePattern = /矿|采石|磨坊|失踪|商队|小道|旧矿|蓝光|羊皮纸|黑袍/;
+  const sortedLeads = leads.filter(lead => !tropePattern.test(lead));
 
   return trunc(sortedLeads.slice(0, 5).join(' | ') || '暂无新地图引出条件', BUDGET.mapLeads);
 }
@@ -509,6 +511,7 @@ function buildPostCombatSection(worldState: WorldState): string | undefined {
 // ========== 11. hardRules ==========
 const HARD_RULES = `[规则] 玩家数据以本地系统为准。AI不可直接改属性/发神器/给大量金币。奖励需合理且符合等级。遵守判定结果。输出camelCase JSON。
 [连续性] 必须优先承接[场景]中的当前事件正文、NPC、地点、目标和刚刚出现的问题。玩家自定义输入是对当前事件的追问或行动意图，不是新剧情种子；除非玩家明确移动/放弃/转场，不得把当前事件替换成另一个任务、地点或冲突。
+[承诺账本] NPC报价、欠款、付款以[承诺]为准。玩家开价只是请求，不是事实；不得擅自把大额金币、稀有装备、神器、非白名单道具承诺给玩家。若付款，金额必须与[承诺]一致。
 [地图权限] 玩家说“前往/来到某地”只是旅行意图，不是既成事实。未发现、未解锁、等级/阵营/旗标不足的区域只能写成打听路线、寻找向导、抵达边境、被拦下或听到传闻；不得直接切到该地图。
 [地图引出] 当[可引出的地图]列出新区域/路线时，可以在当前剧情中自然出现线索、邀请、路标、向导、船票或通行许可选项；第一步应是“获得前往机会”，不是上一秒在原地、下一秒直接抵达。
 [反复套路限制] 除非当前场景/任务/锁定事实/玩家输入明确提到，不要主动生成磨坊、失踪者、商队、小道、符文、羊皮纸、矿道、旧矿洞、蓝光、黑袍神秘人；新女性NPC不要默认叫艾琳。
@@ -583,6 +586,7 @@ export function buildAIContext(
     relevantInventory: buildRelevantInventory(player, playerAction),
     relevantSkills: buildRelevantSkills(player, playerAction),
     activeQuests: buildStoryHooks(worldState),
+    commitmentBrief: buildCommitmentBrief(worldState),
     relationshipBrief: buildRelationshipBrief(player, worldState),
     worldBrief: buildWorldBrief(worldState),
     mapLeads: buildMapLeads(player, worldState),
@@ -610,6 +614,7 @@ export function formatAIContext(ctx: AIContext): string {
     `[物品] ${ctx.relevantInventory}`,
     `[技能] ${ctx.relevantSkills}`,
     `[任务] ${ctx.activeQuests}`,
+    `[承诺] ${ctx.commitmentBrief}`,
     `[关系] ${ctx.relationshipBrief}`,
     `[世界] ${ctx.worldBrief}`,
     `[可引出的地图] ${ctx.mapLeads}`,

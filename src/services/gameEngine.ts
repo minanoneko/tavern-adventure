@@ -8,6 +8,8 @@ import { EQUIPMENT_LIBRARY } from '../data/equipment';
 import { getRegionById, getSubregionById, getLocationById, REGIONS, SUBREGIONS, LOCATIONS } from '../data/regions';
 import { isAllowedItem } from '../data/itemCatalog';
 import { validateAgainstLockedFacts } from './memoryService';
+import { enforcePaymentCommitments } from './commitmentService';
+import { guardStaleTropes } from './tropeGuard';
 
 export interface GameEngineResult {
   player: Player;
@@ -125,6 +127,12 @@ export function applyAIResponse(
     response.playerUpdate.expChange = 0;
     response.playerUpdate.moneyChange = {};
   }
+
+  // 0.7 Local commitment ledger: NPC payment promises and payouts are local facts.
+  updatedWorld = enforcePaymentCommitments(response, updatedPlayer, updatedWorld, options.playerAction, logs);
+
+  // 0.8 Remove stale default tropes unless current context explicitly already uses them.
+  guardStaleTropes(response, updatedWorld, options.playerAction, logs);
 
   // 1. Log scene as a compact index entry; the full prose already appears in the story panel.
   const sceneMeta = [

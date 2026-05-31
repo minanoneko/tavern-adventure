@@ -2,7 +2,6 @@ import type {
   AIResponse, AIResult, PlayerAction, JudgeResult,
   Player, WorldState, LogEntry, ActionOption,
 } from '../types';
-import { getMockResponse } from '../data/mockEventPool';
 import {
   buildAIContext, buildEventPromptFull, buildSystemMessages,
 } from './promptService';
@@ -59,15 +58,9 @@ export async function sendPlayerAction(
   judgeResult: JudgeResult,
   recentLogs: LogEntry[],
   eventHistory: AIResponse[],
-  settings: { aiMode: string; apiBaseUrl: string; apiModel: string; apiKey: string; customGMRules?: string },
+  settings: { apiBaseUrl: string; apiModel: string; apiKey: string; customGMRules?: string },
   selectedOption?: ActionOption,
 ): Promise<AIResult> {
-  // Mock mode
-  if (settings.aiMode === 'mock') {
-    const response = getMockResponse({ player, worldState }, playerAction, judgeResult);
-    return { success: true, response };
-  }
-
   // Dedup: prevent concurrent AI requests
   if (inFlight) {
     return { success: false, error: { type: 'network', message: '已有 AI 请求正在处理中，请等待。' } };
@@ -88,7 +81,7 @@ async function sendAIRequest(
   judgeResult: JudgeResult,
   recentLogs: LogEntry[],
   eventHistory: AIResponse[],
-  settings: { aiMode: string; apiBaseUrl: string; apiModel: string; apiKey: string; customGMRules?: string },
+  settings: { apiBaseUrl: string; apiModel: string; apiKey: string; customGMRules?: string },
   selectedOption?: ActionOption,
 ): Promise<AIResult> {
   const context = buildAIContext(player, worldState, recentLogs, eventHistory, selectedOption);

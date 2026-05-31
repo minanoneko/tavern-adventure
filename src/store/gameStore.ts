@@ -13,7 +13,6 @@ import { sendPlayerAction } from '../services/aiService';
 import { applyAIResponse, addAttributePoint } from '../services/gameEngine';
 import { saveGame, loadGame, deleteSave, hasSave, getSaveInfo, exportSave } from '../services/saveService';
 import { useSettingsStore } from './settingsStore';
-import { getMockResponse } from '../data/mockEventPool';
 import { generateOpeningEvent } from '../services/openingService';
 import { resetMemory, extractImportantFacts, updateLongTermSummary, trimRecentLogs, getLongTermSummary, getGameFlags, loadMemoryFromSave, formatSummaryForAI } from '../services/memoryService';
 import { getEquipmentById } from '../data/equipment';
@@ -160,9 +159,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Generate opening via openingService
     try {
       const settings = useSettingsStore.getState();
-      const openingMode = settings.openingMode || 'mock_template';
-
-      const result = await generateOpeningEvent(player, worldState, settings, openingMode);
+      const result = await generateOpeningEvent(player, worldState, settings);
 
       // Log warnings from backgroundGuard
       const updatedLogs = [...logs];

@@ -69,9 +69,6 @@ export default function DebugPanel() {
             <button className="btn text-xs" onClick={() => setIsOpen(false)}>关闭</button>
           </div>
           <div className="space-y-2">
-            <div>
-              <span className="text-muted">AI 模式：</span>{settings.aiMode}
-            </div>
             {settings.apiKey && (
               <div>
                 <span className="text-muted">API Key：</span>{maskApiKey(settings.apiKey)}

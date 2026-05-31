@@ -61,7 +61,7 @@ export default function StartPage() {
 
       {/* Footer */}
       <div className="absolute bottom-4 text-xs text-muted">
-        纯前端项目 · Mock AI 模式可直接游玩 · 个人自用
+        纯前端项目 · 自定义 API 驱动 · 个人自用
       </div>
     </div>
   );
