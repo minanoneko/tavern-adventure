@@ -130,6 +130,13 @@ export function loadGame(): SaveFile | null {
     }
     saved.player.skillPoints = 0;
     migratePlayerAttributesToDndScale(saved.player);
+    // Combat tension is transient — must not persist across sessions
+    saved.worldState.threatLevel = 0;
+    saved.worldState.combatTrigger = undefined;
+    saved.worldState.postCombat = null;
+    if (saved.worldState.combatCooldown === undefined) {
+      saved.worldState.combatCooldown = 0;
+    }
     return saved;
   } catch (e) {
     console.error('Failed to load game:', e);
