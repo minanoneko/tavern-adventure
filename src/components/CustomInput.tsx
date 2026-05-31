@@ -41,6 +41,7 @@ interface SpeechRecognitionInstance extends EventTarget {
   onend: (() => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onstart: (() => void) | null;
   start: () => void;
   stop: () => void;
 }
@@ -60,6 +61,16 @@ const getSpeechRecognition = (): SpeechRecognitionConstructor | null => {
   return speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition || null;
 };
 
+const isMobileBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+};
+
+const isSpeechAllowedContext = () => {
+  if (typeof window === 'undefined') return false;
+  return window.isSecureContext || ['localhost', '127.0.0.1'].includes(window.location.hostname);
+};
+
 const joinSpeechText = (parts: string[]) => parts.map(part => part.trim()).filter(Boolean).join(' ');
 
 const getSpeechErrorText = (error: SpeechRecognitionErrorCode) => {
@@ -68,7 +79,7 @@ const getSpeechErrorText = (error: SpeechRecognitionErrorCode) => {
     'language-not-supported': '当前浏览器不支持中文语音识别。',
     network: '语音识别网络服务暂时不可用。',
     'no-speech': '没有听到语音，请再试一次。',
-    'not-allowed': '麦克风权限被拒绝。',
+    'not-allowed': '麦克风权限被拒绝，请在浏览器地址栏允许麦克风。',
     'service-not-allowed': '浏览器阻止了语音识别服务。',
   };
 
@@ -82,6 +93,8 @@ export default function CustomInput() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const speechBaseRef = useRef('');
   const idleTimerRef = useRef<number | null>(null);
+  const intentionalStopRef = useRef(false);
+  const gotSpeechRef = useRef(false);
   const submitAction = useGameStore(s => s.submitAction);
   const isProcessing = useGameStore(s => s.isProcessing);
   const errorMessage = useGameStore(s => s.errorMessage);
@@ -95,6 +108,7 @@ export default function CustomInput() {
 
   const stopSpeechInput = (message?: string) => {
     clearIdleTimer();
+    intentionalStopRef.current = true;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
     setIsListening(false);
@@ -104,13 +118,14 @@ export default function CustomInput() {
   const resetIdleTimer = () => {
     clearIdleTimer();
     idleTimerRef.current = window.setTimeout(() => {
-      stopSpeechInput('语音输入已自动结束。');
+      stopSpeechInput(gotSpeechRef.current ? '语音输入已自动结束。' : '没有听到语音，已自动结束。');
     }, SPEECH_IDLE_TIMEOUT_MS);
   };
 
   useEffect(() => {
     return () => {
       clearIdleTimer();
+      intentionalStopRef.current = true;
       recognitionRef.current?.stop();
     };
   }, []);
@@ -134,15 +149,28 @@ export default function CustomInput() {
 
     const SpeechRecognition = getSpeechRecognition();
     if (!SpeechRecognition) {
-      setSpeechMessage('当前浏览器不支持语音输入，请使用 Chrome 或 Edge。');
+      setSpeechMessage('当前浏览器不支持网页语音识别。手机端请优先使用安卓 Chrome / Edge，或使用系统键盘自带听写。');
+      return;
+    }
+
+    if (!isSpeechAllowedContext()) {
+      setSpeechMessage('语音输入需要 HTTPS 或 localhost 环境。请用 https 页面打开游戏。');
       return;
     }
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'zh-CN';
-    recognition.continuous = true;
+    recognition.continuous = !isMobileBrowser();
     recognition.interimResults = true;
     speechBaseRef.current = input.trim();
+    intentionalStopRef.current = false;
+    gotSpeechRef.current = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      setSpeechMessage('正在听取中文语音，停顿 2 秒后自动结束...');
+      resetIdleTimer();
+    };
 
     recognition.onresult = event => {
       const finalParts: string[] = [];
@@ -166,29 +194,42 @@ export default function CustomInput() {
         joinSpeechText(interimParts),
       ]);
 
-      if (nextInput) setInput(nextInput);
+      if (nextInput) {
+        gotSpeechRef.current = true;
+        setInput(nextInput);
+      }
       setSpeechMessage('正在听取中文语音，停顿 2 秒后自动结束...');
       resetIdleTimer();
     };
 
     recognition.onerror = event => {
-      stopSpeechInput(getSpeechErrorText(event.error));
+      if (intentionalStopRef.current && (event.error === 'aborted' || event.error === 'no-speech')) return;
+      clearIdleTimer();
+      recognitionRef.current = null;
+      setIsListening(false);
+      setSpeechMessage(getSpeechErrorText(event.error));
     };
 
     recognition.onend = () => {
       clearIdleTimer();
       recognitionRef.current = null;
       setIsListening(false);
+      if (!intentionalStopRef.current && gotSpeechRef.current) {
+        setSpeechMessage('语音输入已结束。');
+      }
     };
 
     try {
-      recognition.start();
       recognitionRef.current = recognition;
-      setSpeechMessage('正在听取中文语音，停顿 2 秒后自动结束...');
       setIsListening(true);
+      setSpeechMessage('正在启动语音输入...');
+      recognition.start();
       resetIdleTimer();
     } catch {
-      stopSpeechInput('语音识别启动失败，请稍后再试。');
+      clearIdleTimer();
+      recognitionRef.current = null;
+      setIsListening(false);
+      setSpeechMessage('语音识别启动失败，请稍后再试。');
     }
   };
 
@@ -206,8 +247,8 @@ export default function CustomInput() {
         <button
           className={`btn voice-btn px-3 py-2 text-sm ${isListening ? 'listening' : ''}`}
           onClick={toggleSpeechInput}
-          disabled={isProcessing || !supportsSpeech}
-          title={supportsSpeech ? '中文语音输入' : '当前浏览器不支持语音输入'}
+          disabled={isProcessing}
+          title={supportsSpeech ? '中文语音输入' : '当前浏览器不支持网页语音识别'}
           type="button"
         >
           <span className="voice-dot" aria-hidden="true" />
