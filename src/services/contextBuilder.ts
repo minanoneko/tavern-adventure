@@ -497,11 +497,11 @@ function buildPostCombatSection(worldState: WorldState): string | undefined {
 
   let guidance = '';
   if (pc.outcome === 'defeat') {
-    guidance = `下一幕必须承接战败后果：昏迷醒来、被放过、被俘、逃回安全处、被路人救起、敌人离开等。禁止反转成玩家胜利或敌人求饶。`;
+    guidance = `下一幕必须承接战败后果：昏迷醒来、被放过、被俘、逃回安全处、被路人救起、敌人离开等。禁止立刻再次触发同一敌人的战斗，禁止反转成玩家胜利或敌人求饶。`;
   } else if (pc.outcome === 'victory') {
     guidance = `敌人已败/已逃，不能后续写敌人反杀或复活再战。`;
   } else {
-    guidance = `敌人仍在该区域，玩家成功脱离。`;
+    guidance = `玩家已经脱离战斗，下一幕优先处理距离、安全、追踪代价或换场，不要立刻再次触发同一敌人的战斗。`;
   }
 
   return `[刚刚战斗结果] 玩家刚刚【${outcomeLabel}】，${enemyText} ${statusText}。${guidance}`;

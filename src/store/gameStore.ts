@@ -496,7 +496,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (judgeResult.outcome === '失败' || judgeResult.outcome === '大失败') {
         worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 10);
       }
-      if (!worldState.combatTrigger && (worldState.threatLevel || 0) >= 75) {
+      if (!worldState.postCombat && worldState.combatCooldown <= 0 && !worldState.combatTrigger && (worldState.threatLevel || 0) >= 75) {
         worldState.combatTrigger = {
           reason: '威胁等级过高，局势必须爆发为战斗、追捕、伏击或明确的强制后果。',
           targetHint: '当前冲突来源',
@@ -528,13 +528,15 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // 3.7 Combat detection: combatStart or legacy enemy — enter combat
       if (aiResult.success && aiResult.response && !worldState.combatState.active) {
-        // Cooldown blocks soft/random encounters and player-provoked hard triggers.
-        if (worldState.combatCooldown > 0 && (!hadHardTrigger || playerProvokedTrigger)) {
+        // Cooldown blocks soft/random encounters, pressure-valve fights, and post-combat re-engage loops.
+        if (worldState.combatCooldown > 0 && (!hadHardTrigger || playerProvokedTrigger || pressureValveTrigger || !!worldState.postCombat)) {
           if (aiResult.response) {
             (aiResult.response as any).combatStart = undefined;
             (aiResult.response as any).enemy = undefined;
           }
-          const cooldownText = playerProvokedTrigger
+          const cooldownText = worldState.postCombat
+            ? `刚结束战斗，局势暂时没有重新咬上来（还需${worldState.combatCooldown}次行动）。`
+            : playerProvokedTrigger
             ? `周围仍因上一场战斗而紧绷（还需${worldState.combatCooldown}次行动），这次挑衅只引来戒备，没有形成新的战斗。`
             : `战斗冷却中（还需${worldState.combatCooldown}次行动），跳过本次遭遇。`;
           logs.push({ id: `cooldown_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: cooldownText });
@@ -560,6 +562,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             aiResult.response.combatStart = combatStart;
             const combatResult = startCombatFromAI(player, worldState, combatStart);
             worldState.combatState = combatResult.combatState;
+            worldState.threatLevel = 0;
+            worldState.combatTrigger = undefined;
             if (combatResult.logs.length > 0) {
               logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
             }
@@ -579,6 +583,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           };
           const combatResult = startCombatFromAI(player, worldState, cs);
           worldState.combatState = combatResult.combatState;
+          worldState.threatLevel = 0;
+          worldState.combatTrigger = undefined;
           logs.push({ id: `combat_start_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || `战斗开始！${legacyEnemy.name}出现了！` });
           (aiResult.response as any).enemy = undefined;
         }
@@ -755,6 +761,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           combatLog: [],
         },
         combatCooldown: 6,
+        threatLevel: 0,
+        combatTrigger: undefined,
       },
     });
   },
@@ -843,6 +851,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           ...state.worldState,
           combatState: updatedCombatState,
           combatCooldown: 5,
+          threatLevel: 0,
+          combatTrigger: undefined,
           postCombat: result.postCombat,
         },
         currentEvent: postCombatEvent,
@@ -853,7 +863,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     } else if (!updatedCombatState.active) {
       set({
         player: updatedPlayer,
-        worldState: { ...state.worldState, combatState: updatedCombatState, combatCooldown: 5 },
+        worldState: { ...state.worldState, combatState: updatedCombatState, combatCooldown: 5, threatLevel: 0, combatTrigger: undefined },
         isProcessing: false,
       });
     } else {
@@ -1005,7 +1015,7 @@ function buildPostCombatEvent(postCombat: PostCombat, worldState: WorldState, pl
     ? `战斗尘埃落定，${enemyNames}已被击败或失去战意。\n\n${postCombat.summary}\n\n你现在位于${location}，状态：${hpText}。接下来可以检查周围、处理伤势，或继续追查刚才冲突背后的原因。`
     : postCombat.outcome === 'defeat'
       ? `${enemyNames}占了上风，战斗以你的败退告终。\n\n${postCombat.summary}\n\n你勉强保住性命，状态：${hpText}。下一步需要先确认自己身处何处、敌人是否还在附近，以及如何脱离危险。`
-      : `你成功从与${enemyNames}的战斗中脱离。\n\n${postCombat.summary}\n\n你现在位于${location}附近，状态：${hpText}。敌人可能仍在这一带，继续行动前最好判断局势。`;
+      : `你成功从与${enemyNames}的战斗中脱离。\n\n${postCombat.summary}\n\n你现在位于${location}附近，状态：${hpText}。你暂时拉开了距离，接下来可以处理伤势、确认方向，或寻找更安全的落脚点。`;
 
   return {
     scene: {
