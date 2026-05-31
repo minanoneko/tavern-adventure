@@ -323,6 +323,8 @@ function normalizeCombatStart(raw: any): import('../types/combat').CombatStartPr
     isBoss: raw.isBoss,
     questFlag: raw.questFlag,
     bossFlag: raw.bossFlag,
+    triggerSource: raw.triggerSource,
+    rewardPolicy: raw.rewardPolicy,
   };
 }
 

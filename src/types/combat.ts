@@ -24,6 +24,8 @@ export interface CombatStartProposal {
   isBoss?: boolean;
   questFlag?: string;
   bossFlag?: string;
+  triggerSource?: 'story' | 'player_provoked' | 'danger' | 'scripted';
+  rewardPolicy?: 'normal' | 'reduced' | 'none';
 }
 
 export interface EnemyProposal {

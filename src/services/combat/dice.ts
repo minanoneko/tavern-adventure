@@ -1,6 +1,6 @@
 /**
- * Combat dice system. Uses the same attribute modifier table as judgeService.ts
- * (attr 4=-1, 5=0, 6=1, 7=2, 8=3, 9+=4), NOT DND (attr-10)/2.
+ * Combat dice system. Uses a DND-like attribute modifier table.
+ * Player level caps at 21, so attributes can grow without early +4 saturation.
  */
 
 export function d20(): number {
@@ -8,13 +8,7 @@ export function d20(): number {
 }
 
 export function getAttributeModifier(attrValue: number): number {
-  if (attrValue >= 9) return 4;
-  if (attrValue >= 8) return 3;
-  if (attrValue >= 7) return 2;
-  if (attrValue >= 6) return 1;
-  if (attrValue >= 5) return 0;
-  if (attrValue >= 4) return -1;
-  return -2;
+  return Math.floor((attrValue - 10) / 2);
 }
 
 /** Roll d20 + modifier, return { roll, total } */

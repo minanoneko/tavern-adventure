@@ -178,6 +178,9 @@ export function validateCustomAction(
   if (/(?:哥布林|兽人|骷髅|巨龙|巨魔|狼人|吸血鬼|僵尸|幽灵|恶魔|怪物|强盗|土匪|刺客|杀手|野兽|魔物).*(?:正在|在|冲).*(?:攻击|杀|砍|闹|破坏|抢)/.test(t)) {
     return { allowed: false, mode: 'reject', reason: '不能自己设定敌人正在做什么。敌人行为和剧情由AI决定。', sanitizedText: t, intent: 'invalid_create_enemy' };
   }
+  if (/(?:我想|我要|让|来|出现|刷|生成|召唤).{0,12}(?:敌人|怪物|野兽|强盗|土匪|刺客|杀手|魔物|哥布林|兽人).{0,18}(?:攻击我|打我|袭击我|和我打|战斗)/.test(t)) {
+    return { allowed: false, mode: 'reject', reason: '不能为了练级凭空制造敌人或要求敌人攻击自己。敌人只能由剧情和AI的combatStart触发。', sanitizedText: t, intent: 'invalid_create_enemy' };
+  }
 
   // === REJECT: instant rewards / loot / stat changes ===
   if (/捡到\d+|捡了\d+|获得.*金币|获得.*神器|获得.*装备|捡到.*物品|得到.*武器|捡到.*剑|捡到.*盾/.test(t)) {
@@ -286,7 +289,7 @@ export function validateCustomAction(
 
   // === REWRITE: instant kill → attack intent ===
   if (/秒杀|瞬杀|一击.*杀|一下.*打死/.test(t)) {
-    return { allowed: true, mode: 'rewrite', reason: '已改写为全力攻击意图。', sanitizedText: '用尽全力攻击敌人。', intent: 'combat_intent', requiresCheck: false };
+    return { allowed: true, mode: 'rewrite', reason: '已改写为全力攻击意图。', sanitizedText: '用尽全力攻击当前明确敌对目标；如果现场没有合法敌人，不得凭空生成敌人。', intent: 'combat_intent', requiresCheck: true, checkAttribute: 'str', difficultyClass: 14 };
   }
 
   // === REWRITE: full heal → rest intent ===
@@ -329,9 +332,30 @@ export function validateCustomAction(
     return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'trade' };
   }
 
-  // === ALLOW: combat intent (will be routed to combat system) ===
+  // === REWRITE: combat intent outside combat is not an accomplished attack ===
   if (/攻击|砍|打倒|射击|刺|杀/.test(t)) {
-    return { allowed: true, mode: 'allow', sanitizedText: t, intent: 'combat_intent' };
+    if (/(老板|店主|村民|路人|孩子|老人|商贩|守卫|城卫|牧师|抄写员|铁匠|药贩|平民|NPC)/.test(t)) {
+      return {
+        allowed: true,
+        mode: 'rewrite',
+        reason: '攻击普通NPC不是既成事实，已改写为威胁/冲突升级意图，由AI判断后果。',
+        sanitizedText: `尝试威胁或挑衅当前人物，但不得直接造成伤害；由AI判断对方反应、是否有守卫介入、是否能进入战斗。原意：${t}`,
+        intent: 'social',
+        requiresCheck: true,
+        checkAttribute: 'cha',
+        difficultyClass: 16,
+      };
+    }
+    return {
+      allowed: true,
+      mode: 'rewrite',
+      reason: '攻击不是既成事实，已改写为战斗意图，只有AI返回combatStart才会进入战斗。',
+      sanitizedText: `准备攻击或威胁当前明确敌对目标；如果现场没有合法敌人，不得凭空生成敌人或直接造成伤害。原意：${t}`,
+      intent: 'combat_intent',
+      requiresCheck: true,
+      checkAttribute: 'str',
+      difficultyClass: 14,
+    };
   }
 
   // === Default: unknown input → pass as player intent ===

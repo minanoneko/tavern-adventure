@@ -425,7 +425,8 @@ export function submitCombatAction(
     updatedState.active = false;
     logs.push(makeLog('system', '战斗胜利！', round));
     // Calculate and log rewards
-    const rewards = calculateCombatRewards(updatedState.enemies, updatedPlayer);
+    const rewardPolicy = updatedState.combatStart?.rewardPolicy || 'normal';
+    const rewards = calculateCombatRewards(updatedState.enemies, updatedPlayer, rewardPolicy);
     updatedPlayer.exp += rewards.exp;
     updatedPlayer.money = addMoney(updatedPlayer.money, rewards.money);
     for (const item of rewards.items) {
@@ -445,8 +446,14 @@ export function submitCombatAction(
         });
       }
     }
-    const rewardText = `获得：经验 +${rewards.exp}，钱币 ${rewards.money.gold > 0 ? `${rewards.money.gold}金` : ''}${rewards.money.silver > 0 ? `${rewards.money.silver}银` : ''}${rewards.money.copper}铜`;
-    logs.push(makeLog('reward', rewardText, round));
+    if (rewardPolicy === 'none') {
+      logs.push(makeLog('reward', '冲突很快平息，现场没有可结算的战利品。', round));
+    } else if (rewardPolicy === 'reduced') {
+      logs.push(makeLog('reward', `局势混乱，来不及搜寻战利品。获得：经验 +${rewards.exp}`, round));
+    } else {
+      const rewardText = `获得：经验 +${rewards.exp}，钱币 ${rewards.money.gold > 0 ? `${rewards.money.gold}金` : ''}${rewards.money.silver > 0 ? `${rewards.money.silver}银` : ''}${rewards.money.copper}铜`;
+      logs.push(makeLog('reward', rewardText, round));
+    }
 
     const victoryNames = updatedState.enemies.map(e => e.name);
     return {

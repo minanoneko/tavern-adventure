@@ -158,7 +158,8 @@ export function calculateHitRoll(attackerDex: number, defenderDex: number, hitBo
   const atkMod = getAttributeModifier(attackerDex) + hitBonus;
   const ac = 10 + getAttributeModifier(defenderDex);
   const { roll, total } = rollCheck(atkMod);
-  return { roll, total, modifier: atkMod, ac, hit: total >= ac };
+  const hit = roll === 20 || (roll !== 1 && total >= ac);
+  return { roll, total, modifier: atkMod, ac, hit };
 }
 
 /**
@@ -443,7 +444,7 @@ export function enemyAttack(
   const playerDef = getPlayerDefense(effectiveAttributes.dex, (defenseBonus?.value ?? 0) + armorDefense);
   const dexMod = getAttributeModifier(enemy.dex);
   const { roll, total } = rollCheck(dexMod);
-  const hit = total >= playerDef;
+  const hit = roll === 20 || (roll !== 1 && total >= playerDef);
 
   const results: string[] = [];
   let damage = 0;
@@ -458,10 +459,10 @@ export function enemyAttack(
     const eqFx2 = getEquipEffects(player);
     if (eqFx2.adventurerRing) damage = Math.max(1, damage - 1);
     const armorReduction = getEquipmentDamageReduction(player);
-    if (armorReduction > 0) damage = Math.max(0, damage - armorReduction);
+    if (armorReduction > 0) damage = Math.max(1, damage - armorReduction);
     if (shield) {
       const absorbed = Math.min(damage, shield.value);
-      damage -= absorbed;
+      damage = Math.max(1, damage - absorbed);
       results.push(`d20=${roll}${dexMod >= 0 ? '+' : ''}${dexMod}=${total} vs 防御${playerDef} → 命中！护盾吸收${absorbed}，实际伤害${damage}`);
     } else {
       results.push(`d20=${roll}${dexMod >= 0 ? '+' : ''}${dexMod}=${total} vs 防御${playerDef} → 命中！伤害 1d4=${diceRoll}${strMod >= 0 ? '+' : ''}${strMod}=${damage}。${pick(ENEMY_HITS)()}`);

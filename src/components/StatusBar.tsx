@@ -25,7 +25,7 @@ export default function StatusBar({ onSettingsClick }: { onSettingsClick: () => 
           <span className="text-xs flex-shrink-0">{formatMoney(player.money)}</span>
           <button className="btn text-xs px-2 py-1 flex-shrink-0" onClick={onSettingsClick}>设置</button>
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <div className="flex items-center gap-1 min-w-0">
             <span className="text-xs text-danger">HP</span>
             <div className="flex-1 bar-bg h-1.5">
@@ -39,6 +39,13 @@ export default function StatusBar({ onSettingsClick }: { onSettingsClick: () => 
               <div className="bar-mp" style={{ width: `${mpPct}%` }} />
             </div>
             <span className="text-xs w-12 text-right">{player.resources.mp}/{player.resources.maxMp}</span>
+          </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-xs" style={{ color: 'var(--color-tavern-exp)' }}>EXP</span>
+            <div className="flex-1 bar-bg h-1.5">
+              <div className="bar-exp" style={{ width: `${expPct}%` }} />
+            </div>
+            <span className="text-xs w-12 text-right">{player.exp}/{player.nextExp}</span>
           </div>
         </div>
       </div>

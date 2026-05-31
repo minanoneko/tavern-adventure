@@ -293,11 +293,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         // combat_intent → generate combatTrigger, don't start combat locally
         if (guard.intent === 'combat_intent') {
           worldState.combatTrigger = {
-            reason: '玩家明确表达了攻击意图',
+            reason: '玩家表达了攻击意图；这不是既成事实，需结合判定和当前场景决定是否能进入战斗',
             targetHint: customText.replace(/攻击|砍|打倒|射击|刺|杀|揍|劈|捅/g, '').trim().slice(0, 20) || '不明目标',
-            type: 'hard',
+            type: 'soft',
           };
-          worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 15);
+          worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 35);
         }
         playerAction = {
           id: `custom_${Date.now()}`,
@@ -397,6 +397,19 @@ export const useGameStore = create<GameState>((set, get) => ({
         outcome: '成功' as const, roll: 0, dc: 0, modifier: 0, notes: '无需判定',
       };
 
+      if (playerAction.type === 'combat_intent' && worldState.combatTrigger) {
+        const enoughPressure = (worldState.threatLevel || 0) >= 50;
+        const cleanOpening = judgeResult.outcome === '成功' || judgeResult.outcome === '大成功';
+        const messyOpening = judgeResult.outcome === '部分成功';
+        if (enoughPressure || cleanOpening || messyOpening) {
+          worldState.combatTrigger = {
+            ...worldState.combatTrigger,
+            reason: `${worldState.combatTrigger.reason}；本地判定结果为${judgeResult.outcome}，冲突已升级，AI必须返回combatStart或明确说明目标不可战斗/被阻止。`,
+            type: 'hard',
+          };
+        }
+      }
+
       // 2.5 Skill validation & custom skill detection
       if (playerAction.isCustom && playerAction.customText) {
         playerAction = validateCustomSkillIntent(playerAction, player);
@@ -481,7 +494,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (judgeResult.outcome === '失败' || judgeResult.outcome === '大失败') {
         worldState.threatLevel = Math.min(100, (worldState.threatLevel || 0) + 10);
       }
-      const hadHardTrigger = worldState.combatTrigger?.type === 'hard';
+      if (!worldState.combatTrigger && (worldState.threatLevel || 0) >= 75) {
+        worldState.combatTrigger = {
+          reason: '威胁等级过高，局势必须爆发为战斗、追捕、伏击或明确的强制后果。',
+          targetHint: '当前冲突来源',
+          type: 'hard',
+        };
+      }
+      const triggerBeforeClear = worldState.combatTrigger;
+      const hadHardTrigger = triggerBeforeClear?.type === 'hard';
+      const playerProvokedTrigger = playerAction.type === 'combat_intent';
+      const pressureValveTrigger = !playerProvokedTrigger && hadHardTrigger && (worldState.threatLevel || 0) >= 75;
       worldState.combatTrigger = undefined;
 
       // 3.6 Auto-retry FIRST: hard trigger with no combatStart → retry before combat processing
@@ -503,18 +526,37 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // 3.7 Combat detection: combatStart or legacy enemy — enter combat
       if (aiResult.success && aiResult.response && !worldState.combatState.active) {
-        // Cooldown only blocks soft/random encounters, NOT hard triggers
-        if (worldState.combatCooldown > 0 && !hadHardTrigger) {
+        // Cooldown blocks soft/random encounters and player-provoked hard triggers.
+        if (worldState.combatCooldown > 0 && (!hadHardTrigger || playerProvokedTrigger)) {
           if (aiResult.response) {
             (aiResult.response as any).combatStart = undefined;
             (aiResult.response as any).enemy = undefined;
           }
-          logs.push({ id: `cooldown_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: `战斗冷却中（还需${worldState.combatCooldown}次行动），跳过本次遭遇。` });
+          const cooldownText = playerProvokedTrigger
+            ? `周围仍因上一场战斗而紧绷（还需${worldState.combatCooldown}次行动），这次挑衅只引来戒备，没有形成新的战斗。`
+            : `战斗冷却中（还需${worldState.combatCooldown}次行动），跳过本次遭遇。`;
+          logs.push({ id: `cooldown_${Date.now()}`, timestamp: new Date().toISOString(), type: 'system', text: cooldownText });
         }
         // combatStart proposal
         if (aiResult.response.combatStart) {
           try {
-            const combatResult = startCombatFromAI(player, worldState, aiResult.response.combatStart);
+            const combatStart: import('../types/combat').CombatStartProposal = {
+              ...aiResult.response.combatStart,
+              triggerSource: playerProvokedTrigger
+                ? 'player_provoked'
+                : pressureValveTrigger
+                  ? 'danger'
+                  : hadHardTrigger
+                    ? 'scripted'
+                    : (aiResult.response.combatStart.triggerSource || 'story'),
+              rewardPolicy: playerProvokedTrigger
+                ? 'none'
+                : pressureValveTrigger
+                  ? 'reduced'
+                  : (aiResult.response.combatStart.rewardPolicy || 'normal'),
+            };
+            aiResult.response.combatStart = combatStart;
+            const combatResult = startCombatFromAI(player, worldState, combatStart);
             worldState.combatState = combatResult.combatState;
             if (combatResult.logs.length > 0) {
               logs.push({ id: `combat_${Date.now()}`, timestamp: new Date().toISOString(), type: 'combat', text: combatResult.logs[0]?.text || '战斗开始！' });
@@ -530,6 +572,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           const cs: import('../types/combat').CombatStartProposal = {
             enemies: [{ name: legacyEnemy.name, type: 'monster', suggestedLevel: legacyEnemy.level, suggestedStr: legacyEnemy.str, suggestedDex: legacyEnemy.dex, suggestedCon: legacyEnemy.con, suggestedHp: legacyEnemy.maxHp }],
             reason: '遭遇敌人', location: worldState.currentLocationName || worldState.currentLocation || '当前场景',
+            triggerSource: playerProvokedTrigger ? 'player_provoked' : pressureValveTrigger ? 'danger' : 'story',
+            rewardPolicy: playerProvokedTrigger ? 'none' : pressureValveTrigger ? 'reduced' : 'normal',
           };
           const combatResult = startCombatFromAI(player, worldState, cs);
           worldState.combatState = combatResult.combatState;

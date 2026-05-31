@@ -9,13 +9,7 @@ function d20(): number {
 }
 
 function getAttributeModifier(attrValue: number): number {
-  if (attrValue >= 9) return 4;
-  if (attrValue >= 8) return 3;
-  if (attrValue >= 7) return 2;
-  if (attrValue >= 6) return 1;
-  if (attrValue >= 5) return 0;
-  if (attrValue >= 4) return -1;
-  return -2;
+  return Math.floor((attrValue - 10) / 2);
 }
 
 function getOutcome(roll: number, dc: number): JudgeOutcome {

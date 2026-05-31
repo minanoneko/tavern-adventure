@@ -633,7 +633,11 @@ export function formatAIContext(ctx: AIContext): string {
 
   if (ctx.postCombatSection) lines.push(ctx.postCombatSection);
   if (ctx.combatRequest) lines.push(ctx.combatRequest);
-  if (ctx.threatLevel && ctx.threatLevel >= 50) lines.push(`[威胁等级] ${ctx.threatLevel}% — 危险临近，应触发战斗`);
+  if (ctx.threatLevel && ctx.threatLevel >= 75) {
+    lines.push(`[威胁等级] ${ctx.threatLevel}% — 局势已经失控，本轮必须爆发为战斗、追捕、伏击或明确强制后果`);
+  } else if (ctx.threatLevel && ctx.threatLevel >= 50) {
+    lines.push(`[威胁等级] ${ctx.threatLevel}% — 危险临近，应触发战斗`);
+  }
   lines.push(`[锁定事实]\n${ctx.lockedStoryFacts}`);
   lines.push(ctx.hardRules);
 

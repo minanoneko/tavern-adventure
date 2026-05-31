@@ -3,11 +3,21 @@ import type { CombatEnemyState, CombatRewards, CombatDropItem } from '../../type
 import { clampMoneyRewardByLevel } from '../../utils/moneyUtils';
 import { EQUIPMENT_LIBRARY } from '../../data/equipment';
 
+export type CombatRewardPolicy = 'normal' | 'reduced' | 'none';
+
 /**
  * Calculate combat rewards based on enemies defeated.
  * AI must NOT decide rewards — this is purely local.
  */
-export function calculateCombatRewards(enemies: CombatEnemyState[], player: Player): CombatRewards {
+export function calculateCombatRewards(
+  enemies: CombatEnemyState[],
+  player: Player,
+  rewardPolicy: CombatRewardPolicy = 'normal',
+): CombatRewards {
+  if (rewardPolicy === 'none') {
+    return { exp: 0, money: { gold: 0, silver: 0, copper: 0 }, items: [] };
+  }
+
   let totalExp = 0;
   let totalCopper = 0;
   const items: CombatDropItem[] = [];
@@ -61,6 +71,12 @@ export function calculateCombatRewards(enemies: CombatEnemyState[], player: Play
         if (Math.random() > 0.5) items.push({ id: 'fire_bomb', name: '燃烧瓶', quantity: 1, type: 'consumable', rarity: 'common' });
       }
     }
+  }
+
+  if (rewardPolicy === 'reduced') {
+    totalExp = Math.floor(totalExp * 0.25);
+    totalCopper = 0;
+    items.length = 0;
   }
 
   // Clamp money by level

@@ -76,8 +76,8 @@ export default function CombatPanel() {
   const hitTarget = 10 + defMod;
   const weaponDice = getWeaponDamageDice(player.equipment.mainWeapon);
   const strMod = getAttributeModifier(player.attributes.str);
-  const dmgMin = 1 + strMod; // minimum damage
-  const dmgMax = weaponDice.dice * weaponDice.count + strMod; // max possible damage
+  const dmgMin = Math.max(1, 1 + strMod); // minimum damage
+  const dmgMax = Math.max(dmgMin, weaponDice.dice * weaponDice.count + strMod); // max possible damage
 
   // Victory/Defeat/Fled: just dismiss
   const handleDismiss = () => {

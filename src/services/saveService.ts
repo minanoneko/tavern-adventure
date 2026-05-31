@@ -128,11 +128,56 @@ export function loadGame(): SaveFile | null {
     if (saved.player.skills.learnTokens === undefined) {
       (saved.player.skills as any).learnTokens = 0;
     }
+    migratePlayerAttributesToDndScale(saved.player);
     return saved;
   } catch (e) {
     console.error('Failed to load game:', e);
     return null;
   }
+}
+
+function migratePlayerAttributesToDndScale(player: Player): void {
+  const attrs = player.attributes;
+  const total = Object.values(attrs).reduce((sum, value) => sum + value, 0);
+  if (total >= 60) return;
+
+  const mapOld = (value: number): number => {
+    if (value <= 2) return 8;
+    if (value === 3) return 9;
+    if (value === 4) return 10;
+    if (value === 5) return 12;
+    if (value === 6) return 14;
+    if (value === 7) return 15;
+    if (value === 8) return 16;
+    if (value === 9) return 17;
+    if (value === 10) return 18;
+    return Math.min(21, 18 + (value - 10));
+  };
+
+  const hpRatio = player.resources.maxHp > 0 ? player.resources.hp / player.resources.maxHp : 1;
+  const mpRatio = player.resources.maxMp > 0 ? player.resources.mp / player.resources.maxMp : 1;
+
+  attrs.str = mapOld(attrs.str);
+  attrs.dex = mapOld(attrs.dex);
+  attrs.con = mapOld(attrs.con);
+  attrs.int = mapOld(attrs.int);
+  attrs.wis = mapOld(attrs.wis);
+  attrs.cha = mapOld(attrs.cha);
+
+  const attrModifier = (value: number) => Math.floor((value - 10) / 2);
+  const conMod = attrModifier(attrs.con);
+  const castingMod = Math.max(attrModifier(attrs.int), attrModifier(attrs.wis), 0);
+  const levelBonus = Math.max(0, player.level - 1);
+  const maxHp = Math.max(8, 12 + conMod * 2 + levelBonus * Math.max(2, 5 + conMod));
+  const maxMp = Math.max(4, 6 + castingMod * 2 + levelBonus * Math.max(1, 2 + Math.floor(castingMod / 2)));
+
+  player.resources = {
+    ...player.resources,
+    maxHp,
+    maxMp,
+    hp: Math.max(1, Math.min(maxHp, Math.round(maxHp * hpRatio))),
+    mp: Math.max(0, Math.min(maxMp, Math.round(maxMp * mpRatio))),
+  };
 }
 
 export function deleteSave(): boolean {

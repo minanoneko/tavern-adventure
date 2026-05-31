@@ -1,6 +1,5 @@
 import type { Player, WorldState } from '../../types';
 import type { CombatStartProposal, CombatEnemyState, EnemyProposal } from '../../types/combat';
-import { getAttributeModifier } from './dice';
 
 /**
  * Validate and fill in enemy stats from AI proposal.
@@ -52,9 +51,9 @@ export function createEnemiesFromProposal(
 
     // Base stats: boss gets +2 to all stats
     const bossBonus = isBoss ? 2 : 0;
-    const str = capStat(ep.suggestedStr ?? (3 + level + bossBonus), level + bossBonus);
-    const dex = capStat(ep.suggestedDex ?? (3 + Math.floor(level / 2) + bossBonus), level + bossBonus);
-    const con = capStat(ep.suggestedCon ?? (3 + Math.floor(level / 2) + bossBonus), level + bossBonus);
+    const str = capStat(ep.suggestedStr ?? (9 + level + bossBonus), level + bossBonus);
+    const dex = capStat(ep.suggestedDex ?? (8 + level + bossBonus), level + bossBonus);
+    const con = capStat(ep.suggestedCon ?? (8 + level + bossBonus), level + bossBonus);
 
     // HP: boss gets multiplied by 2.5x, elite 1.5x
     const hpMult = isBoss ? 2.5 : isElite ? 1.5 : 1;
@@ -80,8 +79,8 @@ export function createEnemiesFromProposal(
 
 function capStat(value: number, level: number): number {
   // Hard stat caps by level
-  const max = 4 + level * 2;
-  return Math.max(1, Math.min(value, max));
+  const max = Math.min(22, 12 + level);
+  return Math.max(6, Math.min(value, max));
 }
 
 /** Convert old CombatEnemy to new CombatEnemyState (for backward compat) */

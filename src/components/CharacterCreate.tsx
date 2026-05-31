@@ -18,7 +18,7 @@ function buildStartingAttributes(classId: string, raceId: string): Attributes {
   if (selectedRace) {
     for (const [key, val] of Object.entries(selectedRace.attributeBonus)) {
       const attr = key as AttributeKey;
-      next[attr] = Math.max(1, Math.min(10, (next[attr] || 4) + val));
+      next[attr] = Math.max(8, Math.min(16, (next[attr] || 10) + val));
     }
   }
   return next;
@@ -86,7 +86,7 @@ export default function CharacterCreate() {
 
   const adjustAttr = (key: AttributeKey, delta: number) => {
     const newVal = attrs[key] + delta;
-    if (newVal < 1 || newVal > 10) return;
+    if (newVal < 8 || newVal > 16) return;
     if (delta > 0 && availablePoints <= 0) return;
     setAttrs({ ...attrs, [key]: newVal });
   };
@@ -234,9 +234,9 @@ export default function CharacterCreate() {
             {ATTRIBUTE_LABELS && Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => (
               <div key={key} className="flex items-center gap-4">
                 <div className="w-16 text-sm">{label}</div>
-                <button className="btn px-3 py-1" onClick={() => adjustAttr(key as AttributeKey, -1)} disabled={attrs[key as AttributeKey] <= 1}>-</button>
+                <button className="btn px-3 py-1" onClick={() => adjustAttr(key as AttributeKey, -1)} disabled={attrs[key as AttributeKey] <= 8}>-</button>
                 <div className="w-12 text-center text-lg" style={{ color: 'var(--color-tavern-accent)' }}>{attrs[key as AttributeKey]}</div>
-                <button className="btn px-3 py-1" onClick={() => adjustAttr(key as AttributeKey, 1)} disabled={availablePoints <= 0 || attrs[key as AttributeKey] >= 10}>+</button>
+                <button className="btn px-3 py-1" onClick={() => adjustAttr(key as AttributeKey, 1)} disabled={availablePoints <= 0 || attrs[key as AttributeKey] >= 16}>+</button>
                 <div className="flex-1 h-2 bar-bg">
                   <div className="h-full" style={{
                     background: `linear-gradient(to right, var(--color-tavern-accent), #8a6a30)`,

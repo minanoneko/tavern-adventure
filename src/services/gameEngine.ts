@@ -1055,19 +1055,20 @@ function applyMemoryUpdate(world: WorldState, response: AIResponse, player: Play
 export function processLevelUp(player: Player, logs: LogEntry[]): { player: Player; newLevel: number } {
   let p = { ...player };
   let newLevel = player.level;
+  const maxLevel = 21;
 
   // While loop: support consecutive multi-level jumps
-  while (p.exp >= p.nextExp) {
+  while (p.exp >= p.nextExp && newLevel < maxLevel) {
     newLevel++;
     p.exp -= p.nextExp;
     p.nextExp = Math.floor(p.nextExp * 1.5);
     p.attributePoints += 2;
     p.skillPoints += 1;
 
-    const conBonus = p.attributes.con;
-    const intWisBonus = Math.floor((p.attributes.int + p.attributes.wis) / 2);
-    const hpGain = 3 + Math.floor(conBonus / 3);
-    const mpGain = 2 + Math.floor(intWisBonus / 4);
+    const conMod = Math.floor((p.attributes.con - 10) / 2);
+    const castingMod = Math.max(Math.floor((p.attributes.int - 10) / 2), Math.floor((p.attributes.wis - 10) / 2), 0);
+    const hpGain = Math.max(2, 5 + conMod);
+    const mpGain = Math.max(1, 2 + Math.floor(castingMod / 2));
 
     p.resources = {
       ...p.resources,
@@ -1077,7 +1078,6 @@ export function processLevelUp(player: Player, logs: LogEntry[]): { player: Play
       mp: p.resources.maxMp + mpGain,
     };
     p.level = newLevel;
-    p.level = Math.min(p.level, 21); // Cap at 21
 
     if (newLevel % 3 === 0 && p.skills.learnTokens !== undefined) {
       p.skills.learnTokens += 1;
@@ -1087,12 +1087,17 @@ export function processLevelUp(player: Player, logs: LogEntry[]): { player: Play
     logs.push(createLogEntry('system', `升级！Lv.${newLevel}。HP/MP回满。属性点+2，技能点+1。`));
   }
 
+  if (newLevel >= maxLevel && p.exp >= p.nextExp) {
+    p.exp = p.nextExp;
+    logs.push(createLogEntry('system', `已达到等级上限 Lv.${maxLevel}。`));
+  }
+
   return { player: p, newLevel };
 }
 
 export function addAttributePoint(player: Player, attr: string): Player {
   const p = { ...player, attributes: { ...player.attributes } };
-  (p.attributes as any)[attr] += 1;
+  (p.attributes as any)[attr] = Math.min(21, (p.attributes as any)[attr] + 1);
   p.attributePoints -= 1;
   return p;
 }

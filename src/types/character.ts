@@ -101,10 +101,15 @@ export interface Relationship {
 }
 
 // ========== Player Creation helper ==========
+function attrModifier(value: number): number {
+  return Math.floor((value - 10) / 2);
+}
+
 export function createDefaultPlayer(data: CharacterCreationData, race: Race, classOrigin: ClassOrigin): Player {
-  const baseCon = data.attributes.con;
-  const maxHp = 6 + baseCon * 2;
-  const maxMp = 6 + (data.attributes.int + data.attributes.wis) * 1.5;
+  const conMod = attrModifier(data.attributes.con);
+  const castingMod = Math.max(attrModifier(data.attributes.int), attrModifier(data.attributes.wis), 0);
+  const maxHp = Math.max(8, 12 + conMod * 2);
+  const maxMp = Math.max(4, 6 + castingMod * 2);
 
   return {
     name: data.name,
